@@ -1,0 +1,5 @@
+robotframework~=4.0
+paramiko
+matplotlib
+pandas
+PyYAML
