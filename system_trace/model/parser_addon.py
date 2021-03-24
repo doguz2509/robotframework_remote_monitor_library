@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AnyStr
 
 
-class _parser_addon_abstract(ABC):
+class parser_addon_abstract(ABC):
     @abstractmethod
     def parse(self, command_output):
         raise NotImplementedError()

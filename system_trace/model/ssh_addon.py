@@ -1,38 +1,32 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from enum import Enum
 from threading import Thread, Event
 from time import sleep
 
 from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, SSHException
 
+from system_trace.model.plugin_abstract import plugin_abstract
 from system_trace.utils import Logger
 from system_trace.utils.configuration import Configuration
 
 
-class _ssh_execution_addon_abstract(ABC):
+class _ssh_execution_addon_abstract(ABC, plugin_abstract):
     def __init__(self, name, configuration: Configuration):
-        self._name = name
-        self._configuration = configuration
         self._execution_counter = 0
+        self._ssh: SSHClient = None
+        plugin_abstract.__init__(self, name, configuration)
 
     @property
     def logger(self):
         return self.configuration.logger
 
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def configuration(self):
-        return self._configuration
-
     def __enter__(self):
-        host = self._configuration.host
-        port = self._configuration.port
-        username = self._configuration.username
-        password = self._configuration.password
-        certificate = self._configuration.certificate
+        host = self.configuration.host
+        port = self.configuration.port
+        username = self.configuration.username
+        password = self.configuration.password
+        certificate = self.configuration.certificate
         try:
             self._ssh = SSHClient()
             self._ssh.load_system_host_keys()
@@ -70,10 +64,6 @@ class _ssh_execution_addon_abstract(ABC):
     def command(self):
         raise NotImplementedError()
 
-    @abstractmethod
-    def __call__(self):
-        raise NotImplementedError()
-
 
 class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
     def __init__(self, name, configuration: Configuration, **kwargs):
@@ -84,7 +74,7 @@ class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
 
     @property
     def is_continue_expected(self):
-        if not self.configuration.event.isSet() and not self._internal_event.isSet():
+        if all([not self._external_event.isSet(), not self._internal_event.isSet()]):
             self.logger.debug('Continue')
             return True
         self.logger.debug('Stop invoke')
@@ -130,10 +120,14 @@ class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
         self.logger.info(f"End interactive session for command '{self.command}'")
 
 
-class ssh_non_interactive_plugin(_ssh_execution_addon_abstract):
-    @property
-    def command(self):
-        pass
+class ssh_non_interactive_plugin(_ssh_execution_addon_abstract, ABC):
 
+    @abstractmethod
     def __call__(self):
         raise NotImplementedError()
+
+
+class SSH_MODES(Enum):
+    Interactive = ssh_interactive_plugin
+    NonInteractive = ssh_non_interactive_plugin
+

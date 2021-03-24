@@ -1,6 +1,6 @@
 from typing import AnyStr
 
-from system_trace.model.api import PlugIn
+from system_trace.api import PlugIn
 
 
 class aTopPlugIn(PlugIn):
