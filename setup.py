@@ -1,12 +1,13 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name='robotframework_system_trace_collector',
+    name='robotframework_system_trace_library',
     version='1.0.0',
-    packages=[''],
+    packages=find_packages(),
     url='',
     license='MIT',
     author='Dmitry Oguz',
     author_email='doguz2509@gmail.com',
-    description='PlugIn for robotframework allow background system tracing'
+    description='PlugIn for robotframework; Allow background system tracing',
+    long_description=''
 )

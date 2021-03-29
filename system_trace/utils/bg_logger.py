@@ -3,14 +3,13 @@ import logging.handlers
 import os
 from threading import currentThread
 
-from system_trace import __log_name__
 from .singleton import Singleton
 
 
 @Singleton
 class Logger:
     def __init__(self):
-        self._logger = logging.getLogger(__log_name__)
+        self._logger = logging.getLogger(__name__)
         handler = logging.StreamHandler()
         self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(name)s  %(message)s")
         handler.setFormatter(self._formatter)

@@ -1,13 +1,7 @@
-import os
 from collections import OrderedDict
 from typing import Dict, Mapping, Tuple
 
-import yaml
-from robot.api import logger
-from robot.utils import DotDict
-
-from system_trace.utils import Singleton
-from system_trace.utils.sql_engine import SQL_DB, FOREIGN_KEY_TEMPLATE, CREATE_TABLE_TEMPLATE
+from system_trace.utils.sql_engine import FOREIGN_KEY_TEMPLATE, CREATE_TABLE_TEMPLATE
 
 
 class _FormatCallback:
@@ -48,7 +42,7 @@ class ReadOnlyKeyDict(OrderedDict):
         return type(self)(*self.keys())
 
 
-class TableSchema:
+class TableDataContainer:
     FIELD_TYPES = {'INTEGER': int, 'TEXT': str, 'BLOB': bytes, 'REAL': float, 'NUMERIC': float}
 
     def __init__(self, name=None):
@@ -140,7 +134,7 @@ class TableSchema:
         return ReadOnlyKeyDict(*self.columns_list)
 
     @property
-    def insert_sql(self):
+    def insert_sql(self, **update_columns):
         fields_names = self.columns_list
         columns_text = "{} ({})".format(self.name, ",".join(fields_names))
         value_text = "VALUES ({})".format(",".join(['?'] * len(fields_names)))
@@ -204,7 +198,16 @@ def _get_foreign_keys(table, tables):
 
 
 def _init(self, name=None):
-    TableSchema.__init__(self, name)
+    TableDataContainer.__init__(self, name)
+
+
+def generate_table(name, table: dict, tables, **defaults):
+    fields = _get_field_list(name, table, defaults)
+    queries = _get_queries(name, table)
+    foreign_keys = _get_foreign_keys(table, tables)
+    _new_fields = {"__init__": _init, '_fields': fields, '_foreign_keys': foreign_keys}
+    _new_fields.update(**queries)
+    return type(name, (TableDataContainer,), _new_fields)
 
 
 def generate_schema(schema) -> Dict[str, type]:
@@ -217,63 +220,11 @@ def generate_schema(schema) -> Dict[str, type]:
         name = table.get('name')
         assert name, f"Table name missing:\n{table}"
         try:
-            fields = _get_field_list(name, table, defaults)
-            queries = _get_queries(name, table)
-            foreign_keys = _get_foreign_keys(table, tables)
-            _new_fields = {"__init__": _init, '_fields': fields, '_foreign_keys': foreign_keys}
-            _new_fields.update(**queries)
-            new_type = type(name, (TableSchema,), _new_fields)
-
-            tables.update({name: new_type})
+            new_table = generate_table(name, table, tables, **defaults)
+            tables.update({name: new_table})
         except Exception as e:
             print(f"{e}")
 
     return tables
 
-
-class DotTypedDict(DotDict):
-    def __getattr__(self, item):
-        return DotDict.__getattr__(self, item)()
-
-
-DEFAULT_YAML = r"statistic_db_schema.yaml"
-
-
-@Singleton
-class _bb_factory:
-    def __init__(self, path=None):
-        self._data = DotTypedDict()
-        if path is None:
-            _path, file = os.path.split(__file__)
-            _path = os.path.join(_path, DEFAULT_YAML)
-        else:
-            _path = path
-        self._path = _path
-        self.load()
-
-    @property
-    def tables(self):
-        return self._data
-
-    def load(self):
-        if len(self._data) > 0:
-            print("Already loaded")
-            return
-        assert os.path.exists(self._path), f"File not accessible or not exist '{self._path}'"
-
-        with open(self._path, 'r') as sr:
-            conf = yaml.safe_load(sr)
-            for name, table in generate_schema(conf).items():
-                self._data.update({name: table})
-            logger.debug("Loading from yaml '{}' completed;\nTable list:\n\t{}".format(
-                self._path,
-                '\n\t'.join([f"{i}. {t}" for i, t in enumerate(self._data.keys())]))
-            )
-
-
-def init_db_schema(path=None):
-    _bb_factory(path).load()
-
-
-TableFactory = _bb_factory().tables
 

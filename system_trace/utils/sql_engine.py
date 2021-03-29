@@ -2,10 +2,10 @@ import logging
 import os
 import sqlite3
 from threading import RLock
-
+from typing import List
 
 DEFAULT_DB_FILE = ":memory:"
-CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name}({columns}{foreign_keys})"""
+CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name} ({columns} {foreign_keys})"""
 SELECT_TABLE = "SELECT {fields} FROM {table}"
 SELECT_TABLE_WHERE = "SELECT {fields} FROM {table} WHERE {expression}"
 INSERT_TABLE_TEMPLATE = "INSERT {}"
@@ -43,6 +43,8 @@ class SQL_DB:
             if not os.path.exists(location):
                 os.makedirs(location)
             file_name = f"{file_name or f'{self.__class__.__name__}.db'}"
+            name, ext = os.path.splitext(file_name)
+            file_name = f"{name}.db"
             self._db_path = os.path.join(location, file_name)
             if not cumulative:
                 if self._clear_db(self._db_path):
@@ -127,4 +129,15 @@ class SQL_DB:
         self._conn.close()
 
 
-__all__ = ['SQL_DB']
+def create_table_sql(name, columns: List, foreign_keys: List):
+    return CREATE_TABLE_TEMPLATE.format(name=name,
+                                        columns=',\n\t'.join(str(f) for f in columns),
+                                        foreign_keys=',' + ',\n\t'.join(str(fk) for fk in foreign_keys)
+                                        if len(foreign_keys) > 0 else '')
+
+
+__all__ = [
+    'SQL_DB',
+    'create_table_sql',
+    'FOREIGN_KEY_TEMPLATE'
+]

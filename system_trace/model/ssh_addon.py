@@ -1,21 +1,44 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
-from enum import Enum
 from threading import Thread, Event
 from time import sleep
+from typing import List, Callable, Iterable, Tuple
 
-from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, SSHException
+from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, SSHException, Channel
 
-from system_trace.model.plugin_abstract import plugin_abstract
+from system_trace.api import model
 from system_trace.utils import Logger
-from system_trace.utils.configuration import Configuration
+
+DEFAULT_RECONNECT_ALLOWED = 10
 
 
-class _ssh_execution_addon_abstract(ABC, plugin_abstract):
-    def __init__(self, name, configuration: Configuration):
+class plugin_abstract:
+    def __init__(self, name):
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    def __hash__(self):
+        return hash(f"{self.name}_{id(self)}")
+
+
+class plugin_execution_abstract(plugin_abstract, Thread):
+    def __init__(self, name=None, **kwargs):
         self._execution_counter = 0
         self._ssh: SSHClient = None
-        plugin_abstract.__init__(self, name, configuration)
+        plugin_abstract.__init__(self, name or self.__class__.__name__)
+        Thread.__init__(self, name=self.name, target=self._worker, daemon=True)
+        self._internal_event = Event()
+        self._external_event = kwargs.get('event', self._internal_event)
+        self._reconnection_allowed = kwargs.get('reconnect_count', DEFAULT_RECONNECT_ALLOWED)
+        self._data_handler: Callable = kwargs.get('data_handler', lambda x: f"{x}")
+
+    @property
+    @abstractmethod
+    def affiliated_tables(self) -> Tuple[model.Table]:
+        return ()
 
     @property
     def logger(self):
@@ -59,18 +82,9 @@ class _ssh_execution_addon_abstract(ABC, plugin_abstract):
             self._ssh.close()
             self._is_logged_in = False
 
-    @abstractmethod
     @property
-    def command(self):
-        raise NotImplementedError()
-
-
-class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
-    def __init__(self, name, configuration: Configuration, **kwargs):
-        _ssh_execution_addon_abstract.__init__(self, name, configuration)
-        Thread.__init__(self, name=name, target=self._worker)
-        self._internal_event = Event()
-        self._external_event = kwargs.get('event', self._internal_event)
+    def reconnection_allowed(self):
+        return self._reconnection_allowed
 
     @property
     def is_continue_expected(self):
@@ -80,10 +94,32 @@ class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
         self.logger.debug('Stop invoke')
         return False
 
-    def _worker(self):
-        reconnection_count = 0
+    def commands(self):
+        raise NotImplementedError()
 
-        self.logger.info(f"Start interactive session for command '{self.command}'")
+    def commands_text(self, delimiter=r'\n\t'):
+        return delimiter.join(self.commands)
+
+    def run_command(self, ssh: SSHClient) -> Channel:
+        shell = ssh.invoke_shell()
+        for command in self.commands:
+            shell.send(command + '\n')
+            sleep(0.05)
+        self.logger.info("Command execution started\n\t{}".format('\n\t'.join(self.commands)))
+        return shell
+
+    def _worker(self):
+        raise NotImplementedError()
+
+    def parse(self, command_output: str) -> Iterable[Tuple]:
+        raise NotImplementedError()
+
+
+class ssh_interactive_plugin(plugin_execution_abstract, metaclass=ABCMeta):
+    def _worker(self):
+        reconnection_count = self.reconnection_allowed
+
+        self.logger.info(f"Start interactive session for command '{self.commands}'")
         while self.is_continue_expected:
             if reconnection_count == 0:
                 self.logger.info(f"Connection establishing")
@@ -91,10 +127,7 @@ class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
                 self.logger.warning(f"Connection restoring at {reconnection_count} time")
 
             with self as ssh:
-                self.logger.info(f"Connection established")
-                shell = ssh.invoke_shell()
-                self.logger.info(f"Command '{self.command}' execution starting")
-                shell.send(self.command + '\n')
+                shell = self.run_command(ssh)
                 while self.is_continue_expected:
                     ts = datetime.now()
                     next_ts = ts + timedelta(seconds=self.configuration.interval)
@@ -106,28 +139,50 @@ class ssh_interactive_plugin(_ssh_execution_addon_abstract, Thread, ABC):
                     while shell.recv_ready():
                         data += shell.recv(4096)
                     data = data.decode('utf-8')
-                    self.logger.debug("Data received:\n\t{}\n\t{}".format(self.command,
-                                                                           '\n\t'.join(
-                                                                               [line for line in data.splitlines()])))
-                    self.queue.put((datetime.now(), self.load(data)))
+                    self.logger.debug("Data received:{}\n{}".format(
+                        self.commands_text(), '\n\t'.join([line for line in data.splitlines()]))
+                    )
+                    self._data_handler(datetime.now(), self.parse(data))
                     self._execution_counter += 1
-                self.logger.info(f"Command '{self.command}' execution ending")
+                self.logger.info(f"Command '{self.commands_text()}' execution ending")
                 shell.send(chr(3))
             if self.is_continue_expected:
                 self.logger.error(f"Connection lost")
+                assert reconnection_count > 0, \
+                    f"Connection lost arrived to limit ({self.reconnection_allowed}); Plugin stoppped"
             reconnection_count += 1
 
-        self.logger.info(f"End interactive session for command '{self.command}'")
+        self.logger.info(f"End interactive session for command '{self.commands_text()}'")
 
 
-class ssh_non_interactive_plugin(_ssh_execution_addon_abstract, ABC):
+class ssh_non_interactive_plugin(plugin_execution_abstract, metaclass=ABCMeta):
+    def _worker(self):
+        reconnection_count = self.reconnection_allowed
 
-    @abstractmethod
-    def __call__(self):
-        raise NotImplementedError()
+        self.logger.info(f"Start command sequence: {self.commands_text}")
+        while self.is_continue_expected:
+            if reconnection_count == 0:
+                self.logger.info(f"Connection establishing")
+            else:
+                self.logger.warning(f"Connection restoring at {reconnection_count} time")
 
+            with self as ssh:
+                shell = self.run_command(ssh)
 
-class SSH_MODES(Enum):
-    Interactive = ssh_interactive_plugin
-    NonInteractive = ssh_non_interactive_plugin
+                ts = datetime.now()
+                next_ts = ts + timedelta(seconds=self.configuration.interval)
+                while datetime.now() < next_ts:
+                    if not self.is_continue_expected:
+                        break
+                    sleep(0.5)
+                data = b''
+                while shell.recv_ready():
+                    data += shell.recv(4096)
+                data = data.decode('utf-8')
+                self.logger.debug("Data received:{}\n\t{}".format(
+                    self.commands_text(), '\n\t'.join([line for line in data.splitlines()])))
+                self._data_handler((datetime.now(), self.parse(data)))
+                self._execution_counter += 1
+            self.logger.info(f"Command '{self.commands_text()}' execution ended")
 
+        self.logger.info(f"End command sequence: '{self.commands_text()}'")

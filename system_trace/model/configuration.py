@@ -3,9 +3,8 @@ from threading import Event
 
 from robot.utils import DotDict
 
-from .sys_utils import get_error_info
-from .threadsafe import tsQueue
-
+from system_trace.utils.sys_utils import get_error_info
+from system_trace.utils.threadsafe import tsQueue
 
 DEFAULT_INTERVAL = 0.5
 
@@ -16,7 +15,7 @@ class Configuration(DotDict):
         'username': (True, None, str),
         'password': (True, None, str),
         'port': (False, 22, int),
-        'sudo': (False, False, bool),
+        'run_as_sudo': (False, False, bool),
         'certificate': (False, None, str),
         'interval': (False, DEFAULT_INTERVAL, float),
         'logger': (False, logging, None),

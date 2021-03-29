@@ -41,6 +41,8 @@ tables:
       REF_TO_SESSION:
         table: *S
         field: *S_ID
+
+add_on:
   - name: Lsof
     fields:
       - name: REF_TO_TS

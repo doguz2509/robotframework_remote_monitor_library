@@ -1,5 +1,7 @@
-robotframework~=4.0
-paramiko
+robotframework~=3.2.2
+robotframework-sshlibrary
+paramiko~=2.7.2
 matplotlib
 pandas
-PyYAML
+PyYAML~=5.4.1
+setuptools~=54.1.2
