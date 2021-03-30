@@ -2,11 +2,12 @@ from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from threading import Thread, Event
 from time import sleep
-from typing import List, Callable, Iterable, Tuple
+from typing import Callable, Tuple
 
 from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, SSHException, Channel
 
-from system_trace.api import model
+from system_trace.model import schema_model as model
+from system_trace.model.schema_model import DataUnit
 from system_trace.utils import Logger
 
 DEFAULT_RECONNECT_ALLOWED = 10
@@ -36,7 +37,6 @@ class plugin_execution_abstract(plugin_abstract, Thread):
         self._data_handler: Callable = kwargs.get('data_handler', lambda x: f"{x}")
 
     @property
-    @abstractmethod
     def affiliated_tables(self) -> Tuple[model.Table]:
         return ()
 
@@ -111,7 +111,7 @@ class plugin_execution_abstract(plugin_abstract, Thread):
     def _worker(self):
         raise NotImplementedError()
 
-    def parse(self, command_output: str) -> Iterable[Tuple]:
+    def parse(self, command_output: str) -> DataUnit:
         raise NotImplementedError()
 
 

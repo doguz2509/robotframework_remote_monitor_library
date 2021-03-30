@@ -8,7 +8,7 @@ DEFAULT_DB_FILE = ":memory:"
 CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name} ({columns} {foreign_keys})"""
 SELECT_TABLE = "SELECT {fields} FROM {table}"
 SELECT_TABLE_WHERE = "SELECT {fields} FROM {table} WHERE {expression}"
-INSERT_TABLE_TEMPLATE = "INSERT {}"
+INSERT_TABLE_TEMPLATE = "INSERT INTO {table} VALUES ({values})"
 FOREIGN_KEY_TEMPLATE = "FOREIGN KEY({local_field}) REFERENCES {foreign_table}({foreign_field})"
 
 
@@ -136,8 +136,13 @@ def create_table_sql(name, columns: List, foreign_keys: List):
                                         if len(foreign_keys) > 0 else '')
 
 
+def insert_sql(name, columns):
+    return INSERT_TABLE_TEMPLATE.format(table=name, values=",".join(['?'] * len(columns)))
+
+
 __all__ = [
     'SQL_DB',
     'create_table_sql',
+    'insert_sql',
     'FOREIGN_KEY_TEMPLATE'
 ]

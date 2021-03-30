@@ -1,11 +1,12 @@
 from collections import namedtuple
+from datetime import datetime
 from enum import Enum
-from typing import List, Iterable
+from typing import List, Iterable, Tuple
 
 from robot.utils import DotDict
 
-from system_trace.utils import Singleton
-from system_trace.utils.sql_engine import FOREIGN_KEY_TEMPLATE
+from system_trace.utils import sql
+from system_trace.utils.sql_engine import insert_sql
 
 
 class FieldType(Enum):
@@ -47,7 +48,7 @@ class Query:
         """
         Query assigned for Table
         :param name: query name string
-        :param sql: SQL statement in python format
+        :param sql: SQL statement in python format (Mandatory variables)
         :param formatter: input arguments formatter
         """
         self._name = name
@@ -89,9 +90,9 @@ class ForeignKey:
         return self._field
 
     def __str__(self):
-        return FOREIGN_KEY_TEMPLATE.format(local_field=self.own_field,
-                                           foreign_table=self.foreign_table,
-                                           foreign_field=self.foreign_field)
+        return sql.FOREIGN_KEY_TEMPLATE.format(local_field=self.own_field,
+                                               foreign_table=self.foreign_table,
+                                               foreign_field=self.foreign_field)
 
     def clone(self):
         return type(self)(self.own_field, self.foreign_table, self.foreign_field)
@@ -102,8 +103,11 @@ class Table(object):
                  foreign_keys: List[ForeignKey] = None):
         self._name = name or self.__class__.__name__
         self._fields: List[Field] = fields or []
-        self._queries: List[Query] = queries or []
+        self._queries: DotDict[str, Query] = DotDict()
         self._foreign_keys: List[ForeignKey] = foreign_keys or []
+        for query in queries or []:
+            self._queries[query.name] = query
+
 
     @property
     def template(self):
@@ -126,35 +130,26 @@ class Table(object):
         return self._foreign_keys
 
 
-class Sessions(Table):
-    def __init__(self):
-        Table.__init__(self, name=None,
-                       fields=[Field('SESSION_ID', FieldType.Int, True),
-                               Field('Start'), Field('End'), Field('Title')])
+DB_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-class TimeLine(Table):
-    def __init__(self):
-        Table.__init__(self, name=None,
-                       fields=[Field('TL_ID', FieldType.Int, True), Field('TimeStamp', FieldType.Text)])
-
-
-TIME_REFERENCE_FIELD = Field('TL_REF', FieldType.Int)
-FOREIGN_KEY = ForeignKey('TL_REF', 'TimeLine', 'TL_ID')
-
-
-@Singleton
-class DbSchema:
-    def __init__(self):
-        self._data = DotDict(Sessions=Sessions(), TimeLine=TimeLine())
+class DataUnit:
+    def __init__(self, table: Table, *data, **kwargs):
+        self._table = table
+        self._ts = datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
+        self._data = list(data)
 
     @property
-    def tables(self):
-        return self._data
+    def timestamp(self):
+        return self._ts
 
-    def register_table(self, table: Table):
-        table.fields.insert(0, TIME_REFERENCE_FIELD)
-        table.foreign_keys.insert(0, FOREIGN_KEY.clone())
-        self._data[table.name] = table
+    def get_insert_data(self, **updates) -> Tuple[str, Iterable]:
+        if len(updates) > 0:
+            for i in range(0, len(self._data)):
+                _temp = self._data[i]._asdict()
+                _temp.update(**updates)
+                self._data[i] = self._table.template(**_temp)
+        return insert_sql(self._table.name, [t.name for t in self._table.fields]), [tuple(r) for r in self._data]
 
-
+    def __str__(self):
+        return f"{self.get_insert_data()}"

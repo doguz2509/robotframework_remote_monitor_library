@@ -1,62 +1,74 @@
+from collections import Callable
 from threading import Event
 
-from robot.libraries.BuiltIn import BuiltIn
+from robot.api import logger
 
-import system_trace.model.schema_model
-from system_trace.api import DataHandlerService
+from system_trace.utils import Logger
 from system_trace.model.configuration import Configuration
 
 
-def _generate_unique_handle(session_alias=None, *cache):
-    if session_alias is None:
-        try:
-            session_alias = BuiltIn().get_variable_value('${TEST NAME}')
-        except Exception as e:
-            session_alias = BuiltIn().get_variable_value('${SUITE NAME}')
-    if session_alias in cache:
-        session_alias = f"{session_alias}_{len([s for s in cache if s.startwith(session_alias)]):02d}"
+session_counter = 0
 
-    return session_alias
+
+def _norm_alias(host, username, port, alias=None):
+    return alias or f"{username}@{host}:{port}"
 
 
 class TraceSession:
-    def __init__(self, host, username, password,
+    def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
                  port=None, alias=None, interval=None,
                  certificate=None,
-                 run_as_sudo=False,
-                 *cache):
-        self._name = _generate_unique_handle(alias, *cache)
-        self._configuration = Configuration(host=host, username=username, password=password,
+                 run_as_sudo=False):
+        session_id = _norm_alias(host, username, port, alias)
+        global session_counter
+        session_counter += 1
+        index = session_counter
+        self._configuration = Configuration(index=index, alias=session_id,
+                                            host=host, username=username, password=password,
                                             port=port, certificate=certificate, run_as_sudo=run_as_sudo,
-                                            interval=interval)
-        self._session_id = None
-        self._session_event: Event = None
+                                            interval=interval, event=None)
+        self._plugin_registry = plugin_registry
+        self._data_handler = data_handler
+        self._active_plugins = {}
 
     @property
-    def name(self):
-        return self._name
-
-    @property
-    def configuration(self):
+    def config(self):
         return self._configuration
 
     @property
-    def session_id(self):
-        return self._session_id
+    def id(self):
+        return self.config.alias
 
     @property
     def event(self):
-        return self._session_event
+        return self.config.event
 
     def start(self):
-        DataHandlerService.execute(system_trace.model.schema_model.Sessions.insert_sql,
-                                   None, 'CURRENT_TIMESTAMP', None, self.session_id)
-        self._session_event = Event()
+        self._configuration.update({'event': Event()})
 
     def close(self):
-        assert self._session_event, f"Session '{self.name}' not started yet"
-        self._session_event.set()
-        DataHandlerService.execute(
-            f'UPDATE Sessions set End = CURRENT_TIMESTAMP '
-            f'WHERE SESSION_ID=(SELECT SESSION_ID FROM Sessions WHERE Title = "{self.session_id}")'
-        )
+        try:
+            assert self.event
+            self.event.set()
+            self._configuration.update({'event': None})
+            active_plugins = list(self._active_plugins.keys())
+            while len(active_plugins) > 0:
+                plugin = active_plugins.pop(0)
+                self.plugin_terminate(plugin)
+
+        except AssertionError:
+            Logger().warning(f"Session '{self.id}' not started yet")
+
+    def plugin_start(self, plugin_name, interval=None):
+        plugin = self._plugin_registry.get(plugin_name, None)
+        assert plugin, f"Plugin '{plugin_name}' not registered"
+        plugin = plugin()
+        plugin.start(self.config.event, interval)
+        self._active_plugins[plugin.name] = plugin
+        logger.info(f"PlugIn '{plugin_name}' started")
+
+    def plugin_terminate(self, plugin_name):
+        plugin = self._active_plugins.pop(plugin_name, None)
+        assert plugin, f"Plugin '{plugin_name}' not active"
+        plugin.stop()
+        logger.info(f"PlugIn '{plugin_name}' gracefully stopped")

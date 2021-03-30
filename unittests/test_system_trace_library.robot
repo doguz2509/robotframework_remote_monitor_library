@@ -7,8 +7,10 @@ Library  BuiltIn
 *** Test Cases ***
 Test title
     [Tags]    DEBUG
-    create connection
+    create trace connection  ${HOST}  ${USER}  ${PASSWORD}
+    start trace plugin  atop
     sleep  3  wait
+    close trace connection
 
 *** Keywords ***
 Provided precondition

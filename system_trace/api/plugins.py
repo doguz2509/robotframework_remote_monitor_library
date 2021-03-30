@@ -1,6 +1,6 @@
 from abc import ABC
 
-from system_trace.model.ssh_addon import ssh_non_interactive_plugin, ssh_interactive_plugin
+from system_trace.model.ssh_plugin_model import ssh_non_interactive_plugin, ssh_interactive_plugin
 
 
 class InteractivePlugIn(ABC, ssh_interactive_plugin):

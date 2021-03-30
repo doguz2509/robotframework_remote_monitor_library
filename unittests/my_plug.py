@@ -1,6 +1,6 @@
 from typing import Iterable, Tuple
 
-from system_trace.api import plugin
+from system_trace.api import plugins
 from system_trace.api import model
 
 
@@ -23,7 +23,7 @@ class Employment(model.Table):
         ])
 
 
-class my_address(plugin.NonInteractivePlugIn):
+class my_address(plugins.NonInteractivePlugIn):
     @property
     def affiliated_tables(self) -> Tuple[model.Table]:
         return Address(), Employment()
@@ -37,7 +37,7 @@ class my_address(plugin.NonInteractivePlugIn):
                Employment().template('Morphisec', 'BsH', '09.2020', None)
 
 
-class my_job(plugin.NonInteractivePlugIn):
+class my_job(plugins.NonInteractivePlugIn):
     @property
     def affiliated_tables(self) -> Tuple[model.Table]:
         return Employment(),

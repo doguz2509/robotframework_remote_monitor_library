@@ -1,8 +1,5 @@
-from typing import Mapping
-
 from SSHLibrary.sshconnectioncache import SSHConnectionCache
 
-from system_trace.model import plugin_abstract
 from system_trace.utils import Singleton
 
 
@@ -14,4 +11,3 @@ class TraceConnectionCache(SSHConnectionCache):
     @property
     def name_cache(self):
         return [session.session_id for session in self.connections]
-

@@ -20,23 +20,20 @@ class tsQueue:
             self._queue.append(item)
             Logger().debug(f"Put item ({len(self._queue)})")
 
-    def _get(self) -> Any:
-        try:
-            self._lock.acquire()
-            if len(self) == 0:
-                return Empty()
-            return self._queue.pop(0)
-            # Logger().debug(f"Get item ({len(self._queue)})")
-        finally:
-            self._lock.release()
+    def get(self) -> Any:
+        with self._lock:
+            try:
+                yield self._queue.pop(0)
+            except IndexError:
+                yield Empty()
 
-    def get(self, get_count=None) -> list:
-        count = 0
-        limit = get_count or self._get_limit
-        while count <= limit:
-            count += 1
-            yield self._get()
-            sleep(0.1)
+    # def get(self, get_count=None) -> list:
+    #     count = 0
+    #     limit = get_count or self._get_limit
+    #     while count <= limit:
+    #         count += 1
+    #         yield self._get()
+    #         sleep(0.01)
 
     def __len__(self):
         return len(self._queue)
@@ -45,4 +42,3 @@ class tsQueue:
 
     def empty(self):
         return len(self) == 0
-

@@ -168,7 +168,7 @@ add_on:
       - name: Rc
       - name: Output
     foreign_keys: *REF_TO_TR
-  - name: MarkPoints
+  - name: Points
     fields:
       - name: REF_TO_TS
         type: *int
@@ -176,13 +176,13 @@ add_on:
     queries:
       select_mark:
         sql: SELECT t.TimeStamp
-             FROM MarkPoints m
+             FROM Points m
              JOIN TimeReference t ON t.TS_ID = m.REF_TO_TS
              WHERE m.Reason = "{}"
         function: *format
       get_marks:
         sql: SELECT m.Reason as Reason, t.TimeStamp as Time
-             FROM MarkPoints m
+             FROM Points m
              JOIN TimeReference t ON t.TS_ID = m.REF_TO_TS
              JOIN Sessions s ON s.SESSION_ID = t.REF_TO_SESSION
              WHERE s.Title = "{}"

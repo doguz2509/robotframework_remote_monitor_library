@@ -3,14 +3,20 @@ from threading import Event
 
 from robot.utils import DotDict
 
+from system_trace.api import BgLogger
 from system_trace.utils.sys_utils import get_error_info
-from system_trace.utils.threadsafe import tsQueue
 
 DEFAULT_INTERVAL = 0.5
 
 
+def get_sudo(_data: DotDict):
+    dict(sudo=True, sudo_password=_data.password)
+
+
 class Configuration(DotDict):
     mandatory_fields = {
+        'index': (True, 0, int),
+        'alias': (True, None, str),
         'host': (True, None, str),
         'username': (True, None, str),
         'password': (True, None, str),
@@ -18,9 +24,7 @@ class Configuration(DotDict):
         'run_as_sudo': (False, False, bool),
         'certificate': (False, None, str),
         'interval': (False, DEFAULT_INTERVAL, float),
-        'logger': (False, logging, None),
-        'event': (False, None, Event),
-        'queue': (False, None, tsQueue)
+        'event': (False, None, Event)
     }
 
     def __init__(self, **kwargs):
@@ -33,14 +37,15 @@ class Configuration(DotDict):
                     assert attr in kwargs.keys()
                 attr_value = kwargs.get(attr, default)
                 if type_:
-                    value = type_(attr_value) if default else type_()
+                    default = type_(default) if default else default
+                    value = type_(attr_value) if attr_value else default
                 else:
                     value = attr_value
 
                 DotDict.__setitem__(self, attr, value)
-            except AssertionError:
+            except Exception as e:
                 f, l = get_error_info()
-                err.append(f"Field '{attr}' missing; File: {f}:{l}")
+                err.append(f"Field '{attr}' missing; File: {f}:{l} - Error: {e}")
 
         assert len(err) == 0, "Following mandatory fields missing:\n\t{}".format('\n\t'.join(err))
 
@@ -48,7 +53,3 @@ class Configuration(DotDict):
         if item not in self.keys():
             return None
         return DotDict.__getitem__(self, item)
-
-    @property
-    def get_sudo(self):
-        return dict(sudo=True, sudo_password=self.password)

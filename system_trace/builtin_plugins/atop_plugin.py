@@ -5,9 +5,9 @@ from typing import Iterable, Tuple
 
 from robot.utils import timestr_to_secs
 
-from system_trace.api import BgLogger
-from system_trace.api import model, InteractivePlugIn
-from system_trace.model.schema_model import DbSchema
+from system_trace.api import BgLogger, TableSchemaService
+from system_trace.api import model, plugins
+from system_trace.model.schema_model import DataUnit
 from system_trace.utils.size import Size
 from system_trace.utils.sys_utils import get_error_info
 
@@ -102,14 +102,15 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
     return res
 
 
-class aTopPlugIn(InteractivePlugIn):
+class aTopPlugIn(plugins.InteractivePlugIn):
     @property
     def affiliated_tables(self) -> Tuple[model.Table]:
         return atop_system_level(),
 
-    def parse(self, command_output) -> Iterable[Tuple]:
-        table_template = DbSchema().tables.atop_system_level.template
-        return _generate_atop_system_level(command_output, table_template)
+    def parse(self, command_output) -> DataUnit:
+        table_template = TableSchemaService().tables.atop_system_level.template
+        data = _generate_atop_system_level(command_output, table_template)
+        return DataUnit(TableSchemaService().tables.atop_system_level, *data)
 
     @property
     def commands(self):
