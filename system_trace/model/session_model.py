@@ -10,8 +10,8 @@ from system_trace.model.configuration import Configuration
 session_counter = 0
 
 
-def _norm_alias(host, username, port, alias=None):
-    return alias or f"{username}@{host}:{port}"
+def _norm_alias(host, username, port):
+    return f"{username}@{host}:{port}"
 
 
 class TraceSession:
@@ -19,7 +19,7 @@ class TraceSession:
                  port=None, alias=None, interval=None,
                  certificate=None,
                  run_as_sudo=False):
-        session_id = _norm_alias(host, username, port, alias)
+        session_id = alias or _norm_alias(host, username, port)
         global session_counter
         session_counter += 1
         index = session_counter
@@ -63,7 +63,7 @@ class TraceSession:
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
         plugin = plugin()
-        plugin.start(self.config.event, interval)
+        plugin.start(self.config.event, self._data_handler, interval)
         self._active_plugins[plugin.name] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 

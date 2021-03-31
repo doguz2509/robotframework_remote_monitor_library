@@ -108,7 +108,6 @@ class Table(object):
         for query in queries or []:
             self._queries[query.name] = query
 
-
     @property
     def template(self):
         return namedtuple(self.name, (f.name for f in self.fields))

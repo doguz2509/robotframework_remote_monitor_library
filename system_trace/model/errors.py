@@ -1,0 +1,3 @@
+
+class PlugInError(AssertionError):
+    pass

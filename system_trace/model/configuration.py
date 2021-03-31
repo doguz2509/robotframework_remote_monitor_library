@@ -1,16 +1,11 @@
-import logging
 from threading import Event
 
 from robot.utils import DotDict
 
-from system_trace.api import BgLogger
 from system_trace.utils.sys_utils import get_error_info
 
 DEFAULT_INTERVAL = 0.5
-
-
-def get_sudo(_data: DotDict):
-    dict(sudo=True, sudo_password=_data.password)
+DEFAULT_FAULT_TOLERANCE = 10
 
 
 class Configuration(DotDict):
@@ -24,6 +19,7 @@ class Configuration(DotDict):
         'run_as_sudo': (False, False, bool),
         'certificate': (False, None, str),
         'interval': (False, DEFAULT_INTERVAL, float),
+        'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int),
         'event': (False, None, Event)
     }
 
@@ -53,3 +49,5 @@ class Configuration(DotDict):
         if item not in self.keys():
             return None
         return DotDict.__getitem__(self, item)
+
+

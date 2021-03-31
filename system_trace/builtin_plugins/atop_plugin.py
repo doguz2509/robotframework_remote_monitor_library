@@ -107,14 +107,15 @@ class aTopPlugIn(plugins.InteractivePlugIn):
     def affiliated_tables(self) -> Tuple[model.Table]:
         return atop_system_level(),
 
-    def parse(self, command_output) -> DataUnit:
-        table_template = TableSchemaService().tables.atop_system_level.template
+    @staticmethod
+    def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output):
+        table_template = affiliated_tables[0].template
         data = _generate_atop_system_level(command_output, table_template)
-        return DataUnit(TableSchemaService().tables.atop_system_level, *data)
+        data_handler(DataUnit(TableSchemaService().tables.atop_system_level, *data))
 
     @property
     def commands(self):
-        return 'atop -A 2',
+        return f'atop -A {self._interval}',
 
 
 __all__ = ['aTopPlugIn']
