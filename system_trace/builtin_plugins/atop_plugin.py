@@ -1,15 +1,15 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
-from typing import Iterable, Tuple
+from datetime import datetime, timedelta
+from typing import Tuple
 
 from robot.utils import timestr_to_secs
 
 from system_trace.api import BgLogger, TableSchemaService
 from system_trace.api import model, plugins
-from system_trace.model.schema_model import DataUnit
-from system_trace.utils.size import Size
-from system_trace.utils.sys_utils import get_error_info
+from system_trace.utils import Size
+from system_trace.utils import get_error_info
 
 
 class atop_system_level(model.Table):
@@ -102,20 +102,58 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
     return res
 
 
-class aTopPlugIn(plugins.InteractivePlugIn):
+class aTopPlugIn(plugins.PlugInAPI):
+
+    SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
+
+    def __init__(self, parameters, data_handler):
+        plugins.PlugInAPI.__init__(self, parameters, data_handler)
+        self.file = 'atop.dat'
+        self.folder = '~/atop_temp'
+        self._time_delta = None
+
     @property
-    def affiliated_tables(self) -> Tuple[model.Table]:
+    def time_delta(self):
+        return self._time_delta
+
+    @time_delta.setter
+    def time_delta(self, value):
+        assert value != '', f"Value cannot by empty; Check command"
+        self._time_delta = datetime.now() - datetime.strptime(value, self.SYNC_DATE_FORMAT)
+
+    def _get_time_slot(self):
+        now_ = datetime.now()
+        begin = now_ + self._time_delta - timedelta(seconds=5)
+        end = now_ + self._time_delta
+        return f"-b {begin.strftime(self.SYNC_DATE_FORMAT)} -e {end.strftime(self.SYNC_DATE_FORMAT)}"
+
+    @staticmethod
+    def affiliated_tables() -> Tuple[model.Table]:
         return atop_system_level(),
 
     @staticmethod
     def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output):
         table_template = affiliated_tables[0].template
         data = _generate_atop_system_level(command_output, table_template)
-        data_handler(DataUnit(TableSchemaService().tables.atop_system_level, *data))
+        data_handler(model.DataUnit(TableSchemaService().tables.atop_system_level, *data))
+
+    @property
+    def setup(self) -> plugins.CommandsType:
+
+        return [plugins.Command('killall -9 atop', sudo=True),
+                plugins.Command(f'rm -rf {self.folder}', sudo=True),
+                plugins.Command(f'mkdir -p {self.folder}', sudo=True),
+                plugins.Command(f'nohup atop -w {self.folder}/{self.file} {int(self._interval)} &', sudo=True),
+                plugins.Command(f'date +{self.SYNC_DATE_FORMAT}', variable=self.store_variable('time_delta'))
+                ]
 
     @property
     def commands(self):
-        return f'atop -A {self._interval}',
+        return plugins.Command(f'atop -r {self.folder}/{self.file} {self._get_time_slot()}', sudo=True),
+
+    @property
+    def teardown(self) -> plugins.CommandsType:
+        return plugins.Command('killall -9 atop', sudo=True),
 
 
 __all__ = ['aTopPlugIn']

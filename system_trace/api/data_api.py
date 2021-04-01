@@ -1,10 +1,11 @@
 from threading import Event, Thread
 from time import sleep
-from typing import List
+from typing import List, AnyStr, Mapping
 
 from robot.utils import DotDict
 
 from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query
+from system_trace.model.ssh_plugin_model import plugin_execution_abstract
 from system_trace.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
 from system_trace.utils.sql_engine import insert_sql
 
@@ -126,5 +127,5 @@ class DataHandlerService(sql.SQL_DB):
 
 
 @Singleton
-class PlugInService(dict):
+class PlugInService(dict, Mapping[AnyStr, plugin_execution_abstract]):
     pass

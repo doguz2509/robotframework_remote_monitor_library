@@ -23,31 +23,33 @@ class Employment(model.Table):
         ])
 
 
-class my_address(plugins.NonInteractivePlugIn):
-    @property
-    def affiliated_tables(self) -> Tuple[model.Table]:
+class my_address(plugins.PlugInAPI):
+    @staticmethod
+    def affiliated_tables() -> Tuple[model.Table]:
         return Address(), Employment()
 
     @property
     def commands(self):
-        return 'ls -l',
+        return plugins.Command('ls -l'),
 
-    def parse(self, command_output: str) -> Iterable[Tuple]:
-        return Address().template('Dmitry', 'Oguz', 'Holon'), \
-               Employment().template('Morphisec', 'BsH', '09.2020', None)
+    @staticmethod
+    def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output: str):
+        data_handler(Address().template('Dmitry', 'Oguz', 'Holon'))
+        data_handler(Employment().template('Morphisec', 'BsH', '09.2020', None))
 
 
-class my_job(plugins.NonInteractivePlugIn):
-    @property
-    def affiliated_tables(self) -> Tuple[model.Table]:
+class my_job(plugins.PlugInAPI):
+    @staticmethod
+    def affiliated_tables() -> Tuple[model.Table]:
         return Employment(),
 
     @property
     def commands(self):
-        return 'ls -l',
+        return plugins.Command('ls -l'),
 
-    def parse(self, command_output: str) -> Iterable[Tuple]:
-        return Employment().template('Morphisec', 'BsH', '09.2020', None),
+    @staticmethod
+    def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output) -> bool:
+        data_handler(Employment().template('Morphisec', 'BsH', '09.2020', None))
 
 
 __all__ = [my_address, my_job]

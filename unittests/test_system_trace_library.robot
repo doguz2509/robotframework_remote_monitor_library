@@ -8,7 +8,7 @@ Library  BuiltIn
 Test title
     [Tags]    DEBUG
     create trace connection  ${HOST}  ${USER}  ${PASSWORD}
-    start trace plugin  atop
+    start trace plugin  atop  interval=60s  run_as_sudo=true
     sleep  3  wait
     close trace connection
 

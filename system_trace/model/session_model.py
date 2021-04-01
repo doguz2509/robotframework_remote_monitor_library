@@ -1,7 +1,9 @@
 from collections import Callable
+from copy import deepcopy
 from threading import Event
 
 from robot.api import logger
+from robot.utils.robottime import timestr_to_secs
 
 from system_trace.utils import Logger
 from system_trace.model.configuration import Configuration
@@ -37,11 +39,11 @@ class TraceSession:
 
     @property
     def id(self):
-        return self.config.alias
+        return self.config.parameters.alias
 
     @property
     def event(self):
-        return self.config.event
+        return self.config.parameters.event
 
     def start(self):
         self._configuration.update({'event': Event()})
@@ -59,11 +61,14 @@ class TraceSession:
         except AssertionError:
             Logger().warning(f"Session '{self.id}' not started yet")
 
-    def plugin_start(self, plugin_name, interval=None):
+    def plugin_start(self, plugin_name, **options):
+        plugin_conf = self.config.clone()
+        plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin()
-        plugin.start(self.config.event, self._data_handler, interval)
+        plugin = plugin(plugin_conf.parameters, self._data_handler)
+        # plugin.start()
+        plugin._worker()
         self._active_plugins[plugin.name] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 

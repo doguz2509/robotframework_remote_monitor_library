@@ -82,7 +82,7 @@ class SystemTraceLibrary(_Visualisation):
         PlugInService().update(**custom_plugins)
 
         for name, plugin in PlugInService().items():
-            for table in plugin().affiliated_tables:
+            for table in plugin.affiliated_tables():
                 TableSchemaService().register_table(table)
         DataHandlerService(os.path.join(out_location, location), file_name, cumulative).start()
 
@@ -128,10 +128,11 @@ class SystemTraceLibrary(_Visualisation):
         self._sessions.close_all()
 
     @keyword("Start trace plugin")
-    def start_trace_plugin(self, plugin_name, alias=None, interval=None):
-        session: TraceSession = self._sessions.get_connection(alias)
-        assert plugin_name in PlugInService().keys(), f"PlugIn '{plugin_name}' not registered"
-        session.plugin_start(plugin_name, interval)
+    def start_trace_plugin(self, plugin_name, **options):
+        session: TraceSession = self._sessions.get_connection(options.get('alias', None))
+        assert plugin_name in PlugInService().keys(), \
+            f"PlugIn '{plugin_name}' not registered"
+        session.plugin_start(plugin_name, **options)
 
     @keyword("Stop trace plugin")
     def stop_trace_plugin(self, plugin_name, alias=None):
