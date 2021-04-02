@@ -9,6 +9,7 @@ CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name} ({columns} {foreign
 SELECT_TABLE = "SELECT {fields} FROM {table}"
 SELECT_TABLE_WHERE = "SELECT {fields} FROM {table} WHERE {expression}"
 INSERT_TABLE_TEMPLATE = "INSERT INTO {table} VALUES ({values})"
+UPDATE_TABLE_TEMPLATE = "UPDATE {table}\n\tSET {columns}"
 FOREIGN_KEY_TEMPLATE = "FOREIGN KEY({local_field}) REFERENCES {foreign_table}({foreign_field})"
 
 
@@ -136,8 +137,18 @@ def create_table_sql(name, columns: List, foreign_keys: List):
                                         if len(foreign_keys) > 0 else '')
 
 
+def select_sql(name, **filter_data):
+    fields = ', '.join([f"{t}" for t in filter_data.keys()])
+    where = ' AND '.join(f"{f} == '{v}'" for f, v in filter_data.items())
+    return f'SELECT {fields}\nFROM {name}\nWHERE {where}'
+
+
 def insert_sql(name, columns):
     return INSERT_TABLE_TEMPLATE.format(table=name, values=",".join(['?'] * len(columns)))
+
+
+def update_sql(name, columns):
+    return UPDATE_TABLE_TEMPLATE.format(table=name, columns=",\n\t".join([f"{c} = ?" for c in columns]))
 
 
 __all__ = [

@@ -11,13 +11,11 @@ DEFAULT_FAULT_TOLERANCE = 10
 
 class Configuration:
     mandatory_fields = {
-        'index': (True, 0, int, int),
         'alias': (True, None, str, str),
         'host': (True, None, str, str),
         'username': (True, None, str, str),
         'password': (True, None, str, str),
         'port': (False, 22, int, int),
-        'run_as_sudo': (False, False, bool, bool),
         'certificate': (False, None, str, str),
         'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
         'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
@@ -58,6 +56,10 @@ class Configuration:
     @property
     def parameters(self):
         return self._parameters
+
+    @property
+    def alias(self):
+        return self.parameters.alias
 
     def update(self, dict_: dict = None, **kwargs):
         dict_ = dict_ or {}

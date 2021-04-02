@@ -3,13 +3,15 @@ from datetime import datetime, timedelta
 from enum import Enum
 from threading import Thread, Event
 from time import sleep
-from typing import Callable, Tuple, List, AnyStr, Iterable
+from typing import Callable, Tuple, AnyStr, Iterable
 
-from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, SSHException, Channel
+from SSHLibrary import SSHLibrary
+from paramiko import SSHClient, SSHException
 from robot.api import logger
 from robot.utils import DotDict
 
 from system_trace.model import schema_model as model
+from system_trace.model.chart_model.chart_abstract import ChartAbstract
 from system_trace.model.errors import PlugInError
 from system_trace.utils import Logger, get_error_info
 
@@ -19,12 +21,12 @@ class plugin_integration_abstract(object):
         return hash(f"{self.__class__.__name__}_{id(self)}")
 
     @staticmethod
-    def affiliated_tables() -> Tuple[model.Table]:
-        return ()
+    def affiliated_tables() -> Iterable[model.Table]:
+        return []
 
     @staticmethod
-    def affiliated_charts() -> Tuple[AnyStr]:
-        return ()
+    def affiliated_charts() -> Iterable[ChartAbstract]:
+        return []
 
 
 class Command:
@@ -35,6 +37,7 @@ class Command:
         self.interactive = kwargs.get('interactive', None)
         self.repeat = kwargs.get('repeat', 1)
         self.variable_cb = kwargs.get('variable_cb', None)
+        self.parser = kwargs.get('parser', None)
 
     @property
     def command(self):
@@ -61,14 +64,16 @@ class plugin_flow_abstract:
     def store_variable(self, variable_name):
         def _(value):
             setattr(self, variable_name, value)
+
         return _
 
     @property
     def flow_type(self):
         class FlowCommands(Enum):
             Setup = 'setup'
-            Command = 'commands'
+            Command = 'periodic_commands'
             Teardown = 'teardown'
+
         return FlowCommands
 
     @property
@@ -76,75 +81,18 @@ class plugin_flow_abstract:
         return ()
 
     @property
-    def commands(self) -> CommandsType:
+    def periodic_commands(self) -> CommandsType:
         return ()
 
     @property
     def teardown(self) -> CommandsType:
         return ()
 
-    @staticmethod
-    def _read_channel_output(channel, buffer_size=256, interval: float = 0.05):
-        buff = ''
-        sleep(interval)
-        while channel.recv_ready():
-            buff += channel.recv(buffer_size).decode('utf-8')
-            sleep(interval)
-        return buff
 
-    @staticmethod
-    def _read_cmd_output(stream, buffer=1024):
-        data_buffer = ''
-        while stream.channel.exit_status_ready():
-            if stream.channel.recv_ready():
-                solo_line = stream.channel.recv(buffer)  # Retrieve the first 1024 bytes
-                data_buffer += solo_line
-        return data_buffer
-
-    def _run_command(self, ssh_client: SSHClient, flow: Enum, parameters: DotDict):
-        total_output = ''
-        try:
-            assert len(flow.value) > 0
-            flow_values = getattr(self, flow.value)
-            for cmd in flow_values:
-                if cmd.interactive:
-                    self._stored_shell[cmd.interactive] = \
-                        self._stored_shell.get(cmd.interactive, ssh_client.invoke_shell())
-                    for i in range(0, cmd.repeat):
-                        self._stored_shell[cmd.interactive].send(cmd.command + '\n')
-                        sleep(0.05)
-                    output = self._read_channel_output(self._stored_shell[cmd.interactive])
-                else:
-                    in_, out, err = None, None, None
-                    for i in range(0, cmd.repeat):
-                        in_, out, err = ssh_client.exec_command(cmd.command)
-                    # output = err.read().decode('UTF-8')
-                    output = self._read_cmd_output(err)
-                    output += '\n' if output != '' else ''
-                    # output += out.read().decode('UTF-8')
-                    output += self._read_cmd_output(out)
-                    in_.flush()
-                if cmd.variable_cb:
-                    cmd.variable_cb(output)
-                total_output += "Command: {}\nOutput:\n{}".format(cmd.command, output)
-                sleep(0.05)
-            Logger().info("{} execution completed:\n\t{}".format(flow, '\n\t'.join([f"{f}" for f in flow.value])))
-        except AssertionError:
-            Logger().debug(f"{flow.name} ignored")
-        except Exception as e:
-            f, l = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{l}")
-        return total_output
-
-    @staticmethod
-    def parse(data_handler: Callable, affiliated_tables: Tuple[model.Table], command_output) -> bool:
-        raise NotImplementedError()
-
-
-class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstract, Thread, metaclass=ABCMeta):
-    def __init__(self, parameters: DotDict, data_handler):
+class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstract, metaclass=ABCMeta):
+    def __init__(self, parameters: DotDict, data_handler, **kwargs):
         self._execution_counter = 0
-        self._ssh: SSHClient = None
+        self._ssh = SSHLibrary()
         plugin_integration_abstract.__init__(self)
         plugin_flow_abstract.__init__(self)
         self.parameters = parameters
@@ -153,16 +101,26 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
         self._internal_event = Event()
         self._fault_tolerance = self.parameters.fault_tolerance
         self._session_errors = []
+        if kwargs.get('persistent', False):
+            target = self._persistent_worker
+        else:
+            target = self._interrupt_worker
+        self._thread = Thread(name=self.name, target=target, daemon=True)
 
-        Thread.__init__(self, name=self.name, target=self._worker, daemon=True)
+    def start(self):
+        self._thread.start()
 
     def stop(self, timeout=5):
         self._internal_event.set()
-        self.join(timeout)
+        self._thread.join(timeout)
 
     @property
     def name(self):
         return f"{self.__class__.__name__}: {self.parameters.alias}"
+
+    @property
+    def interval(self):
+        return self._interval
 
     def __enter__(self):
         host = self.parameters.host
@@ -178,23 +136,13 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
             else:
                 Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
-            self._ssh = SSHClient()
-            self._ssh.load_system_host_keys()
+            self._ssh.open_connection(host, self.name, port)
             if certificate:
-                self._ssh.connect(host, port, username, password, key_filename=certificate)
+                self._ssh.login_with_public_key(username, certificate, password)
             else:
-                self._ssh.set_missing_host_key_policy(AutoAddPolicy())
-                self._ssh.connect(host, port, username, password)
-        except AuthenticationException:
-            try:
-                transport = self._ssh.get_transport()
-                try:
-                    transport.auth_none(username)
-                except AuthenticationException:
-                    pass
-                transport.auth_publickey(username, None)
-            except Exception as err:
-                raise SSHException(err)
+                self._ssh.login(username, password)
+        except Exception as err:
+            raise SSHException(err)
         except PlugInError as e:
             self.stop()
             logger.error(f"{e}")
@@ -215,18 +163,24 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
             ))
         else:
             self._session_errors.clear()
-        if self._ssh:
-            self._ssh.close()
+
+        if self._is_logged_in:
+            self._ssh.switch_connection(self.name)
+            self._ssh.close_connection()
             self._is_logged_in = False
         Logger().info(f"Command '{self.name} {self.parameters.alias}' iteration ended")
 
     @property
     def is_continue_expected(self):
-        if all([not self.parameters.event.isSet(), not self._internal_event.isSet()]):
-            Logger().debug(f'{self.name} - Continue')
-            return True
-        Logger().debug(f'{self.name} - Stop invoke')
-        return False
+        if self.parameters.event.isSet():
+            Logger().info(f"Stop requested by external source")
+            return False
+        if self._internal_event.isSet():
+            Logger().info(f"Stop requested internally")
+            return False
+
+        Logger().debug(f'{self.name} - Continue')
+        return True
 
     def __str__(self):
         return "PlugIn {}: {} [Interval: {}]".format(self.name, self.parameters.alias, self._interval)
@@ -243,22 +197,72 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
                     (end_ts - start_ts).total_seconds()
                 ))
 
-    def _worker(self):
-        Logger().info(f"Start interactive session for '{self.name}'")
+    def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
+        total_output = ''
+        try:
+            ssh_client.switch_connection(self.name)
+            assert len(flow.value) > 0
+            flow_values = getattr(self, flow.value)
+            for cmd in flow_values:
+                if cmd.interactive:
+                    output = ssh_client.write(cmd.command)
+                else:
+                    output = ''
+                    out, err, rc = '', '', 0
+                    for i in range(0, cmd.repeat):
+                        out, err, rc = ssh_client.execute_command(cmd.command, return_stderr=True, return_rc=True)
+                        output += (err + '\n') if len(err) > 0 else ''
+                        output += (out + '\n') if len(out) > 0 else ''
+                        rc = rc if rc > 0 else rc
+                        if cmd.variable_cb:
+                            cmd.variable_cb(output.strip())
+                        if cmd.parser:
+                            cmd.parser(output.strip())
+                    output = "RC: {}\n{}".format(rc, output)
+
+                total_output += "Command: {}\nOutput:\n{}".format(cmd.command, output)
+                sleep(0.05)
+            Logger().info(f"{flow.name}: execution completed")
+        except AssertionError:
+            Logger().debug(f"{flow.name} ignored")
+        except Exception as e:
+            f, l = get_error_info()
+            raise type(e)(f"{e}; File: {f}:{l}")
+
+    def _persistent_worker(self):
+        Logger().info(f"Start persistent session for '{self.name}'")
         while self.is_continue_expected:
             with self as ssh:
-                self._run_command(ssh, self.flow_type.Setup, self.parameters)
+                self._run_command(ssh, self.flow_type.Setup)
                 while self.is_continue_expected:
                     start_ts = datetime.now()
                     next_ts = start_ts + timedelta(seconds=self.parameters.interval)
-                    data = self._run_command(ssh, self.flow_type.Command, self.parameters)
+                    self._run_command(ssh, self.flow_type.Command)
                     self._evaluate_duration(start_ts, next_ts, self.name)
-                    Logger().info("{} - {} chars received".format(self.name, len(data)))
-                    self.parse(self._data_handler, self.affiliated_tables(), data)
-                    self._execution_counter += 1
                     while datetime.now() < next_ts:
                         if not self.is_continue_expected:
                             break
                         sleep(0.5)
-                self._run_command(ssh, self.flow_type.Teardown, self.parameters)
-        Logger().info(f"End interactive session for '{self}'")
+                self._run_command(ssh, self.flow_type.Teardown)
+        Logger().info(f"End persistent session for '{self}'")
+
+    def _interrupt_worker(self):
+        Logger().info(f"Start interrupt-session for '{self.name}'")
+        with self as ssh:
+            self._run_command(ssh, self.flow_type.Setup)
+        while self.is_continue_expected:
+            with self as ssh:
+                start_ts = datetime.now()
+                next_ts = start_ts + timedelta(seconds=self.parameters.interval)
+                self._run_command(ssh, self.flow_type.Command)
+                self._evaluate_duration(start_ts, next_ts, self.name)
+            while datetime.now() < next_ts:
+                if not self.is_continue_expected:
+                    break
+                sleep(0.5)
+        with self as ssh:
+            self._run_command(ssh, self.flow_type.Teardown)
+        Logger().info(f"End interrupt-session for '{self}'")
+
+    def parse(self, command_output) -> bool:
+        raise NotImplementedError()

@@ -29,7 +29,7 @@ class my_address(plugins.PlugInAPI):
         return Address(), Employment()
 
     @property
-    def commands(self):
+    def periodic_commands(self):
         return plugins.Command('ls -l'),
 
     @staticmethod
@@ -44,7 +44,7 @@ class my_job(plugins.PlugInAPI):
         return Employment(),
 
     @property
-    def commands(self):
+    def periodic_commands(self):
         return plugins.Command('ls -l'),
 
     @staticmethod

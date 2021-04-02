@@ -34,7 +34,7 @@ class TimeLine(Table):
 
 class Points(Table):
     def __init__(self):
-        Table.__init__(self, fields=(Field('TL_REF', FieldType.Int), Field('Action'), Field('Title')))
+        Table.__init__(self, fields=(Field('PointName'), Field('Start'), Field('End')))
 
 
 @Singleton
@@ -62,11 +62,6 @@ class DataHandlerService(sql.SQL_DB):
         self._event: Event = None
         self._threads: List[Thread] = []
         self._queue = threadsafe.tsQueue()
-        self._last_time_tick = None
-
-    @property
-    def last_time_tick(self):
-        return self._last_time_tick
 
     @property
     def is_active(self):
@@ -80,7 +75,6 @@ class DataHandlerService(sql.SQL_DB):
         return self._queue
 
     def start(self,  event=Event()):
-
         if self.is_new:
             for _, table in TableSchemaService().tables.items():
                 if not self.table_exist(table.name):
@@ -111,9 +105,12 @@ class DataHandlerService(sql.SQL_DB):
                     if type(item).__name__ == threadsafe.Empty.__name__:
                         raise threadsafe.Empty()
                     last_tl_id = TableSchemaService().tables.TimeLine.refresh_ts_id(self, item.timestamp)
-                    insert_sql_str, rows = item.get_insert_data(TL_REF=last_tl_id)
-                    self.execute(insert_sql_str, rows)
-                    Logger().debug("\n\t{}\n\t{}".format(insert_sql_str, '\n\t'.join([str(r) for r in rows])))
+                    insert_sql_str, rows = item(TL_ID=last_tl_id)
+
+                    result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
+                    item.result = result
+                    Logger().debug("\n\t{}\n\t{}".format(insert_sql_str,
+                                                         '\n\t'.join([str(r) for r in (rows if rows else result)])))
             except threadsafe.Empty:
                 sleep(2)
             except Exception as e:

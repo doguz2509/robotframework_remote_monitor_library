@@ -23,6 +23,16 @@ def get_reader_class_from_module(path, module_name, filter_class=None):
     return reader_classes
 
 
+def show_plugins(plugins):
+    line_template = "{:20s}: {:20s}: {}\n"
+    msg = line_template.format('Alias', 'Class', 'Table')
+    for k, v in plugins.items():
+        msg += line_template.format(k, v.__name__, '')
+        for t in v.affiliated_tables():
+            msg += line_template.format('', '', t.name)
+    logger.info(msg, also_console=True)
+
+
 def flat_iterator(*data):
     for item in data:
         if isinstance(item, (list, tuple)):
