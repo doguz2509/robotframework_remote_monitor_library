@@ -5,6 +5,8 @@ from threading import currentThread
 
 from .singleton import Singleton
 
+LINE_TEMPLATE = "Thread: {thread:30s} -> {msg}"
+
 
 @Singleton
 class Logger:
@@ -12,7 +14,6 @@ class Logger:
         self._logger = logging.getLogger(__name__)
         handler = logging.StreamHandler()
         self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
-        # self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
         handler.setFormatter(self._formatter)
         self._logger.addHandler(logging.StreamHandler())
 
@@ -36,19 +37,19 @@ class Logger:
         self._logger.setLevel(level)
 
     def info(self, msg):
-        self._logger.info(f"{currentThread().name}: {msg}")
+        self._logger.info(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
 
     def debug(self, msg):
-        self._logger.debug(f"{currentThread().name}: {msg}")
+        self._logger.debug(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
 
     def warning(self, msg):
-        self._logger.warning(f"{currentThread().name}: {msg}")
+        self._logger.warning(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
 
     def error(self, msg):
-        self._logger.error(f"{currentThread().name}: {msg}")
+        self._logger.error(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
 
     def critical(self, msg):
-        self._logger.critical(f"{currentThread().name}: {msg}")
+        self._logger.critical(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
 
     def __enter__(self):
         return self
