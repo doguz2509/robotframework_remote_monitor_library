@@ -56,7 +56,7 @@ def load_modules(*modules, **options):
     # if custom_plugins:
     #     for plugins_ in re.split(r'\s*,\s*', custom_plugins):
     #         custom_plugins_modules.update(load_classes_from_module_by_name(current_dir, plugins_,
-    #                                                                        plugin_execution_abstract))
+    #                                                                        plugin_ssh_runner))
     # for buildin_module in get_class_from_module(builtin_plugins):
     #     if buildin_module not in custom_plugins_modules.keys():
     #         custom_plugins_modules.update({'atop': buildin_module})

@@ -11,7 +11,7 @@ from system_trace import builtin_plugins
 from system_trace.api import Logger, db, host_registry
 from system_trace.api.db import TableSchemaService
 from system_trace.model.chart_model.html_template import HTML, HTML_IMAGE_REF
-from system_trace.model.ssh_plugin_model import plugin_execution_abstract
+from system_trace.model.runner_model.ssh_runner import plugin_ssh_runner
 from system_trace.utils import show_plugins, get_error_info
 from system_trace.utils.load_modules import load_modules
 from system_trace.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
@@ -106,12 +106,12 @@ class SystemTraceLibrary(_data_view_and_analyse):
         # if custom_plugins:
         #     for plugins_ in re.split(r'\s*,\s*', custom_plugins):
         #         custom_plugins_modules.update(load_classes_from_module_by_name(current_dir, plugins_,
-        #                                                                        plugin_execution_abstract))
+        #                                                                        plugin_ssh_runner))
         # for buildin_module in get_class_from_module(builtin_plugins):
         #     if buildin_module not in custom_plugins_modules.keys():
         #         custom_plugins_modules.update({'atop': buildin_module})
         plugin_modules = load_modules(builtin_plugins, custom_plugins,
-                                      base_path=current_dir, base_class=plugin_execution_abstract)
+                                      base_path=current_dir, base_class=plugin_ssh_runner)
         db.PlugInService().update(**plugin_modules)
 
         db.DataHandlerService(os.path.join(out_location, location), file_name, cumulative).start()

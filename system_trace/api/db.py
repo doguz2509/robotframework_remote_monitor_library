@@ -6,7 +6,7 @@ from robot.api import logger
 from robot.utils import DotDict
 
 from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
-from system_trace.model.ssh_plugin_model import plugin_execution_abstract
+from system_trace.model.runner_model.ssh_runner import plugin_ssh_runner
 from system_trace.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
 from system_trace.utils.sql_engine import insert_sql
 
@@ -61,7 +61,7 @@ class TableSchemaService:
 
 
 @Singleton
-class PlugInService(dict, Mapping[AnyStr, plugin_execution_abstract]):
+class PlugInService(dict, Mapping[AnyStr, plugin_ssh_runner]):
     def update(self, **plugin_modules):
         for plugin in plugin_modules.values():
             for table in plugin.affiliated_tables():

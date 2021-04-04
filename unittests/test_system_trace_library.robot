@@ -13,11 +13,14 @@ Test Teardown  run keywords  Stop period   ${TEST_NAME}
 Suite Teardown  run keywords  Close host connection  alias=${SUITE_NAME}
 ...             AND  generate module statistics
 
+*** Variables ***
+${DURATION}  10s
+
 *** Test Cases ***
 Test 01
     [Tags]    DEBUG
-    sleep  10s  make something here
+    sleep  ${DURATION}  make something here
 
 Test 02
     [Tags]    DEBUG
-    sleep  10s  make something here
+    sleep  ${DURATION}  make something again here
