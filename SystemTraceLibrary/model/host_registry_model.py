@@ -50,7 +50,7 @@ class HostModule:
 
     def start(self):
         self._configuration.update({'event': Event()})
-        DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.affiliated_host,
+        DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.name,
                                                 TableSchemaService().tables.TraceHost.columns), None,
                                      self.alias)
 

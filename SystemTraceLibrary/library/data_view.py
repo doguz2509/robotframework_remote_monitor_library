@@ -44,7 +44,7 @@ class data_view_and_analyse:
         for alias, plugin in {k: v for k, v in module.active_plugins.items()}.items():
             for chart in plugin.affiliated_charts():
                 try:
-                    sql_query = chart.compose_sql_query(host_name=plugin.affiliated_host, **marks)
+                    sql_query = chart.compose_sql_query(host_name=plugin.name, **marks)
                     logger.debug(f"{plugin.type}{f'_{period}' if period else ''}_{marks}\n{sql_query}")
                     for picture_name, file_path in chart.generate(self._db,
                                                                   self._image_path,

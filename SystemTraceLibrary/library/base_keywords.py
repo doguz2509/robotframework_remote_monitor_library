@@ -142,12 +142,6 @@ class base_keywords(data_view_and_analyse):
 
     def _stop_period(self, period_name=None, **options):
         module: HostModule = self._modules.get_module(**options)
-        # period_data = db.DataHandlerService().execute(select_sql(db.TableSchemaService().tables.Points.name, '*',
-        #                                                          HOST_REF=module.host_id,
-        #                                                          PointName=period_name or module.alias))[0]
-        #
-        # updated_period_data = list(period_data)[:3] + [datetime.now().strftime(DB_DATETIME_FORMAT)]
-
-        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.affiliated_host, 'End',
+        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))

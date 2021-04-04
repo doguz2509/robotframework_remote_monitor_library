@@ -64,6 +64,12 @@ class plugin_runner_abstract:
     def teardown(self) -> CommandsType:
         return ()
 
+    def __enter__(self):
+        raise NotImplementedError()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        raise NotImplementedError()
+
 
 class plugin_integration_abstract(object):
     def __hash__(self):
