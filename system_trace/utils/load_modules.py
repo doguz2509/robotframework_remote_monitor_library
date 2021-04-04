@@ -52,11 +52,45 @@ def load_modules(*modules, **options):
     logger.debug(f"[ 'SystemTraceLibrary' ] Read Module Classes: {result_modules}")
     return result_modules
 
-    # custom_plugins_modules = {}
-    # if custom_plugins:
-    #     for plugins_ in re.split(r'\s*,\s*', custom_plugins):
-    #         custom_plugins_modules.update(load_classes_from_module_by_name(current_dir, plugins_,
-    #                                                                        plugin_ssh_runner))
-    # for buildin_module in get_class_from_module(builtin_plugins):
-    #     if buildin_module not in custom_plugins_modules.keys():
-    #         custom_plugins_modules.update({'atop': buildin_module})
+
+def _plugin_walk(plugins, callback):
+    for k, v in plugins.items():
+        callback(k, v.__name__, '')
+        for t in v.affiliated_tables():
+            callback('', '', t.name)
+
+
+class max_lookup:
+    def __init__(self):
+        self._max = 0
+
+    def __call__(self, *words):
+        for i in [str(w) for w in words]:
+            if len(i) > self._max:
+                self._max = len(i)
+
+    @property
+    def max(self):
+        return self._max
+
+
+class msg_append:
+    def __init__(self, column_width, *column_names):
+        self._line_template = f"|{{:{column_width}s}}|{{:{column_width}s}}|{{:{column_width}s}}|\n"
+        self._table_line = '+{fill}+{fill}+{fill}+\n'.format(fill='-'.join(['' for i in range(0, column_width + 1)]))
+        self._msg = self._table_line + self._line_template.format(*column_names)
+
+    def __call__(self, *words):
+        self._msg += self._line_template.format(*words)
+
+    def __str__(self):
+        return self._msg + self._table_line
+
+
+def plugins_table(plugins):
+    m_lookup = max_lookup()
+    _plugin_walk(plugins, m_lookup)
+    column_width = m_lookup.max + 2
+    msg = msg_append(column_width, 'Alias', 'Class', 'Table')
+    _plugin_walk(plugins, msg)
+    logger.info(f"{msg}", also_console=True)

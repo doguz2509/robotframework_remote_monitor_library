@@ -1,5 +1,4 @@
-
-from system_trace.keywords.library import SystemTraceLibrary
+from system_trace.library import SystemTraceLibrary
 from system_trace import utils
 from system_trace import api
 from system_trace import builtin_plugins
@@ -7,6 +6,5 @@ from system_trace import builtin_plugins
 
 __all__ = [
     'api',
-    'builtin_plugins',
-    'SystemTraceLibrary'
+    'builtin_plugins'
 ]

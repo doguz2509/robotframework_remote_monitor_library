@@ -43,9 +43,9 @@ SystemTraceLibrary allow creating extended plugins for trace customer purposes
 Main init project file for expose Plugin class
 
     __init__.py
-        from .runner import PlugInName
+        from .runner import MyPlugInName
         
-        __all__ = [PlugInName.__name__]
+        __all__ = [MyPlugInName.__name__]
 
 ##### Runner definition
 
@@ -54,7 +54,7 @@ Main init project file for expose Plugin class
         from .tables import plugin_table
         from .charts import plugin_chart
         
-        class PlugInName(plugins.PlugInAPI):
+        class MyPlugInName(plugins.PlugInAPI):
             # If constractor override required, keep following signature 
             def __init__(self, parameters, data_handler, host_id, **kwargs):
                 plugins.PlugInAPI.__init__(self, parameters, data_handler, host_id=host_id, **kwargs)
@@ -62,22 +62,19 @@ Main init project file for expose Plugin class
 
             @staticmethod
             def affiliated_tables() -> Iterable[model.Table]:
-                return plugin_table(),
+                return my_plugin_table(),
             
             @staticmethod
             def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
-                return aTopSystemLevelChart('CPU')
+                return MyPlugInChart(),
 
-    @staticmethod
-    def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
-        return aTopSystemLevelChart('CPU'),
 
 ##### Tables definition
 
     tables.py
         from system_trace.api import model
 
-        class plugin_table(model.TimeReferencedTable / model.Table):
+        class my_plugin_table(model.TimeReferencedTable / model.Table):
             def __init__(self):
                 model.TimeReferencedTable.__init__(self, name='plugin_table',
                                                    fields=[model.Field('field01'),
@@ -95,7 +92,7 @@ Main init project file for expose Plugin class
     charts.py
         from system_trace.api.plugins import ChartAbstract
         
-        class plugin_chart(ChartAbstract):
+        class MyPlugInChart(ChartAbstract):
             pass
         
         Creating charts require familirisation with pandas & matplotlib
