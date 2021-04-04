@@ -5,12 +5,12 @@ Documentation    Suite description
 Library  SystemTraceLibrary.SystemTraceLibrary
 Library  BuiltIn
 
-Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}  alias=${SUITE_NAME}
+Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}
 ...          AND  start trace plugin  aTopPlugIn  interval=${INTERVAL}  persistent=${PERSISTENT}
 Test Setup   Start period  ${TEST_NAME}
 Test Teardown  run keywords  Stop period   ${TEST_NAME}
 ...             AND  generate module statistics  ${TEST_NAME}
-Suite Teardown  run keywords  Close host connection  alias=${SUITE_NAME}
+Suite Teardown  run keywords  Close host connection
 ...             AND  generate module statistics
 
 *** Variables ***

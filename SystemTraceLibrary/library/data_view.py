@@ -44,12 +44,12 @@ class data_view_and_analyse:
         for alias, plugin in {k: v for k, v in module.active_plugins.items()}.items():
             for chart in plugin.affiliated_charts():
                 try:
-                    sql_query = chart.compose_sql_query(host_name=plugin.name, **marks)
+                    sql_query = chart.compose_sql_query(host_name=plugin.thread_name, **marks)
                     logger.debug(f"{plugin.type}{f'_{period}' if period else ''}_{marks}\n{sql_query}")
                     for picture_name, file_path in chart.generate(self._db,
                                                                   self._image_path,
                                                                   sql_query,
-                                                              prefix=f"{plugin.type}{f'_{period}' if period else ''}"):
+                                                                  prefix=f"{plugin.type}{f'_{period}' if period else ''}"):
                         relative_image_path = os.path.relpath(file_path, os.path.normpath(
                             os.path.join(self._output_dir, self._log_path)))
                         body += HTML_IMAGE_REF.format(relative_path=relative_image_path, picture_title=picture_name)
