@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from system_trace.model.schema_model import Table, Field, Query, ForeignKey, FieldType, DataUnit, SQL_ACTIONS
+from system_trace.model.schema_model import Table, Field, Query, ForeignKey, FieldType, DataUnit
 
 
 class TimeReferencedTable(Table):
@@ -26,6 +26,5 @@ __all__ = [
     'FieldType',
     'ForeignKey',
     'Query',
-    'DataUnit',
-    'SQL_ACTIONS'
+    'DataUnit'
 ]

@@ -98,3 +98,14 @@ Main init project file for expose Plugin class
         Creating charts require familirisation with pandas & matplotlib
 
 
+
+
+## Prerequisites
+    atop  preinstalled
+
+## Supported OS
+    All linux based system where atop supported
+
+## Open issues
+ - Add period histogram square or vertical line over system graph for indicate different period's start/stop 
+   on same chart instead of create separated charts per period

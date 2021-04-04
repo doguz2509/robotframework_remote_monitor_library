@@ -136,22 +136,10 @@ class Table(object):
         return self._foreign_keys
 
 
-class SQL_ACTIONS(Enum):
-    SELECT = 'select'
-    INSERT = 'insert'
-    UPDATE = 'update'
-
-
 class DataUnit:
     def __init__(self, table: Table, *data, **kwargs):
         self._table = table
         self._ts = datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
-        # self._sql_statement = kwargs.get('sql', None)
-        # if self._sql_statement:
-        #     self._sql_action = SQL_ACTIONS[self._sql_statement.split(' ')[0].strip().upper()]
-        # else:
-        #     self._sql_action: SQL_ACTIONS = kwargs.get('sql_action', SQL_ACTIONS.INSERT)
-
         self._timeout = kwargs.get('timeout', None)
         self._timer: Timer = None
         self._data: list = list(data)
@@ -177,22 +165,9 @@ class DataUnit:
                 data[i] = table.template(**_temp)
         return data
 
-    def get_select_data(self, **where):
-        if self._sql_statement:
-            return self._sql_statement.format(**where), None
-        return select_sql(self._table.name, **where), None
-
     def get_insert_data(self, **updates) -> Tuple[str, Iterable[Iterable]]:
         data = self._update_data(self._table, self._data, **updates)
-        # if self._sql_statement:
-        #     return self._sql_statement, [tuple(r) for r in data]
         return insert_sql(self._table.name, [t.name for t in self._table.fields]), [tuple(r) for r in data]
-
-    def get_update_data(self, **updates) -> Tuple[str, Iterable[Iterable]]:
-        data = self._update_data(self._table, self._data, **updates)
-        if self._sql_statement:
-            return self._sql_statement, [tuple(r) for r in data]
-        return update_sql(self._table.name, [t.name for t in self._table.fields]), [tuple(r) for r in data]
 
     def __str__(self):
         return f"{self.get_insert_data()}"
@@ -207,12 +182,7 @@ class DataUnit:
         if self._timeout:
             self._timer = Timer(self._timeout, self._raise_timeout(f"Timeout expired on query for table {self._table}"))
             self._timer.start()
-        # if self._sql_action == SQL_ACTIONS.SELECT:
-        #     return self.get_select_data(**updates)
-        # if self._sql_action == SQL_ACTIONS.INSERT:
         return self.get_insert_data(**updates)
-        # if self._sql_action == SQL_ACTIONS.UPDATE:
-        #     return self.get_update_data(**updates)
 
     @property
     def result(self):
