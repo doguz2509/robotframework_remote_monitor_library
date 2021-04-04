@@ -11,11 +11,12 @@ setup(
     author=__author__,
     author_email=__author_email__,
     description='RobotFramework extended keyword library; Allow background system tracing; aTop+',
-    long_description=open(r'./README.md').read(),
+    long_description=open(r'./README.md', encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
     install_requires=[
         'robotframework~=3.2.2',
         'robotframework-sshlibrary',
-        'matplotlib',
+        'matplotlib~=3.4.0',
         'pandas',
     ],
     classifiers=[
