@@ -1,8 +1,8 @@
 from typing import Iterable, Tuple
 
-import system_trace.model.runner_model.runner_abstracts
-from system_trace.api import plugins
-from system_trace.api import model
+import SystemTraceLibrary.model.runner_model.runner_abstracts
+from SystemTraceLibrary.api import plugins
+from SystemTraceLibrary.api import model
 
 
 class Address(model.Table):
@@ -31,7 +31,7 @@ class my_address(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return system_trace.model.runner_model.runner_abstracts.Command('ls -l'),
+        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command('ls -l'),
 
     @staticmethod
     def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output: str):
@@ -46,7 +46,7 @@ class my_job(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return system_trace.model.runner_model.runner_abstracts.Command('ls -l'),
+        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command('ls -l'),
 
     @staticmethod
     def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output) -> bool:

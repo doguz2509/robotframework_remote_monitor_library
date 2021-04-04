@@ -1,8 +1,8 @@
 from . import plugins
 from . import model
 from . import db
-from system_trace.model import host_registry_model as host_registry
-from system_trace.utils import Logger as BgLogger
+from SystemTraceLibrary.model import host_registry_model as host_registry
+from SystemTraceLibrary.utils import Logger as BgLogger
 
 Logger = BgLogger()
 

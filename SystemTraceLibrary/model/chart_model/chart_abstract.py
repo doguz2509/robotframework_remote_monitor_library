@@ -10,7 +10,7 @@ import warnings
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from system_trace.utils import get_error_info
+from SystemTraceLibrary.utils import get_error_info
 
 warnings.filterwarnings("ignore")
 

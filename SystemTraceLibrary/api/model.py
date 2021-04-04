@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from system_trace.model.schema_model import Table, Field, Query, ForeignKey, FieldType, DataUnit
+from SystemTraceLibrary.model.schema_model import Table, Field, Query, ForeignKey, FieldType, DataUnit
 
 
 class TimeReferencedTable(Table):

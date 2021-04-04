@@ -1,6 +1,6 @@
 from robot.api.deco import library
 
-from system_trace.library.base_keywords import base_keywords
+from SystemTraceLibrary.library.base_keywords import base_keywords
 
 
 @library(scope='GLOBAL', doc_format='reST')

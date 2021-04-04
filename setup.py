@@ -1,17 +1,18 @@
 from setuptools import setup, find_packages
 
-from system_trace import __author__, __author_email__, __version__, __url__
+from SystemTraceLibrary import __author__, __author_email__, __version__, __url__
 
 setup(
-    name='SystemTraceLibrary',
+    name='robotframework-systemtracelibrary',
     version=__version__,
     packages=find_packages(exclude=['venv']),
+    # package_dir={'': 'SystemTraceLibrary'},
     url=__url__,
     license='MIT',
     author=__author__,
     author_email=__author_email__,
     description='RobotFramework extended keyword library; Allow background system tracing; aTop+',
-    long_description=open('README.rst').read(),
+    long_description=open(r'./README.md').read(),
     install_requires=[
         'robotframework~=3.2.2',
         'robotframework-sshlibrary',
@@ -20,7 +21,9 @@ setup(
     ],
     classifiers=[
          "Programming Language :: Python :: 3",
-         "Operating System :: FILES Independent",
+         "Framework :: Robot Framework",
+         "Framework :: Robot Framework :: Library",
+         "Operating System :: OS Independent",
          "Development Status :: 3 - Alpha"
     ]
 )

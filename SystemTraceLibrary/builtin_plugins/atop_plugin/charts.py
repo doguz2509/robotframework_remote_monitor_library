@@ -3,8 +3,8 @@ from typing import Iterable, Tuple, List, Any
 
 from robot.api import logger
 
-from system_trace.api.plugins import ChartAbstract
-from system_trace.utils import get_error_info
+from SystemTraceLibrary.api.plugins import ChartAbstract
+from SystemTraceLibrary.utils import get_error_info
 
 
 class aTopSystemLevelChart(ChartAbstract):

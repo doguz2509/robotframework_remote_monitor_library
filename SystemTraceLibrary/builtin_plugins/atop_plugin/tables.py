@@ -1,4 +1,4 @@
-from system_trace.api import model
+from SystemTraceLibrary.api import model
 
 
 class atop_system_level_table(model.TimeReferencedTable):

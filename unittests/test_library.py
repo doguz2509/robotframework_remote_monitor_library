@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from system_trace import SystemTraceLibrary
-from system_trace.builtin_plugins.atop_plugin import aTopPlugIn
+from SystemTraceLibrary import SystemTraceLibrary
+from SystemTraceLibrary.builtin_plugins.atop_plugin import aTopPlugIn
 
 sys_trace: SystemTraceLibrary = None
 

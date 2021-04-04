@@ -10,9 +10,9 @@ from paramiko import SSHException
 from robot.api import logger
 from robot.utils import DotDict, is_truthy
 
-from system_trace.model.errors import PlugInError
-from system_trace.model.runner_model.runner_abstracts import plugin_runner_abstract
-from system_trace.utils import Logger, get_error_info
+from SystemTraceLibrary.model.errors import PlugInError, RunnerError
+from SystemTraceLibrary.model.runner_model.runner_abstracts import plugin_runner_abstract
+from SystemTraceLibrary.utils import Logger, get_error_info
 
 
 class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
@@ -37,7 +37,7 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
-        self._thread = Thread(name=self.name, target=target, daemon=True)
+        self._thread = Thread(name=self.affiliated_host, target=target, daemon=True)
 
     @property
     def host_id(self):
@@ -55,7 +55,7 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
         return f"{self.__class__.__name__}"
 
     @property
-    def name(self):
+    def affiliated_host(self):
         return self.parameters.alias
 
     @property
@@ -74,32 +74,32 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
         try:
             if len(self._session_errors) == self._fault_tolerance:
-                raise PlugInError(f"Stop plugin '{self.name}' errors count arrived to limit ({self._fault_tolerance})")
+                raise PlugInError(f"Stop plugin '{self.affiliated_host}' errors count arrived to limit ({self._fault_tolerance})")
             if len(self._session_errors) == 0:
                 Logger().info(f"Connection establishing")
             else:
                 Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
-            self._ssh.open_connection(host, self.name, port)
+            self._ssh.open_connection(host, self.affiliated_host, port)
             if certificate:
                 self._ssh.login_with_public_key(username, certificate, password)
             else:
                 self._ssh.login(username, password)
         except Exception as err:
-            raise SSHException(err)
-        except PlugInError as e:
+            f, l = get_error_info()
             self.stop()
-            logger.error(f"{e}")
+            Logger.error(f"{err}; File: {f}:{l}")
+            raise SSHException(f"{err}; File: {f}:{l}")
         else:
             self._is_logged_in = True
-        Logger().info(f"Command '{self.name} {self.parameters.alias}' iteration started")
+        Logger().info(f"Command '{self.affiliated_host} {self.parameters.alias}' iteration started")
         return self._ssh
 
     def __exit__(self, type_, value, tb):
         if value:
             self._session_errors.append(value)
             Logger().error("{name} {alias}; Error raised: {error} [{real} from {allowed}]\nTraceback: {tb}".format(
-                name=self.name,
+                name=self.affiliated_host,
                 alias=self.parameters.alias,
                 real=len(self._session_errors),
                 allowed=self._fault_tolerance,
@@ -109,10 +109,10 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             self._session_errors.clear()
 
         if self._is_logged_in:
-            self._ssh.switch_connection(self.name)
+            self._ssh.switch_connection(self.affiliated_host)
             self._ssh.close_connection()
             self._is_logged_in = False
-        Logger().info(f"Command '{self.name} {self.parameters.alias}' iteration ended")
+        Logger().info(f"Command '{self.affiliated_host} {self.parameters.alias}' iteration ended")
 
     @property
     def is_continue_expected(self):
@@ -123,11 +123,11 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"Stop requested internally")
             return False
 
-        Logger().debug(f'{self.name} - Continue')
+        Logger().debug(f'{self.affiliated_host} - Continue')
         return True
 
     def __str__(self):
-        return "PlugIn {}: {} [Interval: {}]".format(self.type, self.name, self._interval)
+        return "PlugIn {}: {} [Interval: {}]".format(self.type, self.affiliated_host, self._interval)
 
     @staticmethod
     def _evaluate_duration(start_ts, expected_end_ts, alias):
@@ -144,7 +144,7 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
     def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
         total_output = ''
         try:
-            ssh_client.switch_connection(self.name)
+            ssh_client.switch_connection(self.affiliated_host)
             assert len(flow.value) > 0
             flow_values = getattr(self, flow.value)
             for cmd in flow_values:
@@ -174,39 +174,49 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             raise type(e)(f"{e}; File: {f}:{l}")
 
     def _persistent_worker(self):
-        Logger().info(f"Start persistent session for '{self.name}'")
-        while self.is_continue_expected:
+        try:
+            Logger().info(f"Start persistent session for '{self.affiliated_host}'")
+            while self.is_continue_expected:
+                with self as ssh:
+                    self._run_command(ssh, self.flow_type.Setup)
+                    while self.is_continue_expected:
+                        start_ts = datetime.now()
+                        next_ts = start_ts + timedelta(seconds=self.parameters.interval)
+                        self._run_command(ssh, self.flow_type.Command)
+                        self._evaluate_duration(start_ts, next_ts, self.affiliated_host)
+                        while datetime.now() < next_ts:
+                            if not self.is_continue_expected:
+                                break
+                            sleep(0.5)
+                    self._run_command(ssh, self.flow_type.Teardown)
+            Logger().info(f"End persistent session for '{self}'")
+        except Exception as e:
+            f, l = get_error_info()
+            Logger.error(f"{e}; File: {f}:{l}")
+            raise RunnerError(f"{e}; File: {f}:{l}")
+
+    def _interrupt_worker(self):
+        try:
+            Logger().info(f"Start interrupt-session for '{self.affiliated_host}'")
             with self as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
-                while self.is_continue_expected:
+            while self.is_continue_expected:
+                with self as ssh:
                     start_ts = datetime.now()
                     next_ts = start_ts + timedelta(seconds=self.parameters.interval)
                     self._run_command(ssh, self.flow_type.Command)
-                    self._evaluate_duration(start_ts, next_ts, self.name)
-                    while datetime.now() < next_ts:
-                        if not self.is_continue_expected:
-                            break
-                        sleep(0.5)
-                self._run_command(ssh, self.flow_type.Teardown)
-        Logger().info(f"End persistent session for '{self}'")
-
-    def _interrupt_worker(self):
-        Logger().info(f"Start interrupt-session for '{self.name}'")
-        with self as ssh:
-            self._run_command(ssh, self.flow_type.Setup)
-        while self.is_continue_expected:
+                    self._evaluate_duration(start_ts, next_ts, self.affiliated_host)
+                while datetime.now() < next_ts:
+                    if not self.is_continue_expected:
+                        break
+                    sleep(0.5)
             with self as ssh:
-                start_ts = datetime.now()
-                next_ts = start_ts + timedelta(seconds=self.parameters.interval)
-                self._run_command(ssh, self.flow_type.Command)
-                self._evaluate_duration(start_ts, next_ts, self.name)
-            while datetime.now() < next_ts:
-                if not self.is_continue_expected:
-                    break
-                sleep(0.5)
-        with self as ssh:
-            self._run_command(ssh, self.flow_type.Teardown)
-        Logger().info(f"End interrupt-session for '{self}'")
+                self._run_command(ssh, self.flow_type.Teardown)
+            Logger().info(f"End interrupt-session for '{self}'")
+        except Exception as e:
+            f, l = get_error_info()
+            Logger.error(f"{e}; File: {f}:{l}")
+            raise RunnerError(f"{e}; File: {f}:{l}")
 
     def parse(self, command_output) -> bool:
         raise NotImplementedError()

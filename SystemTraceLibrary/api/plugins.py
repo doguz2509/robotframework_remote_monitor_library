@@ -1,10 +1,10 @@
 from abc import ABC
 
-from system_trace.model.configuration import Configuration
-from system_trace.model.runner_model.runner_abstracts import plugin_integration_abstract
-from system_trace.model.runner_model.ssh_runner import plugin_ssh_runner
-from system_trace.model.runner_model import Command, CommandsType
-from system_trace.model.chart_model.chart_abstract import ChartAbstract
+from SystemTraceLibrary.model.configuration import Configuration
+from SystemTraceLibrary.model.runner_model.runner_abstracts import plugin_integration_abstract
+from SystemTraceLibrary.model.runner_model.ssh_runner import plugin_ssh_runner
+from SystemTraceLibrary.model.runner_model import Command, CommandsType
+from SystemTraceLibrary.model.chart_model.chart_abstract import ChartAbstract
 
 
 class PlugInAPI(ABC, plugin_ssh_runner, plugin_integration_abstract):

@@ -7,8 +7,8 @@ from typing import List, Iterable, Tuple
 
 from robot.utils import DotDict
 
-from system_trace.utils import sql
-from system_trace.utils.sql_engine import insert_sql, update_sql, select_sql, DB_DATETIME_FORMAT
+from SystemTraceLibrary.utils import sql
+from SystemTraceLibrary.utils.sql_engine import insert_sql, update_sql, select_sql, DB_DATETIME_FORMAT
 
 
 class FieldType(Enum):

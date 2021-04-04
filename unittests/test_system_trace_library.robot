@@ -1,8 +1,8 @@
 *** Settings ***
 Documentation    Suite description
 
-#Library  system_trace.SystemTraceLibrary  custom_plugins=my_plug.py
-Library  system_trace.SystemTraceLibrary
+#Library  SystemTraceLibrary.SystemTraceLibrary  custom_plugins=my_plug.py
+Library  SystemTraceLibrary.SystemTraceLibrary
 Library  BuiltIn
 
 Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}  alias=${SUITE_NAME}

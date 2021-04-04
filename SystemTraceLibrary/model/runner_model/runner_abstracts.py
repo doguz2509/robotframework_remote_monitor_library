@@ -1,8 +1,8 @@
 from enum import Enum
 from typing import Iterable
 
-from system_trace.model import schema_model as model
-from system_trace.model.chart_model.chart_abstract import ChartAbstract
+from SystemTraceLibrary.model import schema_model as model
+from SystemTraceLibrary.model.chart_model.chart_abstract import ChartAbstract
 
 
 class Command:

@@ -5,9 +5,9 @@ from typing import Iterable
 
 from robot.utils import timestr_to_secs
 
-import system_trace.model.runner_model.runner_abstracts
-from system_trace.api import Logger, plugins, model
-from system_trace.utils import Size, get_error_info
+import SystemTraceLibrary.model.runner_model.runner_abstracts
+from SystemTraceLibrary.api import Logger, plugins, model
+from SystemTraceLibrary.utils import Size, get_error_info
 
 from .charts import aTopSystemLevelChart
 from .tables import atop_system_level_table
@@ -114,11 +114,11 @@ class aTopPlugIn(plugins.PlugInAPI):
         self._data_handler(model.DataUnit(self.affiliated_tables()[0], *data))
 
     @property
-    def setup(self) -> system_trace.model.runner_model.runner_abstracts.CommandsType:
-        return [system_trace.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),
-                system_trace.model.runner_model.runner_abstracts.Command(f'rm -rf {self.folder}', sudo=True),
-                system_trace.model.runner_model.runner_abstracts.Command(f'mkdir -p {self.folder}', sudo=True),
-                system_trace.model.runner_model.runner_abstracts.Command("{nohup} atop -w {folder}/{file} {interval} &".format(
+    def setup(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandsType:
+        return [SystemTraceLibrary.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),
+                SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'rm -rf {self.folder}', sudo=True),
+                SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'mkdir -p {self.folder}', sudo=True),
+                SystemTraceLibrary.model.runner_model.runner_abstracts.Command("{nohup} atop -w {folder}/{file} {interval} &".format(
                     nohup='' if self.persistent else 'nohup',
                     folder=self.folder,
                     file=self.file,
@@ -127,9 +127,9 @@ class aTopPlugIn(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return system_trace.model.runner_model.runner_abstracts.Command(f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
-                                                                        sudo=True, parser=self.parse),
+        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
+                                                                              sudo=True, parser=self.parse),
 
     @property
-    def teardown(self) -> system_trace.model.runner_model.runner_abstracts.CommandsType:
-        return system_trace.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),
+    def teardown(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandsType:
+        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),

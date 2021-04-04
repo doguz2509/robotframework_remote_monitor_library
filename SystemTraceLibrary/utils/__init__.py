@@ -1,10 +1,10 @@
-from system_trace.utils.singleton import Singleton
-from system_trace.utils.sys_utils import get_error_info
-from system_trace.utils.bg_logger import Logger
-from system_trace.utils.size import Size
-from system_trace.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, load_modules, \
+from SystemTraceLibrary.utils.singleton import Singleton
+from SystemTraceLibrary.utils.sys_utils import get_error_info
+from SystemTraceLibrary.utils.bg_logger import Logger
+from SystemTraceLibrary.utils.size import Size
+from SystemTraceLibrary.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, load_modules, \
     plugins_table
-from system_trace.utils import sql_engine as sql
+from SystemTraceLibrary.utils import sql_engine as sql
 
 
 def flat_iterator(*data):

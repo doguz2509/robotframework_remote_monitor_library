@@ -1,5 +1,5 @@
 
-from system_trace import SystemTraceLibrary
+from SystemTraceLibrary import SystemTraceLibrary
 
 
 __all__ = []

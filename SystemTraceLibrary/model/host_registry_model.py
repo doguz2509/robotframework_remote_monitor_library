@@ -3,10 +3,10 @@ from threading import Event
 
 from robot.api import logger
 
-from system_trace.api.db import TableSchemaService, DataHandlerService
-from system_trace.model.configuration import Configuration
-from system_trace.utils import Singleton
-from system_trace.utils.sql_engine import insert_sql
+from SystemTraceLibrary.api.db import TableSchemaService, DataHandlerService
+from SystemTraceLibrary.model.configuration import Configuration
+from SystemTraceLibrary.utils import Singleton
+from SystemTraceLibrary.utils.sql_engine import insert_sql
 
 
 class HostModule:
@@ -50,7 +50,7 @@ class HostModule:
 
     def start(self):
         self._configuration.update({'event': Event()})
-        DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.name,
+        DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.affiliated_host,
                                                 TableSchemaService().tables.TraceHost.columns), None,
                                      self.alias)
 

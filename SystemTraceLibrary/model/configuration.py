@@ -3,7 +3,7 @@ from threading import Event
 from robot.utils import DotDict
 from robot.utils.robottime import timestr_to_secs
 
-from system_trace.utils.sys_utils import get_error_info
+from SystemTraceLibrary.utils.sys_utils import get_error_info
 
 DEFAULT_INTERVAL = '0.5s'
 DEFAULT_FAULT_TOLERANCE = 10

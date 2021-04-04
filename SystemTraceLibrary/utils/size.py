@@ -142,7 +142,7 @@ class Size(type):
         else:
             raise ValueError("Argument '{}' not match operation {}".format(other, operation))
 
-        return Size(number=result_number, format=result_format.name)
+        return Size(number=result_number, format=result_format.affiliated_host)
 
     def __eq__(self, other):
         return self._compare_operation(other, operator.eq)

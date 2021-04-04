@@ -5,12 +5,12 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
-from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
-from system_trace.model.runner_model.ssh_runner import plugin_ssh_runner
-from system_trace.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
-from system_trace.utils.sql_engine import insert_sql
+from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
+from SystemTraceLibrary.model.runner_model.ssh_runner import plugin_ssh_runner
+from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
+from SystemTraceLibrary.utils.sql_engine import insert_sql
 
-DEFAULT_DB_FILE = 'system_trace.db'
+DEFAULT_DB_FILE = 'SystemTraceLibrary.db'
 TICKER_INTERVAL = 1
 
 
@@ -96,7 +96,8 @@ class DataHandlerService(sql.SQL_DB):
             for name, table in TableSchemaService().tables.items():
                 try:
                     assert not self.table_exist(table.name), f"Table '{name}' already exists"
-                    self.create_table(table.name, sql.create_table_sql(table.name, table.fields, table.foreign_keys))
+                    self.create_table(table.name, sql.create_table_sql(table.name, table.fields,
+                                                                                  table.foreign_keys))
                 except AssertionError as e:
                     logger.warn(f"{e}")
                 except Exception as e:

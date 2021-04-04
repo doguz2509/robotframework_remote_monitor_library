@@ -7,17 +7,17 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 from robot.running import TestSuite
 
 from .data_view import data_view_and_analyse
-from system_trace import builtin_plugins
-from system_trace.api import Logger, db
-from system_trace.model.host_registry_model import HostRegistryCache, HostModule
-from system_trace.model.runner_model import plugin_ssh_runner
-from system_trace.utils import load_modules, get_error_info
+from SystemTraceLibrary import builtin_plugins
+from SystemTraceLibrary.api import Logger, db
+from SystemTraceLibrary.model.host_registry_model import HostRegistryCache, HostModule
+from SystemTraceLibrary.model.runner_model import plugin_ssh_runner
+from SystemTraceLibrary.utils import load_modules, get_error_info
 from ..utils.load_modules import plugins_table
-from system_trace.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
+from SystemTraceLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
 DEFAULT_SYSTEM_TRACE_LOG = 'logs'
-DEFAULT_SYSTEM_LOG_FILE = 'system_trace.log'
+DEFAULT_SYSTEM_LOG_FILE = 'SystemTraceLibrary.log'
 
 
 class base_keywords(data_view_and_analyse):
@@ -51,7 +51,7 @@ class base_keywords(data_view_and_analyse):
                                       base_path=current_dir, base_class=plugin_ssh_runner)
         db.PlugInService().update(**plugin_modules)
 
-        db.DataHandlerService(os.path.join(out_location, location), file_name, cumulative).start()
+        db.DataHandlerService(os.path.normpath(os.path.join(out_location, location)), file_name, cumulative).start()
         super().__init__(db.DataHandlerService(), self._modules, location)
         plugins_table(db.PlugInService())
 
@@ -148,6 +148,6 @@ class base_keywords(data_view_and_analyse):
         #
         # updated_period_data = list(period_data)[:3] + [datetime.now().strftime(DB_DATETIME_FORMAT)]
 
-        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
+        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.affiliated_host, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
