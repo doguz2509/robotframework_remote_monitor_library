@@ -1,3 +1,4 @@
+
 from enum import Enum
 from typing import Iterable
 
@@ -39,8 +40,7 @@ class plugin_runner_abstract:
 
     def store_variable(self, variable_name):
         def _(value):
-            setattr(self, variable_name, value)
-
+            self.variables[variable_name] = value
         return _
 
     @property

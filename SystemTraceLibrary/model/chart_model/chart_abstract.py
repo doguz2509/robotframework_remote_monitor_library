@@ -37,6 +37,11 @@ class ChartAbstract(ABC):
 
     @property
     @abstractmethod
+    def sections(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
     def get_sql_query(self) -> str:
         raise NotImplementedError()
 
