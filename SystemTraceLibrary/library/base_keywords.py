@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 from robot.api import logger
@@ -23,7 +24,7 @@ DEFAULT_SYSTEM_LOG_FILE = 'SystemTraceLibrary.log'
 class base_keywords(data_view_and_analyse):
     ROBOT_LISTENER_API_VERSION = 3
 
-    def __init__(self, location='logs', file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False, custom_plugins=None):
+    def __init__(self, location='logs', file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False, custom_plugins=''):
         """
         System trace module
 
@@ -47,7 +48,7 @@ class base_keywords(data_view_and_analyse):
             log.set_log_destination(abs_log_file_path)
             logger.write(f'<a href="{rel_log_file_path}">{file_name}</a>', level='WARN', html=True)
 
-        plugin_modules = load_modules(builtin_plugins, custom_plugins,
+        plugin_modules = load_modules(builtin_plugins, re.split(r'\s*,\s*', custom_plugins),
                                       base_path=current_dir, base_class=plugin_ssh_runner)
         db.PlugInService().update(**plugin_modules)
 
