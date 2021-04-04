@@ -12,6 +12,10 @@ class aTopSystemLevelChart(ChartAbstract):
         self._sections = sections
         ChartAbstract.__init__(self)
 
+    @property
+    def sections(self):
+        return self._sections
+
     def y_axes(self, data: [Iterable[Any]]) -> Iterable[Any]:
         return [i for i in json.loads([y[0] for y in data][0]) if i not in ['no', 'SUB_ID']]
 
