@@ -5,6 +5,7 @@ from threading import RLock
 from typing import List
 
 DEFAULT_DB_FILE = ":memory:"
+DB_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name} ({columns} {foreign_keys})"""
 SELECT_TABLE = "SELECT {fields} FROM {table}"
 SELECT_TABLE_WHERE = "SELECT {fields} FROM {table} WHERE {expression}"
@@ -137,8 +138,11 @@ def create_table_sql(name, columns: List, foreign_keys: List):
                                         if len(foreign_keys) > 0 else '')
 
 
-def select_sql(name, **filter_data):
-    fields = ', '.join([f"{t}" for t in filter_data.keys()])
+def select_sql(name, *fields, **filter_data):
+    if len(fields) == 0:
+        fields = ', '.join([f"{t}" for t in filter_data.keys()])
+    else:
+        fields = ', '.join([f"{t}" for t in fields])
     where = ' AND '.join(f"{f} == '{v}'" for f, v in filter_data.items())
     return f'SELECT {fields}\nFROM {name}\nWHERE {where}'
 
@@ -155,5 +159,8 @@ __all__ = [
     'SQL_DB',
     'create_table_sql',
     'insert_sql',
+    'select_sql',
+    'update_sql',
+    'DB_DATETIME_FORMAT',
     'FOREIGN_KEY_TEMPLATE'
 ]

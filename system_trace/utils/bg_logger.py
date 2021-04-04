@@ -11,7 +11,7 @@ class Logger:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         handler = logging.StreamHandler()
-        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(name)s  %(message)s")
+        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
         # self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
         handler.setFormatter(self._formatter)
         self._logger.addHandler(logging.StreamHandler())

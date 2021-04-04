@@ -1,18 +1,23 @@
+from datetime import datetime
 from threading import Event, Thread
 from time import sleep
 from typing import List, AnyStr, Mapping
 
+from robot.api import logger
 from robot.utils import DotDict
 
-from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query
+from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from system_trace.model.ssh_plugin_model import plugin_execution_abstract
 from system_trace.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
-from system_trace.utils.sql_engine import insert_sql
+from system_trace.utils.sql_engine import insert_sql, DB_DATETIME_FORMAT
 
 DEFAULT_DB_FILE = 'system_trace.db'
 TICKER_INTERVAL = 1
-TIME_REFERENCE_FIELD = Field('TL_REF', FieldType.Int)
-FOREIGN_KEY = ForeignKey('TL_REF', 'TimeLine', 'TL_ID')
+
+
+class TraceHost(Table):
+    def __init__(self):
+        super().__init__(name=None, fields=[Field('HOST_ID', FieldType.Int, True), Field('HostName')])
 
 
 class TimeLine(Table):
@@ -34,25 +39,33 @@ class TimeLine(Table):
 
 class Points(Table):
     def __init__(self):
-        Table.__init__(self, fields=(Field('PointName'), Field('Start'), Field('End')))
+        Table.__init__(self,
+                       fields=(Field('HOST_REF', FieldType.Int), Field('PointName'), Field('Start'), Field('End')),
+                       foreign_keys=[ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID')])
 
 
 @Singleton
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TimeLine(), Points()):
-            self.register_table(builtin_table, False)
+        for builtin_table in (TraceHost(), TimeLine(), Points()):
+            self.register_table(builtin_table)
 
     @property
     def tables(self):
         return self._tables
 
-    def register_table(self, table: Table, assign_to_timeline=True):
-        if assign_to_timeline:
-            table.fields.insert(0, TIME_REFERENCE_FIELD)
-            table.foreign_keys.insert(0, FOREIGN_KEY.clone())
+    def register_table(self, table: Table):
         self._tables[table.name] = table
+
+
+@Singleton
+class PlugInService(dict, Mapping[AnyStr, plugin_execution_abstract]):
+    def update(self, **plugin_modules):
+        for plugin in plugin_modules.values():
+            for table in plugin.affiliated_tables():
+                TableSchemaService().register_table(table)
+        super().update(**plugin_modules)
 
 
 @Singleton
@@ -74,12 +87,20 @@ class DataHandlerService(sql.SQL_DB):
             return
         return self._queue
 
+    def add_task(self, task: DataUnit):
+        self.queue.put(task)
+
     def start(self,  event=Event()):
         if self.is_new:
-            for _, table in TableSchemaService().tables.items():
-                if not self.table_exist(table.name):
+            for name, table in TableSchemaService().tables.items():
+                try:
+                    assert not self.table_exist(table.name), f"Table '{name}' already exists"
                     self.create_table(table.name, sql.create_table_sql(table.name, table.fields, table.foreign_keys))
-
+                except AssertionError as e:
+                    logger.warn(f"{e}")
+                except Exception as e:
+                    logger.error(f"Cannot create table '{name}' -> Error: {e}")
+                    raise
         self._event = event
 
         dh = Thread(name='DataHandler', target=self._data_handler, daemon=True)
@@ -123,6 +144,4 @@ class DataHandlerService(sql.SQL_DB):
         Logger().debug(f"Background task stopped invoked")
 
 
-@Singleton
-class PlugInService(dict, Mapping[AnyStr, plugin_execution_abstract]):
-    pass
+

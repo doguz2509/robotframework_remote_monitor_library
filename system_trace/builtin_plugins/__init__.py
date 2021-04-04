@@ -1,5 +1,5 @@
 
-from . import atop_plugin
+from .atop_plugin import aTopPlugIn
 
 
-__all__ = ['atop_plugin']
+__all__ = ['aTopPlugIn']

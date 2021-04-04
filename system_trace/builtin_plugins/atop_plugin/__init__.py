@@ -1,69 +1,14 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
-from typing import Tuple, Iterable, List, Any
+from typing import Iterable
 
-from robot.api import logger
 from robot.utils import timestr_to_secs
 
-from system_trace.api import BgLogger, TableSchemaService
-from system_trace.api import model, plugins
-from system_trace.model.chart_model.chart_abstract import ChartAbstract, time_string_reformat_cb, INPUT_FMT, OUTPUT_FMT
-from system_trace.utils import Size
-from system_trace.utils import get_error_info
-
-
-class atop_system_level(model.Table):
-    def __init__(self):
-        model.Table.__init__(self, name='atop_system_level',
-                             fields=[model.Field('Type'),
-                                     model.Field('DataMap'),
-                                     model.Field('Col1', model.FieldType.Real),
-                                     model.Field('Col2', model.FieldType.Real),
-                                     model.Field('Col3', model.FieldType.Real),
-                                     model.Field('Col4', model.FieldType.Real),
-                                     model.Field('Col5', model.FieldType.Real),
-                                     model.Field('SUB_ID')])
-
-
-class aTopSystemLevel(ChartAbstract):
-    def __init__(self, *sections):
-        self._sections = sections
-        ChartAbstract.__init__(self)
-
-    def y_axes(self, data: [Iterable[Iterable]]):
-        pass
-
-    @property
-    def file_name(self) -> str:
-        return "{name}.png"
-
-    @property
-    def get_sql_query(self) -> str:
-        return """select top.SUB_ID as SUB_ID, top.DataMap as Map, t.TimeStamp as Time, top.Col1 as Col1, 
-                top.Col2 as Col2, top.Col3 as Col3, top.Col4 as Col4, top.Col5 as Col5
-                from aTopSystemLevel top
-                JOIN Sessions s ON t.REF_TO_SESSION = s.SESSION_ID
-                JOIN TimeReference t ON top.REF_TO_TS = t.TS_ID 
-                WHERE s.Title = '{session_name}' """
-
-    def generate_chart_data(self, query_results: Iterable[Iterable]) -> Tuple[str, List, Any, Iterable[Iterable]]:
-        result = []
-        for type_ in set([i[0] for i in query_results if any([i[0].startswith(section) for section in self._sections])]):
-            try:
-                data = [i[1:] for i in query_results if i[0] == type_]
-                x_axes = self.x_axes([i[1] for i in data], time_string_reformat_cb(INPUT_FMT, OUTPUT_FMT))
-                y_axes = [i for i in json.loads([y[0] for y in data][0]) if i not in ['no', 'SUB_ID']]
-                data = [i[2:] for i in data]
-                data = [u[0:len(y_axes)] for u in data]
-                chart_data = f"{type_}", x_axes, y_axes, data
-                # yield f"{type_}", x_axes, y_axes, [u[0:len(y_axes)] for u in data]
-                logger.debug("Create chart data: {}\n{}\n{}\n{} entries".format(type_, x_axes, y_axes, len(data)))
-                result.append(chart_data)
-            except Exception as e:
-                f, l = get_error_info()
-                logger.error(f"Chart generation error: {e}; File: {f}:{l}")
-        return result
+from system_trace.api import Logger, plugins, model
+from system_trace.utils import Size, get_error_info
+from .charts import aTopSystemLevelChart
+from .tables import atop_system_level_table
 
 
 def try_time_string_to_secs(time_str):
@@ -135,41 +80,39 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
             res.append(columns_template(
                 *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
         except ValueError as e:
-            BgLogger.error(f"aTop parse error: {e}")
+            Logger.error(f"aTop parse error: {e}")
         except Exception as e:
             f, l = get_error_info()
-            BgLogger.error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
+            Logger.error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
             raise
     return res
 
 
 class aTopPlugIn(plugins.PlugInAPI):
-
     SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
 
-    def __init__(self, parameters, data_handler):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, persistent=True)
+    def __init__(self, parameters, data_handler, host_id):
+        plugins.PlugInAPI.__init__(self, parameters, data_handler, persistent=True, host_id=host_id)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return atop_system_level(),
+        return atop_system_level_table(),
 
     @staticmethod
-    def affiliated_charts() -> Iterable[ChartAbstract]:
-        return aTopSystemLevel('CPU'), aTopSystemLevel('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevel('LVM'), \
-               aTopSystemLevel('DSK', 'SWP'), aTopSystemLevel('NET')
+    def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
+        return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart('LVM'), \
+               aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
     def parse(self, command_output):
         table_template = self.affiliated_tables()[0].template
-        data = _generate_atop_system_level(command_output, table_template)
-        self._data_handler(model.DataUnit(TableSchemaService().tables.atop_system_level, *data))
+        data = _generate_atop_system_level(command_output, table_template, self.host_id, None)
+        self._data_handler(model.DataUnit(self.affiliated_tables()[0], *data))
 
     @property
     def setup(self) -> plugins.CommandsType:
-
         return [plugins.Command('killall -9 atop', sudo=True),
                 plugins.Command(f'rm -rf {self.folder}', sudo=True),
                 plugins.Command(f'mkdir -p {self.folder}', sudo=True),
@@ -187,4 +130,4 @@ class aTopPlugIn(plugins.PlugInAPI):
         return plugins.Command('killall -9 atop', sudo=True),
 
 
-__all__ = ['aTopPlugIn']
+__all__ = [aTopPlugIn.__name__]

@@ -188,7 +188,7 @@ add_on:
              WHERE s.Title = "{}"
         function: *format
     foreign_keys: *REF_TO_TR
-  - name: aTopSystemLevel
+  - name: aTopSystemLevelChart
     fields:
       - name: REF_TO_TS
         type: *int

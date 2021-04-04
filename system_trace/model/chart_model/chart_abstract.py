@@ -14,7 +14,7 @@ from system_trace.utils import get_error_info
 
 warnings.filterwarnings("ignore")
 
-INPUT_FMT = '%Y-%m-%d %H:%M:%S.%f'
+INPUT_FMT = '%Y-%m-%d %H:%M:%S'
 OUTPUT_FMT = '%H:%M:%S'
 
 
@@ -33,15 +33,15 @@ class ChartAbstract(ABC):
         self._ext = '.png'
 
     def _verify_sql_query_for_variables(self):
-        assert '{session_name}' in self.get_sql_query, "Variable '{session_name} missing query text"
+        assert '{host_name}' in self.get_sql_query, "Variable '{host_name} missing query text"
 
     @property
     @abstractmethod
     def get_sql_query(self) -> str:
         raise NotImplementedError()
 
-    def compose_sql_query(self, session_name, **kwargs) -> str:
-        _sql = self.get_sql_query.format(session_name=session_name)
+    def compose_sql_query(self, host_name, **kwargs) -> str:
+        _sql = self.get_sql_query.format(host_name=host_name)
         _start = kwargs.get('start_mark', None)
         if _start:
             _sql += f" AND \"{_start}\" <= t.TimeStamp"
@@ -61,23 +61,24 @@ class ChartAbstract(ABC):
         return self.__class__.__name__
 
     @abstractmethod
-    def y_axes(self, data: [Iterable[Iterable]]):
-        raise NotImplementedError()
+    def y_axes(self, data: [Iterable[Iterable]]) -> Iterable[Any]:
+        return data
 
     @staticmethod
-    def x_axes(data, formatter=None):
+    def x_axes(data, formatter=time_string_reformat_cb(INPUT_FMT, OUTPUT_FMT)) -> Iterable[Any]:
         return [formatter(i) if formatter else i for i in data]
 
     @staticmethod
     def _get_y_limit(data):
         return max([max(y) for y in [x[1:] for x in data]])
 
-    def generate_chart_data(self, query_results: Iterable[Iterable]) -> Tuple[str, List, Any, Iterable[Iterable]]:
-        return tuple(
+    def generate_chart_data(self, query_results: Iterable[Iterable]) \
+            -> Tuple[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
+        return (
             (self.title,
-             self.x_axes(query_results, time_string_reformat_cb(INPUT_FMT, OUTPUT_FMT)),
+             self.x_axes(query_results),
              self.y_axes(query_results),
-             query_results)
+             query_results),
         )
 
     def generate(self, sql_db, abs_image_path, sql: str, prefix=None, **marks):

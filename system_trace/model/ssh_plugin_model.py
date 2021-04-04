@@ -3,30 +3,15 @@ from datetime import datetime, timedelta
 from enum import Enum
 from threading import Thread, Event
 from time import sleep
-from typing import Callable, Tuple, AnyStr, Iterable
+from typing import Callable, Iterable
 
 from SSHLibrary import SSHLibrary
-from paramiko import SSHClient, SSHException
+from paramiko import SSHException
 from robot.api import logger
 from robot.utils import DotDict
 
-from system_trace.model import schema_model as model
-from system_trace.model.chart_model.chart_abstract import ChartAbstract
 from system_trace.model.errors import PlugInError
 from system_trace.utils import Logger, get_error_info
-
-
-class plugin_integration_abstract(object):
-    def __hash__(self):
-        return hash(f"{self.__class__.__name__}_{id(self)}")
-
-    @staticmethod
-    def affiliated_tables() -> Iterable[model.Table]:
-        return []
-
-    @staticmethod
-    def affiliated_charts() -> Iterable[ChartAbstract]:
-        return []
 
 
 class Command:
@@ -89,11 +74,11 @@ class plugin_flow_abstract:
         return ()
 
 
-class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstract, metaclass=ABCMeta):
+class plugin_execution_abstract(plugin_flow_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, **kwargs):
         self._execution_counter = 0
         self._ssh = SSHLibrary()
-        plugin_integration_abstract.__init__(self)
+        # plugin_integration_abstract.__init__(self)
         plugin_flow_abstract.__init__(self)
         self.parameters = parameters
         self._data_handler: Callable = data_handler
@@ -101,11 +86,17 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
         self._internal_event = Event()
         self._fault_tolerance = self.parameters.fault_tolerance
         self._session_errors = []
+        self._host_id = kwargs.get('host_id', None)
+        assert self._host_id, "Host ID cannot be empty"
         if kwargs.get('persistent', False):
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
         self._thread = Thread(name=self.name, target=target, daemon=True)
+
+    @property
+    def host_id(self):
+        return self._host_id
 
     def start(self):
         self._thread.start()
@@ -115,8 +106,12 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
         self._thread.join(timeout)
 
     @property
+    def type(self):
+        return f"{self.__class__.__name__}"
+
+    @property
     def name(self):
-        return f"{self.__class__.__name__}: {self.parameters.alias}"
+        return self.parameters.alias
 
     @property
     def interval(self):
@@ -183,7 +178,7 @@ class plugin_execution_abstract(plugin_integration_abstract, plugin_flow_abstrac
         return True
 
     def __str__(self):
-        return "PlugIn {}: {} [Interval: {}]".format(self.name, self.parameters.alias, self._interval)
+        return "PlugIn {}: {} [Interval: {}]".format(self.type, self.name, self._interval)
 
     @staticmethod
     def _evaluate_duration(start_ts, expected_end_ts, alias):

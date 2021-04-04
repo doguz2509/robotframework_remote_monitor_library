@@ -1,15 +1,15 @@
-from system_trace.api import plugins
-from system_trace.api.data_api import DataHandlerService, TableSchemaService, PlugInService
-from system_trace.model import schema_model as model
-from system_trace.utils import Logger
+from . import plugins
+from . import model
+from . import db
+from system_trace.model import host_registry_model as host_registry
+from system_trace.utils import Logger as BgLogger
 
-BgLogger = Logger()
+Logger = BgLogger()
 
 __all__ = [
     'plugins',
-    'BgLogger',
+    'Logger',
     'model',
-    'DataHandlerService',
-    'TableSchemaService',
-    'PlugInService'
+    'host_registry',
+    'db'
 ]
