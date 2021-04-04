@@ -4,4 +4,4 @@
 /dist/
 /*.agg-info/
 /.idea/
-/robotframework_systemtracelibrary.egg-info/
+/robotframework_system_trace_library.egg-info/

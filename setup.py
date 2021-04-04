@@ -3,10 +3,9 @@ from setuptools import setup, find_packages
 from SystemTraceLibrary import __author__, __author_email__, __version__, __url__
 
 setup(
-    name='robotframework-systemtracelibrary',
+    name='robotframework-system-trace-library',
     version=__version__,
     packages=find_packages(exclude=['venv']),
-    # package_dir={'': 'SystemTraceLibrary'},
     url=__url__,
     license='MIT',
     author=__author__,

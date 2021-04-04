@@ -1,14 +1,15 @@
-# System Trace Library
 
+System Trace Library
+====
 
-## Installation
-
+Installation
+===
     python -m pip install robotframework_system_trace_library
 
-## Usage
-
-### Test/Keywords within *.robot file
-
+Usage
+---
+- Test/Keywords within *.robot file
+~~~
     *** Settings ***
     Library  SystemTraceLibrary 
     ...     [location (Default: logs)] 
@@ -27,28 +28,32 @@
     *** Tests ***
     Test
         Do something here
+~~~
 
-### PlugIn extending
-
+PlugIn extending
+---
 SystemTraceLibrary allow creating extended plugins for trace customer purposes
 
-#### Follow next guide:
+Follow next guide:
+---
 
-##### Create python project 
-
+Create python project 
+---
+~~~
     plug_in_python_project_folder
-
-##### Create following files inside:
-
+~~~
+Create following files inside:
+---
 Main init project file for expose Plugin class
-
+~~~
     __init__.py
         from .runner import MyPlugInName
         
         __all__ = [MyPlugInName.__name__]
-
-##### Runner definition
-
+~~~
+Runner definition
+---
+~~~
     runner.py
         from system_trace.api import plugins
         from .tables import plugin_table
@@ -67,10 +72,11 @@ Main init project file for expose Plugin class
             @staticmethod
             def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
                 return MyPlugInChart(),
+~~~
 
-
-##### Tables definition
-
+Tables definition
+---
+~~~
     tables.py
         from system_trace.api import model
 
@@ -86,9 +92,10 @@ Main init project file for expose Plugin class
         !!! PAY ATTENTION - TimeReferencedTable automatically add fields for reference table entries to time line 
         mechanism 
         In case it not requires, use model.Table base class
-
-##### Chart definition
-
+~~~
+Chart definition
+---
+~~~
     charts.py
         from system_trace.api.plugins import ChartAbstract
         
@@ -96,16 +103,18 @@ Main init project file for expose Plugin class
             pass
         
         Creating charts require familirisation with pandas & matplotlib
+~~~
 
-
-
-
-## Prerequisites
+Prerequisites
+===
+~~~
     atop  preinstalled
-
-## Supported OS
+~~~
+Supported OS
+===
     All linux based system where atop supported
 
-## Open issues
+Open issues
+===
  - Add period histogram square or vertical line over system graph for indicate different period's start/stop 
    on same chart instead of create separated charts per period
