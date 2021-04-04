@@ -2,6 +2,7 @@ from abc import ABC
 from typing import Iterable
 
 from system_trace.model import schema_model as model
+from system_trace.model.configuration import Configuration
 from system_trace.model.ssh_plugin_model import plugin_execution_abstract, Command, CommandsType
 from system_trace.model.chart_model.chart_abstract import ChartAbstract
 
@@ -31,5 +32,6 @@ class PlugInAPI(ABC, plugin_execution_abstract, plugin_integration_abstract):
 __all__ = ['PlugInAPI',
            'Command',
            CommandsType,
-           ChartAbstract.__name__
+           ChartAbstract.__name__,
+           'Configuration'
            ]

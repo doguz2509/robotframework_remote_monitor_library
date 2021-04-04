@@ -1,18 +1,3 @@
-# HTML = """
-# <html>
-#     <head>
-#         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-#         <title>{title}</title>
-#     </head>
-#     <body>
-#         {body}
-#     </body>
-# </html>
-# """
-#
-# HTML_IMAGE_REF = """<h{heading}>{picture_title}</h{heading}>
-#                     <img src="{relative_path}" width="{width}" height="{height}">
-# """
 
 HTML = """
 <!DOCTYPE html>
@@ -46,12 +31,14 @@ HTML = """
     <title>{title}</title>
 </head>
     <body>
+        <h1>{title}</h1><br>
         <div class="row">
           {body}
         </div>
     </body>
 </html>
 """
+
 HTML_IMAGE_REF = """
             <div class="column">
                 <h3>{picture_title}</h3>
