@@ -6,7 +6,6 @@ from time import sleep
 from typing import Callable
 
 from SSHLibrary import SSHLibrary
-from paramiko import SSHException
 from robot.utils import DotDict, is_truthy
 
 from SystemTraceLibrary.model.errors import PlugInError, RunnerError
@@ -86,16 +85,16 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             else:
                 self._ssh.login(username, password)
         except Exception as err:
-            f, l = get_error_info()
+            f, li = get_error_info()
             self.stop()
-            Logger.error(f"{err}; File: {f}:{l}")
-            raise SSHException(f"{err}; File: {f}:{l}")
+            Logger.error(f"{err}; File: {f}:{li}")
+            raise RunnerError(f"{err}; File: {f}:{li}")
         else:
             self._is_logged_in = True
         Logger().info(f"Command '{self.thread_name} {self.parameters.alias}' iteration started")
         return self._ssh
 
-    def _close_sshlibrary_connection_from_thread(self):
+    def _close_ssh_library_connection_from_thread(self):
         try:
             self._ssh.close_connection()
         except Exception as e:
@@ -119,7 +118,7 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
 
         if self._is_logged_in:
             self._ssh.switch_connection(self.thread_name)
-            self._close_sshlibrary_connection_from_thread()
+            self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
         Logger().info(f"Command '{self.thread_name} {self.parameters.alias}' iteration ended")
 
@@ -179,8 +178,8 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
         except AssertionError:
             Logger().debug(f"{flow.name} ignored")
         except Exception as e:
-            f, l = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{l}")
+            f, li = get_error_info()
+            raise type(e)(f"{e}; File: {f}:{li}")
 
     def _persistent_worker(self):
         try:
@@ -200,9 +199,9 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
                     self._run_command(ssh, self.flow_type.Teardown)
             Logger().info(f"End persistent session for '{self}'")
         except Exception as e:
-            f, l = get_error_info()
-            Logger().error(f"{e}; File: {f}:{l}")
-            raise RunnerError(f"{e}; File: {f}:{l}")
+            f, li = get_error_info()
+            Logger().error(f"{e}; File: {f}:{li}")
+            raise RunnerError(f"{e}; File: {f}:{li}")
 
     def _interrupt_worker(self):
         try:
@@ -223,9 +222,9 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
                 self._run_command(ssh, self.flow_type.Teardown)
             Logger().info(f"End interrupt-session for '{self}'")
         except Exception as e:
-            f, l = get_error_info()
-            Logger.error(f"{e}; File: {f}:{l}")
-            raise RunnerError(f"{e}; File: {f}:{l}")
+            f, li = get_error_info()
+            Logger.error(msg=f"{e}; File: {f}:{li}")
+            raise RunnerError(f"{e}; File: {f}:{li}")
 
     def parse(self, command_output) -> bool:
         raise NotImplementedError()
