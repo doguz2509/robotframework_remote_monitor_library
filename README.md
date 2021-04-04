@@ -32,13 +32,13 @@
 
 SystemTraceLibrary allow creating extended plugins for trace customer purposes
 
-Follow next guide:
+#### Follow next guide:
 
-Create python project 
+##### Create python project 
 
     plug_in_python_project_folder
 
-Create following files inside:
+##### Create following files inside:
 
 Main init project file for expose Plugin class
 
@@ -47,7 +47,7 @@ Main init project file for expose Plugin class
         
         __all__ = [PlugInName.__name__]
 
-Runner definition
+##### Runner definition
 
     runner.py
         from system_trace.api import plugins
@@ -72,7 +72,7 @@ Runner definition
     def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
         return aTopSystemLevelChart('CPU'),
 
-Tables definition
+##### Tables definition
 
     tables.py
         from system_trace.api import model
@@ -90,7 +90,7 @@ Tables definition
         mechanism 
         In case it not requires, use model.Table base class
 
-Chart definition
+##### Chart definition
 
     charts.py
         from system_trace.api.plugins import ChartAbstract
