@@ -1,2 +1,7 @@
 /venv/
 /reports/
+/build/
+/dist/
+/*.agg-info/
+/.idea/
+/robotframework_systemtracelibrary.egg-info/
