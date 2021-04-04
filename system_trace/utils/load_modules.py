@@ -1,5 +1,5 @@
 import os
-from inspect import isclass, ismodule
+from inspect import isclass
 from os.path import join as path_join
 from typing import Mapping, Any
 
@@ -77,7 +77,7 @@ class max_lookup:
 class msg_append:
     def __init__(self, column_width, *column_names):
         self._line_template = f"|{{:{column_width}s}}|{{:{column_width}s}}|{{:{column_width}s}}|\n"
-        self._table_line = '+{fill}+{fill}+{fill}+\n'.format(fill='-'.join(['' for i in range(0, column_width + 1)]))
+        self._table_line = '+{fill}+{fill}+{fill}+\n'.format(fill='-'.join(['' for _ in range(0, column_width + 1)]))
         self._msg = self._table_line + self._line_template.format(*column_names)
 
     def __call__(self, *words):
