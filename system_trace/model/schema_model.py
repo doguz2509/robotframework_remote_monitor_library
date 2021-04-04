@@ -46,16 +46,14 @@ class Field:
 
 
 class Query:
-    def __init__(self, name: str, sql: str, formatter=format):
+    def __init__(self, name: str, sql: str):
         """
         Query assigned for Table
         :param name: query name string
         :param sql: SQL statement in python format (Mandatory variables)
-        :param formatter: input arguments formatter
         """
         self._name = name
         self._sql = sql
-        self._formatter = formatter
 
     @property
     def name(self):
@@ -64,6 +62,9 @@ class Query:
     @property
     def sql(self):
         return self._sql
+
+    def __call__(self, *args, **kwargs):
+        return self.sql.format(*args, **kwargs)
 
 
 class ForeignKey:

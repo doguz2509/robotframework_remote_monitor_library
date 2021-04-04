@@ -64,8 +64,13 @@ class Configuration:
     def update(self, dict_: dict = None, **kwargs):
         dict_ = dict_ or {}
         dict_.update(**kwargs)
+        unexpected = {}
         for name, value in dict_.items():
-            self._set_parameter(name, value)
+            try:
+                self._set_parameter(name, value)
+            except AssertionError:
+                unexpected.update({name: value})
+        return unexpected
 
     def clone(self):
         return type(self)(**self.parameters)

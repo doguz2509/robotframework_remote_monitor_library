@@ -91,8 +91,8 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
 class aTopPlugIn(plugins.PlugInAPI):
     SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
 
-    def __init__(self, parameters, data_handler, host_id):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, persistent=True, host_id=host_id)
+    def __init__(self, parameters, data_handler, host_id, **kwargs):
+        plugins.PlugInAPI.__init__(self, parameters, data_handler, host_id=host_id, **kwargs)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
@@ -116,8 +116,11 @@ class aTopPlugIn(plugins.PlugInAPI):
         return [plugins.Command('killall -9 atop', sudo=True),
                 plugins.Command(f'rm -rf {self.folder}', sudo=True),
                 plugins.Command(f'mkdir -p {self.folder}', sudo=True),
-                plugins.Command(f'atop -w {self.folder}/{self.file} {int(self.interval)} &',
-                                sudo=True, interactive=True),
+                plugins.Command("{nohup} atop -w {folder}/{file} {interval} &".format(
+                    nohup='' if self.persistent else 'nohup',
+                    folder=self.folder,
+                    file=self.file,
+                    interval=int(self.interval)), sudo=True, interactive=True)
                 ]
 
     @property

@@ -1,4 +1,3 @@
-from datetime import datetime
 from threading import Event, Thread
 from time import sleep
 from typing import List, AnyStr, Mapping
@@ -9,7 +8,7 @@ from robot.utils import DotDict
 from system_trace.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from system_trace.model.ssh_plugin_model import plugin_execution_abstract
 from system_trace.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
-from system_trace.utils.sql_engine import insert_sql, DB_DATETIME_FORMAT
+from system_trace.utils.sql_engine import insert_sql
 
 DEFAULT_DB_FILE = 'system_trace.db'
 TICKER_INTERVAL = 1
@@ -41,7 +40,9 @@ class Points(Table):
     def __init__(self):
         Table.__init__(self,
                        fields=(Field('HOST_REF', FieldType.Int), Field('PointName'), Field('Start'), Field('End')),
-                       foreign_keys=[ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID')])
+                       foreign_keys=[ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID')],
+                       queries=[Query('select_state', """SELECT {} FROM Points
+                       WHERE HOST_REF = {} AND PointName = '{}'""")])
 
 
 @Singleton

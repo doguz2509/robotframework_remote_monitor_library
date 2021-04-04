@@ -71,12 +71,13 @@ class HostModule:
 
     def plugin_start(self, plugin_name, **options):
         plugin_conf = self.config.clone()
-        plugin_conf.update(**options)
+        tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin(plugin_conf.parameters, self._data_handler, self.host_id)
+        plugin = plugin(plugin_conf.parameters, self._data_handler, self.host_id, **tail)
         plugin.start()
         # plugin._persistent_worker()
+        # plugin._interrupt_worker()
         self._active_plugins[f"{plugin}"] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 
@@ -102,8 +103,8 @@ class HostRegistryCache(dict):
     def get_module(self, **filter_by):
         for index, module in self.items():
             try:
-                for lookup_by, lookup in filter_by.items():
-                    assert getattr(module, lookup_by, None) != lookup
+                for lookup_by, lookup in {n: v for n, v in filter_by.items() if hasattr(module, n)}.items():
+                    assert getattr(module, lookup_by, False) != lookup
             except AssertionError:
                 continue
             return module

@@ -9,20 +9,19 @@ from robot.running import TestSuite
 
 from system_trace import builtin_plugins
 from system_trace.api import Logger, db, host_registry
-
+from system_trace.api.db import TableSchemaService
 from system_trace.model.chart_model.html_template import HTML, HTML_IMAGE_REF
 from system_trace.model.ssh_plugin_model import plugin_execution_abstract
-
-from system_trace.utils import show_plugins
+from system_trace.utils import show_plugins, get_error_info
 from system_trace.utils.load_modules import load_modules
-from system_trace.utils.sql_engine import insert_sql, select_sql, update_sql, DB_DATETIME_FORMAT
+from system_trace.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 DEFAULT_SYSTEM_TRACE_LOG = 'logs'
 
 DEFAULT_SYSTEM_LOG_FILE = 'system_trace.log'
 
 
-class _VisualisationLibrary:
+class _data_view_and_analyse:
     def __init__(self, db_obj, module_registry, rel_log_path, images='images'):
         try:
             self._output_dir = BuiltIn().get_variable_value('${OUTPUT_DIR}')
@@ -34,15 +33,17 @@ class _VisualisationLibrary:
         self._image_path = os.path.normpath(os.path.join(self._output_dir, self._log_path, self._images))
         self._db: db.DataHandlerService = db_obj
 
+    def _get_period_marks(self, period, module_id):
+        start = self._db.execute(TableSchemaService().tables.Points.queries.select_state('Start', module_id, period))
+        start = None if start == [] else start[0][0]
+        end = self._db.execute(TableSchemaService().tables.Points.queries.select_state('End', module_id, period))
+        end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
+        return dict(start_mark=start, end_mark=end)
+
     @keyword("GenerateModuleStatistics")
-    def generate_module_statistics(self, *marks, **module_filter):
+    def generate_module_statistics(self, period=None, **module_filter):
         module: host_registry.HostModule = self._module_registry.get_module(**module_filter)
-        # start = self._db.execute(TableFactory.MarkPoints.select_mark(start_mark))
-        # start = None if start == [] else start[0][0]
-        # end = self._db.execute(TableFactory.MarkPoints.select_mark(end_mark))
-        # end = None if end == [] else end[0][0]
-        #
-        # marks = {n: t for n, t in self._db.execute(TableFactory.MarkPoints.get_marks(session))} if is_truthy(show_marks) else {}
+        marks = self._get_period_marks(period, module.host_id) if period else {}
 
         if not os.path.exists(self._image_path):
             os.mkdir(self._image_path)
@@ -51,27 +52,30 @@ class _VisualisationLibrary:
         for alias, plugin in {k: v for k, v in module.active_plugins.items()}.items():
             for chart in plugin.affiliated_charts():
                 try:
-                    sql_query = chart.compose_sql_query(host_name=plugin.name)
-                    for picture_name, file_path in chart.generate(self._db, self._image_path, sql_query,
-                                                                  prefix=plugin.type):
+                    sql_query = chart.compose_sql_query(host_name=plugin.name, **marks)
+                    logger.debug(f"{plugin.type}{f'_{period}' if period else ''}_{marks}\n{sql_query}")
+                    for picture_name, file_path in chart.generate(self._db,
+                                                                  self._image_path,
+                                                                  sql_query,
+                                                              prefix=f"{plugin.type}{f'_{period}' if period else ''}"):
                         relative_image_path = os.path.relpath(file_path, os.path.normpath(
                             os.path.join(self._output_dir, self._log_path)))
                         body += HTML_IMAGE_REF.format(relative_path=relative_image_path, picture_title=picture_name)
                 except Exception as e:
                     logger.error(f"Error: {e}")
 
-        html_file_name = "{}.html".format(re.sub(r'\s+', '_', module.alias))
-        html = HTML.format(title=module.alias, body=body)
+        html_file_name = "{}.html".format(re.sub(r'\s+', '_', period or module.alias))
+        html = HTML.format(title=period or module.alias, body=body)
         html_full_path = os.path.normpath(os.path.join(self._output_dir, self._log_path, html_file_name))
         html_link_path = '/'.join([self._log_path, html_file_name])
         with open(html_full_path, 'w') as sw:
             sw.write(html)
-        logger.warn(f"<a href=\"{html_link_path}\">Session '{module.alias}' statistics</a>", html=True)
-        return f"<a href=\"{html_link_path}\">Session '{module.alias}' statistics</a>"
+        logger.warn(f"<a href=\"{html_link_path}\">Session '{period or module.alias}' statistics</a>", html=True)
+        return f"<a href=\"{html_link_path}\">Session '{period or module.alias}' statistics</a>"
 
 
 @library(scope='GLOBAL')
-class SystemTraceLibrary(_VisualisationLibrary):
+class SystemTraceLibrary(_data_view_and_analyse):
     ROBOT_LISTENER_API_VERSION = 3
 
     def __init__(self, location='logs', file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False, custom_plugins=None):
@@ -111,7 +115,7 @@ class SystemTraceLibrary(_VisualisationLibrary):
         db.PlugInService().update(**plugin_modules)
 
         db.DataHandlerService(os.path.join(out_location, location), file_name, cumulative).start()
-        _VisualisationLibrary.__init__(self, db.DataHandlerService(), self._modules, location)
+        _data_view_and_analyse.__init__(self, db.DataHandlerService(), self._modules, location)
         show_plugins(db.PlugInService())
 
         self._plugin_threads = []
@@ -128,17 +132,16 @@ class SystemTraceLibrary(_VisualisationLibrary):
     @keyword("Create host connection")
     def create_host_connection(self, host, username, password, port=22, alias=None):
         module = host_registry.HostModule(db.PlugInService(), db.DataHandlerService().add_task,
-                            host, username, password, port, alias)
+                                          host, username, password, port, alias)
         module.start()
         _alias = self._modules.register(module)
         self._start_period(alias=module.alias)
         return module.alias
 
     @keyword("Close host connection")
-    def close_host_connection(self, **options):
-        module: host_registry.HostModule = self._modules.get_module(**options)
-        self._stop_period(alias=module.alias)
-        self._modules.close(**options)
+    def close_host_connection(self, alias=None):
+        self._stop_period(alias)
+        self._modules.close(alias=alias)
 
     @keyword("Close all host connections")
     def close_all_host_connections(self):
@@ -146,10 +149,14 @@ class SystemTraceLibrary(_VisualisationLibrary):
 
     @keyword("Start trace plugin")
     def start_trace_plugin(self, plugin_name, **options):
-        module: host_registry.HostModule = self._modules.get_module(**options)
-        assert plugin_name in db.PlugInService().keys(), \
-            f"PlugIn '{plugin_name}' not registered"
-        module.plugin_start(plugin_name, **options)
+        try:
+            module: host_registry.HostModule = self._modules.get_module(**options)
+            assert plugin_name in db.PlugInService().keys(), \
+                f"PlugIn '{plugin_name}' not registered"
+            module.plugin_start(plugin_name, **options)
+        except Exception as e:
+            f, l = get_error_info()
+            raise type(e)(f"{e}; File: {f}:{l}")
 
     @keyword("Stop trace plugin")
     def stop_trace_plugin(self, plugin_name, **options):
@@ -174,12 +181,12 @@ class SystemTraceLibrary(_VisualisationLibrary):
 
     def _stop_period(self, period_name=None, **options):
         module: host_registry.HostModule = self._modules.get_module(**options)
-        period_data = db.DataHandlerService().execute(select_sql(db.TableSchemaService().tables.Points.name, '*',
-                                                                 HOST_REF=module.host_id,
-                                                                 PointName=period_name or module.alias))[0]
+        # period_data = db.DataHandlerService().execute(select_sql(db.TableSchemaService().tables.Points.name, '*',
+        #                                                          HOST_REF=module.host_id,
+        #                                                          PointName=period_name or module.alias))[0]
+        #
+        # updated_period_data = list(period_data)[:3] + [datetime.now().strftime(DB_DATETIME_FORMAT)]
 
-        updated_period_data = list(period_data)[:3] + [datetime.now().strftime(DB_DATETIME_FORMAT)]
-
-        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name,
-                                                   db.TableSchemaService().tables.Points.columns),
-                                        *updated_period_data)
+        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
+                                                   HOST_REF=module.host_id, PointName=period_name or module.alias),
+                                        datetime.now().strftime(DB_DATETIME_FORMAT))

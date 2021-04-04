@@ -8,7 +8,7 @@ from typing import Callable, Iterable
 from SSHLibrary import SSHLibrary
 from paramiko import SSHException
 from robot.api import logger
-from robot.utils import DotDict
+from robot.utils import DotDict, is_truthy
 
 from system_trace.model.errors import PlugInError
 from system_trace.utils import Logger, get_error_info
@@ -88,7 +88,11 @@ class plugin_execution_abstract(plugin_flow_abstract, metaclass=ABCMeta):
         self._session_errors = []
         self._host_id = kwargs.get('host_id', None)
         assert self._host_id, "Host ID cannot be empty"
-        if kwargs.get('persistent', False):
+        self._persistent = is_truthy(kwargs.get('persistent', 'false'))
+        self._set_worker()
+
+    def _set_worker(self):
+        if self.persistent:
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
@@ -116,6 +120,10 @@ class plugin_execution_abstract(plugin_flow_abstract, metaclass=ABCMeta):
     @property
     def interval(self):
         return self._interval
+
+    @property
+    def persistent(self):
+        return self._persistent
 
     def __enter__(self):
         host = self.parameters.host

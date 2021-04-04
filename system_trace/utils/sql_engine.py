@@ -10,7 +10,7 @@ CREATE_TABLE_TEMPLATE = """CREATE TABLE IF NOT EXISTS {name} ({columns} {foreign
 SELECT_TABLE = "SELECT {fields} FROM {table}"
 SELECT_TABLE_WHERE = "SELECT {fields} FROM {table} WHERE {expression}"
 INSERT_TABLE_TEMPLATE = "INSERT INTO {table} VALUES ({values})"
-UPDATE_TABLE_TEMPLATE = "UPDATE {table}\n\tSET {columns}"
+UPDATE_TABLE_TEMPLATE = "UPDATE {table}\nSET {columns}\nWHERE {where}"
 FOREIGN_KEY_TEMPLATE = "FOREIGN KEY({local_field}) REFERENCES {foreign_table}({foreign_field})"
 
 
@@ -143,7 +143,7 @@ def select_sql(name, *fields, **filter_data):
         fields = ', '.join([f"{t}" for t in filter_data.keys()])
     else:
         fields = ', '.join([f"{t}" for t in fields])
-    where = ' AND '.join(f"{f} == '{v}'" for f, v in filter_data.items())
+    where = ' AND '.join("{} = {}".format(f, v if str(v).isdigit() else f"'{v}'") for f, v in filter_data.items())
     return f'SELECT {fields}\nFROM {name}\nWHERE {where}'
 
 
@@ -151,8 +151,12 @@ def insert_sql(name, columns):
     return INSERT_TABLE_TEMPLATE.format(table=name, values=",".join(['?'] * len(columns)))
 
 
-def update_sql(name, columns):
-    return UPDATE_TABLE_TEMPLATE.format(table=name, columns=",\n\t".join([f"{c} = ?" for c in columns]))
+def update_sql(name, *columns, **where):
+    return UPDATE_TABLE_TEMPLATE.format(table=name,
+                                        columns=",\n\t".join([f"{c} = ?" for c in columns]),
+                                        where=' AND '.join(
+                                            "{} = {}".format(f, v if str(v).isdigit() else f"'{v}'") for f, v in
+                                            where.items()))
 
 
 __all__ = [
