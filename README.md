@@ -1,4 +1,20 @@
-# System Trace Library
+# System Trace Library (Version 1.1.0)
+
+## Overview
+SystemTraceLibrary allow collect system data of target linux host during any Robotframework 
+testing process being running
+
+### Architecture
+Main keyword library executing background python threads for SqlLite db node, separate theads for system trace collecting 
+plugins
+By default library contain 'aTopPlugIn'. 'atop' command being executing with predefined interval & its out put parsed as following:
+#### aTop System Level
+System level portion of 'atop' being storing in database, and later can be shown as chart in special html page
+Link to it logged to robotframework regular log
+#### aTop Process Level
+TBD in future releases
+#### PlugIn extension API
+Library provide special API for create custom plugins (SystemTraceLibrary.api.[plugins, model])
 
 
 ## Installation
