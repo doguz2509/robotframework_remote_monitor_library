@@ -1,17 +1,29 @@
+import re
+from os.path import abspath, dirname, join
+
 from setuptools import setup, find_packages
 
-from SystemTraceLibrary import __author__, __author_email__, __version__, __url__
+from SystemTraceLibrary import __author__, __author_email__, __url__
+
+current_dir = dirname(abspath(__file__))
+
+with open(join(current_dir, "SystemTraceLibrary", "version.py"), encoding="utf-8") as f:
+    VERSION = re.search(r"""VERSION = ('|")(.*)('|")""", f.read()).group(2)
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read().replace('<VERSION>', VERSION)
+
 
 setup(
     name='robotframework-system-trace-library',
-    version=__version__,
+    version=VERSION,
     packages=find_packages(exclude=['venv']),
     url=__url__,
     license='MIT',
     author=__author__,
     author_email=__author_email__,
     description='RobotFramework extended keyword library; Allow background system tracing; aTop+',
-    long_description=open(r'./README.md', encoding='utf-8').read(),
+    long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=[
         'robotframework~=3.2.2',
