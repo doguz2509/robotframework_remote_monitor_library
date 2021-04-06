@@ -10,9 +10,13 @@ current_dir = dirname(abspath(__file__))
 with open(join(current_dir, "SystemTraceLibrary", "version.py"), encoding="utf-8") as f:
     VERSION = re.search(r"""VERSION = ('|")(.*)('|")""", f.read()).group(2)
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read().replace('<VERSION>', VERSION)
-
+long_description = ''
+with open("readme_template.md", "r", encoding="utf-8") as reader:
+    with open("README.md", "w+", encoding='utf-8') as writer:
+        lines = reader.read().replace('<VERSION>', VERSION)
+        long_description += f"{lines}\n"
+        writer.write(lines)
+        print(lines)
 
 setup(
     name='robotframework-system-trace-library',
@@ -32,10 +36,10 @@ setup(
         'pandas',
     ],
     classifiers=[
-         "Programming Language :: Python :: 3",
-         "Framework :: Robot Framework",
-         "Framework :: Robot Framework :: Library",
-         "Operating System :: OS Independent",
-         "Development Status :: 3 - Alpha"
+        "Programming Language :: Python :: 3",
+        "Framework :: Robot Framework",
+        "Framework :: Robot Framework :: Library",
+        "Operating System :: OS Independent",
+        "Development Status :: 3 - Alpha"
     ]
 )
