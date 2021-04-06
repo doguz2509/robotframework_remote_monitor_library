@@ -5,6 +5,7 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
+from .model import TimeReferencedTable
 from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from SystemTraceLibrary.model.runner_model.ssh_runner import plugin_ssh_runner
 from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
@@ -127,8 +128,11 @@ class DataHandlerService(sql.SQL_DB):
                 for item in flat_iterator(*data_enumerator):
                     if type(item).__name__ == threadsafe.Empty.__name__:
                         raise threadsafe.Empty()
-                    last_tl_id = TableSchemaService().tables.TimeLine.refresh_ts_id(self, item.timestamp)
-                    insert_sql_str, rows = item(TL_ID=last_tl_id)
+                    if isinstance(item.table, TimeReferencedTable):
+                        last_tl_id = TableSchemaService().tables.TimeLine.refresh_ts_id(self, item.timestamp)
+                        insert_sql_str, rows = item(TL_ID=last_tl_id)
+                    else:
+                        insert_sql_str, rows = item()
 
                     result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
                     item.result = result
