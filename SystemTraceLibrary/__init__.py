@@ -8,7 +8,7 @@ from SystemTraceLibrary.version import VERSION
 __author__ = 'Dmitry Oguz'
 __author_email__ = 'doguz2509@gmail.com'
 __version__ = VERSION
-__url__ = 'https://github.com/doguz2509/robotframework_system_trace'
+__url__ = 'https://github.com/doguz2509/robotframework_system_trace_library'
 
 
 __all__ = [
