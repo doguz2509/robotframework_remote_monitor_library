@@ -69,14 +69,23 @@ class base_keywords(data_view_and_analyse):
     def create_host_connection(self, host, username, password, port=22, alias=None):
         """
 
-        Create basic host connection module used for send plugin to
+        Create basic host connection module used for trace host
+        Last created connection handled as 'current'
+        In case tracing required for one host only, alias can be ignored
 
-        :param host: IP address, DNS name
-        :param username:
-        :param password:
-        :param port: 22 if omitted
-        :param alias: 'username@host:port' if omitted
-        :return: none
+        Arguments:
+        - host: IP address, DNS name, username, password:
+        - port: 22 if omitted
+        - alias: 'username@host:port' if omitted
+        - str: alias
+
+        Examples:
+        |  KW                       |  Host     | Username | Password       | Port  | Alias   | Comments              |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |         | Default port; No alias|
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |         | Custom port; No alias |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name} | Custom port; Alias    |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name}| Default port; Alias    |
+
         """
         module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias)
         module.start()
@@ -87,8 +96,10 @@ class base_keywords(data_view_and_analyse):
     @keyword("Close host connection")
     def close_host_connection(self, alias=None):
         """
-        Close one connection
-        :param alias: 'Current' used if omitted
+        Close one connection by its alias (current will be closed if omitted)
+
+        Arguments:
+        - alias: 'Current' used if omitted
         """
         self._stop_period(alias)
         self._modules.close(alias=alias)
@@ -101,10 +112,10 @@ class base_keywords(data_view_and_analyse):
         self._modules.close_all()
 
     @keyword("Start trace plugin")
-    def start_trace_plugin(self, plugin_name, **options):
+    def start_trace_plugin(self, *plugin_names, **options):
         """
         Start plugin by its name on host queried by options keys
-        :param plugin_name: name must be one for following in loaded table, column 'Class'
+        :param plugin_names: name must be one for following in loaded table, column 'Class'
         | Alias              | Class               | Table
         |aTopPlugIn          | aTopPlugIn          |
         |                    |                     | atop_system_level
@@ -113,17 +124,19 @@ class base_keywords(data_view_and_analyse):
         """
         try:
             module: HostModule = self._modules.get_module(**options)
-            assert plugin_name in db.PlugInService().keys(), \
-                f"PlugIn '{plugin_name}' not registered"
-            module.plugin_start(plugin_name, **options)
+            for plugin_name in plugin_names:
+                assert plugin_name in db.PlugInService().keys(), \
+                    f"PlugIn '{plugin_name}' not registered"
+                module.plugin_start(plugin_name, **options)
         except Exception as e:
             f, l = get_error_info()
             raise type(e)(f"{e}; File: {f}:{l}")
 
     @keyword("Stop trace plugin")
-    def stop_trace_plugin(self, plugin_name, **options):
+    def stop_trace_plugin(self, *plugin_names, **options):
         module = self._modules.get_module(**options)
-        module.plugin_terminate(plugin_name)
+        for plugin_name in plugin_names:
+            module.plugin_terminate(plugin_name)
 
     @keyword("Start period")
     def start_period(self, period_name=None, **options):
