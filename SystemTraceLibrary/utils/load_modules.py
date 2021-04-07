@@ -49,7 +49,7 @@ def load_modules(*modules, **options):
                 result_modules.update({name: class_})
         elif isclass(module_):
             result_modules.update({module_.__name__: module_})
-    logger.debug(f"[ 'SystemTraceLibrary' ] Read Module Classes: {result_modules}")
+    logger.info(f"[ 'SystemTraceLibrary' ] Read Module Classes: {result_modules}", also_console=True)
     return result_modules
 
 
