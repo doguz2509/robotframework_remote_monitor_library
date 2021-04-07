@@ -120,7 +120,7 @@ class SQL_DB:
 
     @property
     def get_last_row_id(self):
-        return self._cursor.lastrowid
+        return self._db._cursor.lastrowid
 
     def query_last_row(self, table_name, ref_field):
         sql = f'select {ref_field} from {table_name} ORDER BY {ref_field} DESC LIMIT 1'

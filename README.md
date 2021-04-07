@@ -1,4 +1,4 @@
-# System Trace Library (Version 1.1.1)
+# System Trace Library (Version 1.1.2)
 
 ## Overview
 SystemTraceLibrary allow collect system data of target linux host during any Robotframework 
@@ -22,6 +22,8 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
     python -m pip install robotframework_system_trace_library
 
 ## Usage
+
+LibDoc: [Library documentation](docs/SystemTraceLibrary.html)
 
 ### Test/Keywords within *.robot file
 

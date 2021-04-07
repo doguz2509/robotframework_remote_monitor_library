@@ -147,6 +147,10 @@ class DataUnit:
         self._result_ready = False
 
     @property
+    def table(self):
+        return self._table
+
+    @property
     def timestamp(self):
         return self._ts
 

@@ -1,74 +1,75 @@
 import os
-import re
 from datetime import datetime
 
 from robot.api import logger
 from robot.api.deco import keyword
-from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
+from robot.libraries.BuiltIn import BuiltIn
 from robot.running import TestSuite
 
-from .data_view import data_view_and_analyse
-from SystemTraceLibrary import builtin_plugins
-from SystemTraceLibrary.api import Logger, db
+from SystemTraceLibrary.api import db, Logger
 from SystemTraceLibrary.model.host_registry_model import HostRegistryCache, HostModule
-from SystemTraceLibrary.model.runner_model import plugin_ssh_runner
-from SystemTraceLibrary.utils import load_modules, get_error_info
-from ..utils.load_modules import plugins_table
+from SystemTraceLibrary.utils import get_error_info
 from SystemTraceLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
-DEFAULT_SYSTEM_TRACE_LOG = 'logs'
-DEFAULT_SYSTEM_LOG_FILE = 'SystemTraceLibrary.log'
-
-
-class base_keywords(data_view_and_analyse):
+class Listener:
     ROBOT_LISTENER_API_VERSION = 3
 
-    def __init__(self, location='logs', file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False, custom_plugins=''):
-        """
-        System trace module
-
-        """
+    def __init__(self):
+        self._start_suite_name = None
         self.ROBOT_LIBRARY_LISTENER = self
-        self._start_suite_name = ''
-        self._modules = HostRegistryCache()
-        try:
-            level = BuiltIn().get_variable_value('${LOG LEVEL}')
-            out_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
-        except RobotNotRunningError:
-            level = 'DEBUG'
-            out_location = os.path.join(os.getcwd(), location)
-
-        current_dir = os.path.split(BuiltIn().get_variable_value('${SUITE SOURCE}'))[0]
-
-        with Logger as log:
-            log.set_level('DEBUG' if level == 'TRACE' else level)
-            rel_log_file_path = os.path.join(location, file_name)
-            abs_log_file_path = os.path.join(out_location, location, file_name)
-            log.set_log_destination(abs_log_file_path)
-            logger.write(f'<a href="{rel_log_file_path}">{file_name}</a>', level='WARN', html=True)
-
-        plugin_modules = load_modules(builtin_plugins, re.split(r'\s*,\s*', custom_plugins),
-                                      base_path=current_dir, base_class=plugin_ssh_runner)
-        db.PlugInService().update(**plugin_modules)
-
-        db.DataHandlerService(os.path.normpath(os.path.join(out_location, location)), file_name, cumulative).start()
-        super().__init__(db.DataHandlerService(), self._modules, location)
-        plugins_table(db.PlugInService())
 
     def start_suite(self, suite: TestSuite, data):
         self._start_suite_name = suite.longname
 
     def end_suite(self, suite: TestSuite, result):
         if suite.longname == self._start_suite_name:
-            self._modules.close_all()
+            HostRegistryCache().clear_all()
             db.DataHandlerService().stop()
             logger.info(f"All system trace task closed by suite '{self._start_suite_name}' ending", also_console=True)
+
+
+class ConnectionManager:
+    __doc__ = """
+    
+    === Connections management ===
+    `Create host connection`
+    
+    `Close host connection`
+    
+    `Close all host connections`
+
+    === PlugIn's management ===
+    
+    `Start trace plugin`
+    
+    `Stop trace plugin`
+
+    === Mark points ===
+    
+    `Start period`
+    
+    `Stop period`"""
+
+    def __init__(self, rel_location, file_name, cumulative=False):
+        self._start_suite_name = ''
+        self._modules = HostRegistryCache()
+        self.location, self.file_name, self.cumulative = rel_location, file_name, cumulative
+
+    def get_keyword_names(self):
+        return [
+            self.create_host_connection.__name__,
+            self.close_host_connection.__name__,
+            self.close_all_host_connections.__name__,
+            self.start_trace_plugin.__name__,
+            self.stop_trace_plugin.__name__,
+            self.start_period.__name__,
+            self.stop_period.__name__
+        ]
 
     @keyword("Create host connection")
     def create_host_connection(self, host, username, password, port=22, alias=None):
         """
-
         Create basic host connection module used for trace host
         Last created connection handled as 'current'
         In case tracing required for one host only, alias can be ignored
@@ -80,16 +81,27 @@ class base_keywords(data_view_and_analyse):
         - str: alias
 
         Examples:
-        |  KW                       |  Host     | Username | Password       | Port  | Alias   | Comments              |
-        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |         | Default port; No alias|
-        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |         | Custom port; No alias |
-        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name} | Custom port; Alias    |
-        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name}| Default port; Alias    |
+        |  KW                       |  Host     | Username | Password       | Port  | Alias             | Comments              |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |                   | Default port; No alias |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |                   | Custom port; No alias |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name}       | Custom port; Alias    |
+        |  Create host connection   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name} | Default port; Alias    |
 
         """
+        if not db.DataHandlerService().is_active:
+            with Logger as log:
+                level = BuiltIn().get_variable_value('${LOG LEVEL}')
+                log.set_level('DEBUG' if level == 'TRACE' else level)
+                output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
+                rel_log_file_path = os.path.join(self.location, self.file_name)
+                abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
+                log.set_log_destination(abs_log_file_path)
+                logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
+            db.DataHandlerService().init(self.location, self.file_name, self.cumulative)
+            db.DataHandlerService().start()
         module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias)
         module.start()
-        _alias = self._modules.register(module)
+        _alias = self._modules.register(module, module.alias)
         self._start_period(alias=module.alias)
         return module.alias
 
@@ -102,7 +114,8 @@ class base_keywords(data_view_and_analyse):
         - alias: 'Current' used if omitted
         """
         self._stop_period(alias)
-        self._modules.close(alias=alias)
+        self._modules.switch(alias_or_index=alias)
+        self._modules.close_current()
 
     @keyword("Close all host connections")
     def close_all_host_connections(self):
@@ -115,15 +128,19 @@ class base_keywords(data_view_and_analyse):
     def start_trace_plugin(self, *plugin_names, **options):
         """
         Start plugin by its name on host queried by options keys
-        :param plugin_names: name must be one for following in loaded table, column 'Class'
-        | Alias              | Class               | Table
-        |aTopPlugIn          | aTopPlugIn          |
-        |                    |                     | atop_system_level
+
+        Arguments:
+        - plugin_names: name must be one for following in loaded table, column 'Class'
+        - options: alias=..., interval=...
+
+        | Alias              | Class               | Table  |
+        | aTopPlugIn          | aTopPlugIn          |    |
+        |                    |                     | atop_system_level |
 
         :param options: 'Current' used if omitted
         """
         try:
-            module: HostModule = self._modules.get_module(**options)
+            module: HostModule = self._modules.get_connection(options.pop('alias', None))
             for plugin_name in plugin_names:
                 assert plugin_name in db.PlugInService().keys(), \
                     f"PlugIn '{plugin_name}' not registered"
@@ -133,8 +150,8 @@ class base_keywords(data_view_and_analyse):
             raise type(e)(f"{e}; File: {f}:{l}")
 
     @keyword("Stop trace plugin")
-    def stop_trace_plugin(self, *plugin_names, **options):
-        module = self._modules.get_module(**options)
+    def stop_trace_plugin(self, *plugin_names, alias=None):
+        module = HostRegistryCache().get_module(alias)
         for plugin_name in plugin_names:
             module.plugin_terminate(plugin_name)
 
@@ -142,8 +159,8 @@ class base_keywords(data_view_and_analyse):
     def start_period(self, period_name=None, **options):
         self._start_period(period_name, **options)
 
-    def _start_period(self, period_name=None, **options):
-        module: HostModule = self._modules.get_module(**options)
+    def _start_period(self, period_name=None, alias=None):
+        module: HostModule = self._modules.get_connection(alias)
         db.DataHandlerService().execute(insert_sql(db.TableSchemaService().tables.Points.name,
                                                    db.TableSchemaService().tables.Points.columns),
                                         module.host_id, period_name or module.alias,
@@ -155,7 +172,7 @@ class base_keywords(data_view_and_analyse):
         self._stop_period(period_name, **options)
 
     def _stop_period(self, period_name=None, **options):
-        module: HostModule = self._modules.get_module(**options)
+        module: HostModule = self._modules.get_connection(options.get('alias', None))
         db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))

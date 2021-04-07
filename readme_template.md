@@ -23,6 +23,8 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
 
 ## Usage
 
+LibDoc: [Library documentation](docs/SystemTraceLibrary.html)
+
 ### Test/Keywords within *.robot file
 
     *** Settings ***

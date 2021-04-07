@@ -86,16 +86,16 @@ class ChartAbstract(ABC):
              query_results),
         )
 
-    def generate(self, sql_db, abs_image_path, sql: str, prefix=None, **marks):
+    def generate(self, sql_data, abs_image_path, prefix=None, **marks):
         try:
             errors = []
-            data_list = self.generate_chart_data(sql_db.execute(sql))
+            data_list = self.generate_chart_data(sql_data)
             for data in data_list:
                 try:
                     title, x, y, chart_data = data
                     file_name = self.file_name.format(name=title.lower())
                     file_name = f"{prefix}_{file_name}" if prefix else file_name
-                    file_path = os.path.join(abs_image_path, re.sub(r'\s+', '_', file_name))
+                    file_path = os.path.join(abs_image_path, re.sub(r'\s+|@|:', '_', file_name))
                     if os.path.exists(file_path):
                         os.remove(file_path)
                     plt.style.use('classic')

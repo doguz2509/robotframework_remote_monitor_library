@@ -72,11 +72,11 @@ class PlugInService(dict, Mapping[AnyStr, plugin_ssh_runner]):
 
 @Singleton
 class DataHandlerService(sql.SQL_DB):
-    def __init__(self, location=None, file_name=DEFAULT_DB_FILE, cumulative=False):
-        sql.SQL_DB.__init__(self, location, file_name, cumulative)
-        self._event: Event = None
+    def __init__(self):
         self._threads: List[Thread] = []
         self._queue = threadsafe.tsQueue()
+        self._event: Event = None
+        self._db: sql.SQL_DB = None
 
     @property
     def is_active(self):
@@ -92,13 +92,16 @@ class DataHandlerService(sql.SQL_DB):
     def add_task(self, task: DataUnit):
         self.queue.put(task)
 
-    def start(self,  event=Event()):
-        if self.is_new:
+    def init(self, location=None, file_name=DEFAULT_DB_FILE, cumulative=False):
+        self._db = sql.SQL_DB(location, file_name, cumulative)
+
+    def start(self, event=Event()):
+        if self._db.is_new:
             for name, table in TableSchemaService().tables.items():
                 try:
-                    assert not self.table_exist(table.name), f"Table '{name}' already exists"
-                    self.create_table(table.name, sql.create_table_sql(table.name, table.fields,
-                                                                                  table.foreign_keys))
+                    assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
+                    self._db.create_table(table.name, sql.create_table_sql(table.name, table.fields,
+                                                                           table.foreign_keys))
                 except AssertionError as e:
                     logger.warn(f"{e}")
                 except Exception as e:
@@ -111,14 +114,18 @@ class DataHandlerService(sql.SQL_DB):
         self._threads.append(dh)
 
     def stop(self, timeout=5):
-        self._event.set()
+        if self._event:
+            self._event.set()
         while len(self._threads) > 0:
             th = self._threads.pop(0)
             try:
                 th.join(timeout)
-                Logger().debug(f"Thread '{th.name}' gracefully stopped")
+                logger.debug(f"Thread '{th.name}' gracefully stopped")
             except Exception as e:
-                Logger().error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
+                logger.error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
+
+    def execute(self, sql_text, *rows):
+        return self._db.execute(sql_text, *rows)
 
     def _data_handler(self):
         Logger().debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
@@ -148,6 +155,3 @@ class DataHandlerService(sql.SQL_DB):
                 sleep(0.5)
 
         Logger().debug(f"Background task stopped invoked")
-
-
-
