@@ -7,7 +7,7 @@ from robot.utils import DotDict
 
 from .model import TimeReferencedTable
 from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
-from SystemTraceLibrary.model.runner_model.ssh_runner import plugin_ssh_runner
+from SystemTraceLibrary.model.runner_model.ssh_runner import SSHLibraryCommandScheduler
 from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
 from SystemTraceLibrary.utils.sql_engine import insert_sql
 
@@ -62,7 +62,7 @@ class TableSchemaService:
 
 
 @Singleton
-class PlugInService(dict, Mapping[AnyStr, plugin_ssh_runner]):
+class PlugInService(dict, Mapping[AnyStr, SSHLibraryCommandScheduler]):
     def update(self, **plugin_modules):
         for plugin in plugin_modules.values():
             for table in plugin.affiliated_tables():

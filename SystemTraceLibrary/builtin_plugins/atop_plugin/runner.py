@@ -3,6 +3,7 @@ import re
 from collections import namedtuple, OrderedDict
 from typing import Iterable
 
+from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
 import SystemTraceLibrary.model.runner_model.runner_abstracts
@@ -90,6 +91,20 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
     return res
 
 
+class aTopParser(plugins.Parser):
+    def __init__(self, host_id, table, data_handler):
+        self._host_id = host_id
+        self._table = table
+        self._data_handler = data_handler
+
+    def __call__(self, *output) -> bool:
+        table_template = self._table.template
+        output = ''.join(output)
+        data = _generate_atop_system_level(output, table_template, self._host_id, None)
+        self._data_handler(model.DataUnit(self._table, *data))
+        return True
+
+
 class aTopPlugIn(plugins.PlugInAPI):
     SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
 
@@ -105,31 +120,30 @@ class aTopPlugIn(plugins.PlugInAPI):
 
     @staticmethod
     def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
-        return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart('LVM'), \
+        return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart(
+            'LVM'), \
                aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
-    def parse(self, command_output):
-        table_template = self.affiliated_tables()[0].template
-        data = _generate_atop_system_level(command_output, table_template, self.host_id, None)
-        self._data_handler(model.DataUnit(self.affiliated_tables()[0], *data))
-
     @property
-    def setup(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandsType:
-        return [SystemTraceLibrary.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),
-                SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'rm -rf {self.folder}', sudo=True),
-                SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'mkdir -p {self.folder}', sudo=True),
-                SystemTraceLibrary.model.runner_model.runner_abstracts.Command("{nohup} atop -w {folder}/{file} {interval} &".format(
+    def setup(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandSet_Type:
+        return [plugins.Command(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
+                plugins.Command(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True, sudo_password=True),
+                plugins.Command(SSHLibrary.execute_command, f'mkdir -p {self.folder}', sudo=True, sudo_password=True),
+                plugins.Command(SSHLibrary.start_command, "{nohup} atop -w {folder}/{file} {interval} &".format(
                     nohup='' if self.persistent else 'nohup',
                     folder=self.folder,
                     file=self.file,
-                    interval=int(self.interval)), sudo=True, interactive=True)
+                    interval=int(self.interval)),
+                                sudo=True, sudo_password=True)
                 ]
 
     @property
     def periodic_commands(self):
-        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command(f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
-                                                                              sudo=True, parser=self.parse),
+        return plugins.Command(SSHLibrary.execute_command,
+                               f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
+                               sudo=True, sudo_password=True,
+                               parser=aTopParser(self.host_id, self.affiliated_tables()[0], self._data_handler)),
 
     @property
-    def teardown(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandsType:
-        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command('killall -9 atop', sudo=True),
+    def teardown(self) -> plugins.CommandSet_Type:
+        return plugins.Command(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
