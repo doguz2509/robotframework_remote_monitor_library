@@ -1,4 +1,4 @@
-# System Trace Library (Version 1.1.2)
+# System Trace Library (Version 1.2.0)
 
 ## Overview
 SystemTraceLibrary allow collect system data of target linux host during any Robotframework 
