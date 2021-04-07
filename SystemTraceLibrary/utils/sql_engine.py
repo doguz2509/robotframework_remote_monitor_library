@@ -101,7 +101,7 @@ class SQL_DB:
     def execute(self, sql: str, *args, **kwargs):
         _result = None
         with self._lock:
-            # self._logger.debug("{}::execute: {}\nArgs: {}".format(self.__class__.__name__, sql, args))
+            # self._logger.debug("{}::execute: {}\nArgs: {}".format(self.__class__.__name__, sql, command))
             if args.__len__() == 0:
                 self._cursor.execute(sql)
             elif isinstance(args[0], list):
