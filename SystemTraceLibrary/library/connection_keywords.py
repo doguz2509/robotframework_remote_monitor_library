@@ -114,7 +114,6 @@ class ConnectionKeywords:
         - alias: 'Current' used if omitted
         """
         self._stop_period(alias)
-        self._modules.switch(alias_or_index=alias)
         self._modules.close_current()
 
     @keyword("Close all host connections")
