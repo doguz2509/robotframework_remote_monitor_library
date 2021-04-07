@@ -74,9 +74,13 @@ class HostModule:
 
     def plugin_terminate(self, plugin_name):
         plugin = self._active_plugins.get(plugin_name, None)
-        assert plugin, f"Plugin '{plugin_name}' not active"
-        plugin.stop()
-        logger.info(f"PlugIn '{plugin_name}' gracefully stopped")
+        try:
+            assert plugin
+            plugin.stop()
+        except AssertionError:
+            logger.warn(f"Plugin '{plugin_name}' not active")
+        else:
+            logger.info(f"PlugIn '{plugin_name}' gracefully stopped")
 
 
 @Singleton
@@ -84,14 +88,17 @@ class HostRegistryCache(ConnectionCache):
     def __init__(self):
         super().__init__('No stored connection found')
 
-    def clear_all(self):
-        super().close_all('stop')
+    def clear_all(self, closer_method='stop'):
+        for conn in self._connections:
+            getattr(conn, closer_method)()
 
-    def close_current(self):
+    close_all = clear_all
+
+    def stop_current(self):
         self.current.stop()
 
     def clear_current(self):
-        self.close_current()
+        self.stop_current()
         module = self.current
 
         current_index = self._connections.index(module)
