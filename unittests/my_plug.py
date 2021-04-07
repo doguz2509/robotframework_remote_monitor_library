@@ -1,8 +1,10 @@
-from typing import Iterable, Tuple
+from typing import Tuple
+
+from SSHLibrary import SSHLibrary
 
 import SystemTraceLibrary.model.runner_model.runner_abstracts
-from SystemTraceLibrary.api import plugins
 from SystemTraceLibrary.api import model
+from SystemTraceLibrary.api import plugins
 
 
 class Address(model.Table):
@@ -31,7 +33,8 @@ class my_address(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return SystemTraceLibrary.model.runner_model.runner_abstracts.Command('ls -l'),
+        return plugins.Command('ls -l'), \
+               plugins.ReadOutput(SSHLibrary.read_until, 'ls', loglevel='DEBUG')
 
     @staticmethod
     def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output: str):
@@ -54,3 +57,13 @@ class my_job(plugins.PlugInAPI):
 
 
 __all__ = [my_address, my_job]
+
+
+if __name__ == '__main__':
+    from robot.utils import DotDict
+    m = my_address(DotDict(alias='asdas', interval=5, fault_tolerance=10), print, host_id=1)
+    c = m.periodic_commands()
+
+    for com in c:
+        print(f"{com}")
+    print('')
