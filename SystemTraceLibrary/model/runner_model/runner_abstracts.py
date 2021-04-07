@@ -1,36 +1,62 @@
-
 from enum import Enum
-from typing import Iterable
+from typing import Iterable, Callable
+
+from SSHLibrary import SSHLibrary
 
 from SystemTraceLibrary.model import schema_model as model
 from SystemTraceLibrary.model.chart_model.chart_abstract import ChartAbstract
+from SystemTraceLibrary.utils import get_error_info
+
+
+class Parser:
+    def __call__(self, *outputs) -> bool:
+        raise NotImplementedError()
+
+    def __str__(self):
+        return self.__class__.__name__
 
 
 class Command:
-    def __init__(self, command, **kwargs):
+    def __init__(self, method: Callable, command, **kwargs):
+        self.repeat = kwargs.pop('repeat', 1)
+        self.variable_cb = kwargs.pop('variable_cb', None)
+        self.parser: Parser = kwargs.pop('parser', None)
+        if self.parser:
+            assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
+        self._method = method
         self._command = command
-        self.sudo = kwargs.get('sudo', None)
-        self.sudo_password = kwargs.get('sudo_password', None)
-        self.interactive = kwargs.get('interactive', None)
-        self.repeat = kwargs.get('repeat', 1)
-        self.variable_cb = kwargs.get('variable_cb', None)
-        self.parser = kwargs.get('parser', None)
+        self._kwargs = kwargs
 
     @property
-    def command(self):
-        if self.sudo:
-            if self.sudo_password:
-                return f'echo {self.sudo_password}|sudo --stdin --prompt "" {self._command}'
-            else:
-                return f'sudo {self._command}'
-        else:
-            return self._command
+    def sudo(self):
+        return self._kwargs.get('sudo', False)
 
     def __str__(self):
-        return f"{self.command} (To repeat {self.repeat} times)[Sudo: {self.sudo}; Interactive: {self.interactive}]"
+        return f"{self._method.__name__}: " \
+               f"{', '.join([f'{a}' for a in [self._command] + [f'{k}={v}' for k, v in self._kwargs.items()]])}" \
+               f"{'; Parser: '.format(self.parser) if self.parser else ''}"
+
+    def __call__(self, ssh_client: SSHLibrary, *args, **kwargs) -> bool:
+        command_kwargs = dict(**self._kwargs)
+        command = self._command
+
+        if command_kwargs.get('sudo', False):
+            command = f'sudo {command}'
+        elif command_kwargs.get('sudo_password', False):
+            command = 'echo %s | sudo --stdin --prompt "" %s' % (kwargs.get('sudo_password', None), command)
+
+        try:
+            output = self._method(ssh_client, command, **command_kwargs)
+            if self.parser:
+                return self.parser(*output)
+            return True
+        except Exception as e:
+            f, li = get_error_info()
+            error_type = type(e)
+            raise error_type(f"{self.__class__.__name__} -> {error_type.__name__}:{e}; File: {f}:{li}")
 
 
-CommandsType = Iterable[Command]
+CommandSet_Type = Iterable[Command]
 
 
 class plugin_runner_abstract:
@@ -41,6 +67,7 @@ class plugin_runner_abstract:
     def store_variable(self, variable_name):
         def _(value):
             self.variables[variable_name] = value
+
         return _
 
     @property
@@ -53,15 +80,15 @@ class plugin_runner_abstract:
         return FlowCommands
 
     @property
-    def setup(self) -> CommandsType:
+    def setup(self) -> CommandSet_Type:
         return ()
 
     @property
-    def periodic_commands(self) -> CommandsType:
+    def periodic_commands(self) -> CommandSet_Type:
         return ()
 
     @property
-    def teardown(self) -> CommandsType:
+    def teardown(self) -> CommandSet_Type:
         return ()
 
     def __enter__(self):

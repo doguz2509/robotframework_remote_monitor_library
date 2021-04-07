@@ -13,7 +13,7 @@ from SystemTraceLibrary.model.runner_model.runner_abstracts import plugin_runner
 from SystemTraceLibrary.utils import Logger, get_error_info
 
 
-class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
+class SSHLibraryCommandScheduler(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, **kwargs):
         super().__init__()
         self._execution_counter = 0
@@ -157,25 +157,10 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             assert len(flow.value) > 0
             flow_values = getattr(self, flow.value)
             for cmd in flow_values:
-                if cmd.interactive:
-                    output = ssh_client.write(cmd.command)
-                else:
-                    output = ''
-                    out, err, rc = '', '', 0
-                    for i in range(0, cmd.repeat):
-                        out, err, rc = ssh_client.execute_command(cmd.command, return_stderr=True, return_rc=True)
-                        output += (err + '\n') if len(err) > 0 else ''
-                        output += (out + '\n') if len(out) > 0 else ''
-                        rc = rc if rc > 0 else rc
-                        if cmd.variable_cb:
-                            cmd.variable_cb(output.strip())
-                        if cmd.parser:
-                            cmd.parser(output.strip())
-                    output = "RC: {}\n{}".format(rc, output)
-
-                total_output += "Command: {}\nOutput:\n{}".format(cmd.command, output)
+                run_status = cmd(ssh_client, **self.parameters)
+                total_output += "Command (Status: {}): {}\n".format(run_status, cmd)
                 sleep(0.05)
-            Logger().info(f"{flow.name}: execution completed")
+            Logger().info(f"{flow.name}: execution completed\n{total_output}")
         except AssertionError:
             Logger().debug(f"{flow.name} ignored")
         except Exception as e:
@@ -227,5 +212,3 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
             Logger.error(msg=f"{e}; File: {f}:{li}")
             raise RunnerError(f"{e}; File: {f}:{li}")
 
-    def parse(self, command_output) -> bool:
-        raise NotImplementedError()
