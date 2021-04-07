@@ -33,7 +33,7 @@ setup(
     name='robotframework-system-trace-library',
     version=VERSION,
     packages=find_packages(exclude=['venv']),
-    package_data={'': ['docs/*.html']},
+    package_data={'': ['*.html', 'SystemTraceLibrary/library/*.html']},
     url=__url__,
     license='MIT',
     author=__author__,
