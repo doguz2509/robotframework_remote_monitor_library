@@ -29,17 +29,17 @@ class Listener:
             logger.info(f"All system trace task closed by suite '{self._start_suite_name}' ending", also_console=True)
 
 
-class ConnectionManager:
+class ConnectionKeywords:
     __doc__ = """
     
-    === Connections management ===
+    === Connections keywords ===
     `Create host connection`
     
     `Close host connection`
     
     `Close all host connections`
 
-    === PlugIn's management ===
+    === PlugIn's keywords ===
     
     `Start trace plugin`
     
@@ -97,7 +97,7 @@ class ConnectionManager:
                 abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
                 log.set_log_destination(abs_log_file_path)
                 logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
-            db.DataHandlerService().init(self.location, self.file_name, self.cumulative)
+            db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
             db.DataHandlerService().start()
         module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias)
         module.start()
@@ -125,22 +125,22 @@ class ConnectionManager:
         self._modules.close_all()
 
     @keyword("Start trace plugin")
-    def start_trace_plugin(self, *plugin_names, **options):
+    def start_trace_plugin(self, *plugin_names, alias=None, **options):
         """
         Start plugin by its name on host queried by options keys
 
         Arguments:
         - plugin_names: name must be one for following in loaded table, column 'Class'
-        - options: alias=..., interval=...
+        - alias: host module alias (Default: Current if omitted)
+        - options: interval=... , persistent=yes/no
 
         | Alias              | Class               | Table  |
         | aTopPlugIn          | aTopPlugIn          |    |
         |                    |                     | atop_system_level |
 
-        :param options: 'Current' used if omitted
         """
         try:
-            module: HostModule = self._modules.get_connection(options.pop('alias', None))
+            module: HostModule = self._modules.get_connection(alias)
             for plugin_name in plugin_names:
                 assert plugin_name in db.PlugInService().keys(), \
                     f"PlugIn '{plugin_name}' not registered"
@@ -156,8 +156,8 @@ class ConnectionManager:
             module.plugin_terminate(plugin_name)
 
     @keyword("Start period")
-    def start_period(self, period_name=None, **options):
-        self._start_period(period_name, **options)
+    def start_period(self, period_name=None, alias=None):
+        self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
         module: HostModule = self._modules.get_connection(alias)
@@ -168,11 +168,11 @@ class ConnectionManager:
                                         None)
 
     @keyword("Stop period")
-    def stop_period(self, period_name=None, **options):
-        self._stop_period(period_name, **options)
+    def stop_period(self, period_name=None, alias=None):
+        self._stop_period(period_name, alias)
 
-    def _stop_period(self, period_name=None, **options):
-        module: HostModule = self._modules.get_connection(options.get('alias', None))
+    def _stop_period(self, period_name=None, alias=None):
+        module: HostModule = self._modules.get_connection(alias)
         db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))

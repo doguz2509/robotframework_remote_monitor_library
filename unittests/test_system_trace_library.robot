@@ -16,7 +16,7 @@ Suite Teardown  run keywords  Close host connection
 *** Variables ***
 ${DURATION}  10s
 ${INTERVAL}  1s
-${PERSISTENT}  no
+${PERSISTENT}  yes
 
 *** Test Cases ***
 Test 01

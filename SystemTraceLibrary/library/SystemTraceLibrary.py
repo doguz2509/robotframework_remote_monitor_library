@@ -5,8 +5,8 @@ from robot.api import logger
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from SystemTraceLibrary.library.connection_manager import ConnectionManager, Listener
-from SystemTraceLibrary.library.bi_manager import BIManager
+from SystemTraceLibrary.library.connection_keywords import ConnectionKeywords, Listener
+from SystemTraceLibrary.library.bi_keywords import BIKeywords
 
 from SystemTraceLibrary import builtin_plugins
 from SystemTraceLibrary.api import db, Logger
@@ -20,20 +20,25 @@ DEFAULT_SYSTEM_LOG_FILE = 'SystemTraceLibrary.log'
 
 
 @library(scope='GLOBAL', version=VERSION, listener=Listener())
-class SystemTraceLibrary(ConnectionManager, BIManager):
+class SystemTraceLibrary(ConnectionKeywords, BIKeywords):
 
-    def __init__(self, location='logs', file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False, custom_plugins=''):
+    def __init__(self, location=DEFAULT_SYSTEM_TRACE_LOG, file_name=DEFAULT_SYSTEM_LOG_FILE, cumulative=False,
+                 custom_plugins=''):
         self.__doc__ = """
-        = Trace System or any other data on linux hosts =
-        == {} ==
+        
+        Trace System or any other data on linux hosts
+        Allow periodical execution of commands set on one or more linux hosts with collecting data within SQL db following with some BI activity
+        For current phase only data presentation in charts available.
+        
+        == Keywords & Usage ==
         
         {}
 
         {}
-        """.format(self.__class__.__name__, ConnectionManager.__doc__, BIManager.__doc__)
+        """.format(ConnectionKeywords.__doc__, BIKeywords.__doc__)
 
-        ConnectionManager.__init__(self, location, file_name)
-        BIManager.__init__(self, location)
+        ConnectionKeywords.__init__(self, location, file_name, cumulative)
+        BIKeywords.__init__(self, location)
         try:
             current_dir = os.path.split(BuiltIn().get_variable_value('${SUITE SOURCE}'))[0]
         except RobotNotRunningError:
@@ -43,11 +48,14 @@ class SystemTraceLibrary(ConnectionManager, BIManager):
         plugin_modules = load_modules(builtin_plugins, re.split(r'\s*,\s*', custom_plugins),
                                       base_path=current_dir, base_class=plugin_ssh_runner)
         db.PlugInService().update(**plugin_modules)
-
         plugins_table(db.PlugInService())
+        lib_path, lib_file = os.path.split(__file__)
+        lib_name, ext = os.path.splitext(lib_file)
+        lib_doc_file = f"{lib_name}.html"
+        logger.warn(f'{self.__class__.__name__} documentation <a href="{os.path.join(lib_path, lib_doc_file)}">here</a>', html=True)
 
     def get_keyword_names(self):
-        return ConnectionManager.get_keyword_names(self) + BIManager.get_keyword_names(self)
+        return ConnectionKeywords.get_keyword_names(self) + BIKeywords.get_keyword_names(self)
 
     def __del__(self):
         db.DataHandlerService().stop()

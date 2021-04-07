@@ -13,8 +13,8 @@ from SystemTraceLibrary.model.host_registry_model import HostModule, HostRegistr
 from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
-class BIManager:
-    __doc__ = """=== Statistics, measurement, analise ===
+class BIKeywords:
+    __doc__ = """=== Statistics, measurement, analise keywords ===
     `Generate Module Statistics`
     
     `Evaluate statistic trend` - TBD"""

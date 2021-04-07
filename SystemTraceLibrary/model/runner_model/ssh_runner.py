@@ -135,7 +135,8 @@ class plugin_ssh_runner(plugin_runner_abstract, metaclass=ABCMeta):
         return True
 
     def __str__(self):
-        return "PlugIn {}: {} [Interval: {}]".format(self.type, self.thread_name, self._interval)
+        return "PlugIn {}: {} [Interval: {}; Persistent: {}]".format(self.type, self.thread_name,
+                                                                     self._interval, self.persistent)
 
     @staticmethod
     def _evaluate_duration(start_ts, expected_end_ts, alias):

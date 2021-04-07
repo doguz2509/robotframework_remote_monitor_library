@@ -68,8 +68,7 @@ class HostModule:
         assert plugin, f"Plugin '{plugin_name}' not registered"
         plugin = plugin(plugin_conf.parameters, self._data_handler, self.host_id, **tail)
         plugin.start()
-        # plugin._persistent_worker()
-        # plugin._interrupt_worker()
+        logger.info(f"PlugIn '{plugin}' started")
         self._active_plugins[f"{plugin}"] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 

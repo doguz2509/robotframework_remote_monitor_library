@@ -26,7 +26,8 @@ with open("readme_template.md", "r", encoding="utf-8") as reader:
         print(lines)
 
 libdoc(os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.py'),
-       os.path.join(current_dir, 'docs', 'SystemTraceLibrary.html'), 'SystemStraceLibrary', VERSION)
+       os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.html'),
+       'SystemStraceLibrary', VERSION)
 
 setup(
     name='robotframework-system-trace-library',
