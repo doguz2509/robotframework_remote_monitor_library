@@ -1,6 +1,7 @@
 import os
 import re
 from os.path import abspath, dirname, join
+from shutil import rmtree
 
 from robot.libdoc import libdoc
 from setuptools import setup, find_packages
@@ -28,6 +29,8 @@ with open("readme_template.md", "r", encoding="utf-8") as reader:
 libdoc(os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.py'),
        os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.html'),
        'SystemStraceLibrary', VERSION)
+
+rmtree('dist', True)
 
 setup(
     name='robotframework-system-trace-library',
