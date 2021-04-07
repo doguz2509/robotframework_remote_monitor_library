@@ -4,36 +4,20 @@ from datetime import datetime
 from robot.api import logger
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
-from robot.running import TestSuite
+from robot.utils import is_truthy
 
 from SystemTraceLibrary.api import db, Logger
+from SystemTraceLibrary.library.listener import TraceListener
 from SystemTraceLibrary.model.host_registry_model import HostRegistryCache, HostModule
 from SystemTraceLibrary.utils import get_error_info
 from SystemTraceLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
-class Listener:
-    ROBOT_LISTENER_API_VERSION = 3
-
-    def __init__(self):
-        self._start_suite_name = None
-        self.ROBOT_LIBRARY_LISTENER = self
-
-    def start_suite(self, suite: TestSuite, data):
-        self._start_suite_name = suite.longname
-
-    def end_suite(self, suite: TestSuite, result):
-        if suite.longname == self._start_suite_name:
-            HostRegistryCache().clear_all()
-            db.DataHandlerService().stop()
-            logger.info(f"All system trace task closed by suite '{self._start_suite_name}' ending", also_console=True)
-
-
-class ConnectionKeywords:
-    __doc__ = """
-    
-    === Connections keywords ===
+class ConnectionKeywords(TraceListener):
+    __doc__ = """=== Connections keywords ===
     `Create host connection`
+    
+    `Stop host trace`
     
     `Close host connection`
     
@@ -51,14 +35,55 @@ class ConnectionKeywords:
     
     `Stop period`"""
 
-    def __init__(self, rel_location, file_name, cumulative=False):
+    def __init__(self, rel_location, file_name, **options):
+        """
+        Initialise System Trace Library instance
+
+        Arguments:
+        - rel_location: relative log location
+        - file_name: name for db & log files
+
+        Optional parameters:
+            - cumulative: delete existed db file if True, (Default: False)
+
+        Auto keywords:
+            - start_suite:
+            - end_suite:
+            - start_test:
+            - end_test
+
+        Keywords (start_period, stop_period will be assigned) will be assigned if True
+        Provided keyword will be provided if defined
+
+        Default - Nothing
+
+        Note: working with current alias only
+        """
         self._start_suite_name = ''
         self._modules = HostRegistryCache()
-        self.location, self.file_name, self.cumulative = rel_location, file_name, cumulative
+        self.location, self.file_name, self.cumulative = \
+            rel_location, file_name, is_truthy(options.get('cumulative', False))
+
+        suite_start_kw = self._normalise_auto_mark(options.get('start_suite', None), 'start_period')
+        suite_end_kw = self._normalise_auto_mark(options.get('start_suite', None), 'stop_period')
+        test_start_kw = self._normalise_auto_mark(options.get('start_test', True), 'start_period')
+        test_end_kw = self._normalise_auto_mark(options.get('end_test', True), 'stop_period')
+
+        TraceListener.__init__(self, start_suite=suite_start_kw, end_suite=suite_end_kw,
+                               start_test=test_start_kw, end_test=test_end_kw)
+
+    @staticmethod
+    def _normalise_auto_mark(custom_kw, default_kw):
+        if custom_kw is True:
+            return default_kw
+        elif custom_kw is not None:
+            return custom_kw
+        return None
 
     def get_keyword_names(self):
         return [
             self.create_host_connection.__name__,
+            self.stop_host_trace.__name__,
             self.close_host_connection.__name__,
             self.close_all_host_connections.__name__,
             self.start_trace_plugin.__name__,
@@ -105,21 +130,31 @@ class ConnectionKeywords:
         self._start_period(alias=module.alias)
         return module.alias
 
-    @keyword("Close host connection")
-    def close_host_connection(self, alias=None):
+    @keyword("Stop host trace")
+    def stop_host_trace(self, alias=None):
         """
-        Close one connection by its alias (current will be closed if omitted)
+        Stop all plugins related to host by its alias
 
         Arguments:
         - alias: 'Current' used if omitted
         """
         self._stop_period(alias)
-        self._modules.close_current()
+        self._modules.stop_current()
+
+    @keyword("Close host connection")
+    def close_host_connection(self, alias=None):
+        """
+        Stop all plugins activity on host
+
+        Arguments:
+        - alias: Connection host alias
+        """
+        self.stop_host_trace(alias)
 
     @keyword("Close all host connections")
     def close_all_host_connections(self):
         """
-        Close all active connection modules with related plugin's
+        Stop all active hosts plugins
         """
         self._modules.close_all()
 
