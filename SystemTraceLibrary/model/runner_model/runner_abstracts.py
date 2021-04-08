@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Iterable, Callable
+from typing import Iterable, Callable, Any
 
 from SSHLibrary import SSHLibrary
 
@@ -9,6 +9,15 @@ from SystemTraceLibrary.utils import get_error_info
 
 
 class Parser:
+    def __init__(self, **parameters):
+        """
+
+        :param parameters:
+        """
+        self.host_id = parameters.get('host_id')
+        self.table = parameters.get('table')
+        self.data_handler = parameters.get('data_handler')
+
     def __call__(self, *outputs) -> bool:
         raise NotImplementedError()
 
@@ -36,7 +45,7 @@ class Command:
                f"{', '.join([f'{a}' for a in [self._command] + [f'{k}={v}' for k, v in self._kwargs.items()]])}" \
                f"{'; Parser: '.format(self.parser) if self.parser else ''}"
 
-    def __call__(self, ssh_client: SSHLibrary, *args, **kwargs) -> bool:
+    def __call__(self, ssh_client: SSHLibrary, *args, **kwargs) -> Any:
         command_kwargs = dict(**self._kwargs)
         command = self._command
 
@@ -49,7 +58,7 @@ class Command:
             output = self._method(ssh_client, command, **command_kwargs)
             if self.parser:
                 return self.parser(*output)
-            return True
+            return output
         except Exception as e:
             f, li = get_error_info()
             error_type = type(e)
