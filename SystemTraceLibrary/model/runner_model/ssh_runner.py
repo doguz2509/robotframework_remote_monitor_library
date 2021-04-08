@@ -15,12 +15,11 @@ from SystemTraceLibrary.utils import Logger, get_error_info
 
 class SSHLibraryCommandScheduler(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, **kwargs):
-        super().__init__()
+        super().__init__(data_handler)
         self._execution_counter = 0
         self._ssh = SSHLibrary()
 
         self.parameters = parameters
-        self._data_handler: Callable = data_handler
         self._interval = self.parameters.interval
         self._internal_event = Event()
         self._fault_tolerance = self.parameters.fault_tolerance

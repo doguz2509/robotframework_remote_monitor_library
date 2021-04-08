@@ -69,15 +69,20 @@ CommandSet_Type = Iterable[Command]
 
 
 class plugin_runner_abstract:
-    def __init__(self):
+    def __init__(self, data_handler: Callable):
         self._stored_shell = {}
         self.variables = {}
+        self._data_handler = data_handler
 
     def store_variable(self, variable_name):
         def _(value):
             self.variables[variable_name] = value
 
         return _
+
+    @property
+    def data_handler(self):
+        return self._data_handler
 
     @property
     def flow_type(self):
