@@ -92,16 +92,11 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
 
 
 class aTopParser(plugins.Parser):
-    def __init__(self, host_id, table, data_handler):
-        self._host_id = host_id
-        self._table = table
-        self._data_handler = data_handler
-
     def __call__(self, *output) -> bool:
-        table_template = self._table.template
+        table_template = self.table.template
         output = ''.join(output)
-        data = _generate_atop_system_level(output, table_template, self._host_id, None)
-        self._data_handler(model.DataUnit(self._table, *data))
+        data = _generate_atop_system_level(output, table_template, self.host_id, None)
+        self.data_handler(model.DataUnit(self.table, *data))
         return True
 
 
@@ -142,7 +137,8 @@ class aTopPlugIn(plugins.PlugInAPI):
         return plugins.Command(SSHLibrary.execute_command,
                                f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
                                sudo=True, sudo_password=True,
-                               parser=aTopParser(self.host_id, self.affiliated_tables()[0], self._data_handler)),
+                               parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
+                                                 data_handler=self._data_handler)),
 
     @property
     def teardown(self) -> plugins.CommandSet_Type:
