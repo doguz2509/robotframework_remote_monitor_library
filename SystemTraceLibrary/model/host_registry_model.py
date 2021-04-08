@@ -66,7 +66,7 @@ class HostModule:
         tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin(plugin_conf.parameters, self._data_handler, self.host_id, **tail)
+        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, **tail)
         plugin.start()
         logger.info(f"PlugIn '{plugin}' started")
         self._active_plugins[f"{plugin}"] = plugin

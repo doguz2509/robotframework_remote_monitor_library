@@ -103,8 +103,8 @@ class aTopParser(plugins.Parser):
 class aTopPlugIn(plugins.PlugInAPI):
     SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
 
-    def __init__(self, parameters, data_handler, host_id, **kwargs):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, host_id=host_id, **kwargs)
+    def __init__(self, parameters, data_handler, **kwargs):
+        plugins.PlugInAPI.__init__(self, parameters, data_handler, **kwargs)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
