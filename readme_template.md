@@ -46,7 +46,7 @@ LibDoc: [Library documentation](docs/SystemTraceLibrary.html)
     Test
         Do something here
 
-### PlugIn extending
+### PlugIn public API
 
 SystemTraceLibrary allow creating extended plugins for trace customer purposes
 
@@ -68,7 +68,7 @@ Main init project file for expose Plugin class
 ##### Runner definition
 
     runner.py
-        from system_trace.api import plugins
+        from <package_name>.api import plugins
         from .tables import plugin_table
         from .charts import plugin_chart
         
@@ -90,7 +90,7 @@ Main init project file for expose Plugin class
 ##### Tables definition
 
     tables.py
-        from system_trace.api import model
+        from <package_name>.api import model
 
         class my_plugin_table(model.TimeReferencedTable / model.Table):
             def __init__(self):
@@ -104,19 +104,28 @@ Main init project file for expose Plugin class
         !!! PAY ATTENTION - TimeReferencedTable automatically add fields for reference table entries to time line 
         mechanism 
         In case it not requires, use model.Table base class
+##### Parser definition
+   
+   parser.py
+         from <package_name>.api import plugins, model
+         
+         class my_parser(plugins.Parser):
+            def __call__(*output) -> bool:
+                table_template = self.table.template
+                
+                Data treatment                
+
+                self.datahandler(model.DataUnit(self.table, your_data: [Iterable[Iterable]]
 
 ##### Chart definition
 
     charts.py
-        from system_trace.api.plugins import ChartAbstract
+        from <package_name>.api.plugins import ChartAbstract
         
         class MyPlugInChart(ChartAbstract):
             pass
         
         Creating charts require familirisation with pandas & matplotlib
-
-
-
 
 ## Prerequisites
     atop  preinstalled

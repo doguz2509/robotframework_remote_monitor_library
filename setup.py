@@ -13,7 +13,8 @@ current_dir = dirname(abspath(__file__))
 with open(join(current_dir, "SystemTraceLibrary", "version.py"), encoding="utf-8") as f:
     VERSION = re.search(r"""VERSION = ('|")(.*)('|")""", f.read()).group(2)
 
-update_set = dict(VERSION=VERSION)
+print(f"Version: {VERSION}")
+update_set = dict(VERSION=VERSION, package_name='SystemTraceLibrary')
 
 long_description = ''
 with open("readme_template.md", "r", encoding="utf-8") as reader:
@@ -26,9 +27,10 @@ with open("readme_template.md", "r", encoding="utf-8") as reader:
         writer.write(lines)
         print(lines)
 
-libdoc(os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.py'),
-       os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.html'),
-       'SystemStraceLibrary', VERSION)
+py_file = os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.py')
+html_file = os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.html')
+
+libdoc(py_file, html_file, 'SystemStraceLibrary', VERSION)
 
 rmtree('dist', True)
 
