@@ -43,7 +43,7 @@ class SystemTraceLibrary(ConnectionKeywords, BIKeywords):
             current_dir = ''
 
         self._start_suite_name = ''
-        plugin_modules = load_modules(builtin_plugins, *re.split(r'\s*,\s*', custom_plugins),
+        plugin_modules = load_modules(builtin_plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=SSHLibraryCommandScheduler)
         db.PlugInService().update(**plugin_modules)
         plugins_table(db.PlugInService())
