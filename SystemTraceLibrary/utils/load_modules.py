@@ -26,9 +26,9 @@ def filter_class_by(classes_, filter_class):
     return {nn: tt for nn, tt in classes_.items() if issubclass(tt, filter_class)}
 
 
-def load_classes_from_module_from_dir(path, module_path, base_class=None):
+def load_classes_from_module_from_dir(path, base_class=None):
     result = {}
-    for file in [f for f in os.listdir(os.path.join(path, module_path)) if f.endswith('.py')]:
+    for file in [f for f in os.listdir(path) if f.endswith('.py')]:
         result.update(load_classes_from_module_by_name(path, file, base_class))
     return result
 
@@ -48,10 +48,12 @@ def load_modules(*modules, **options):
     result_modules = {}
     for module_ in [m for m in modules if m is not None]:
         if isinstance(module_, str):
-            if os.path.isfile(os.path.join(base_path, module_)):
+            if os.path.isfile(os.path.normpath(os.path.join(base_path, module_))):
                 result_modules.update(load_classes_from_module_by_name(base_path, module_, base_class))
             else:
-                result_modules.update(load_classes_from_module_from_dir(base_path, module_, base_class))
+                result_modules.update(
+                    load_classes_from_module_from_dir(os.path.normpath(os.path.join(base_path, module_)),
+                                                      base_class))
         elif type(module_).__name__ == 'module':
             for name, class_ in get_class_from_module(module_, base_class).items():
                 if name in result_modules.keys():
