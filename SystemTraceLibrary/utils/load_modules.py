@@ -48,7 +48,7 @@ def load_modules(*modules, **options):
     result_modules = {}
     for module_ in [m for m in modules if m is not None]:
         if isinstance(module_, str):
-            if os.path.isfile(base_path):
+            if os.path.isfile(os.path.join(base_path, module_)):
                 result_modules.update(load_classes_from_module_by_name(base_path, module_, base_class))
             else:
                 result_modules.update(load_classes_from_module_from_dir(base_path, module_, base_class))
