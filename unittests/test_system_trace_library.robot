@@ -10,7 +10,7 @@ Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}
 #Test Setup   Start period  ${TEST_NAME}
 Test Teardown  generate module statistics  ${TEST_NAME}
 Suite Teardown  run keywords  Close host connection
-...             AND  generate module statistics
+...             AND  generate module statistics  plugin=aTopPlugIn
 
 *** Variables ***
 ${DURATION}  10s

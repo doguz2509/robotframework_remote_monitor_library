@@ -13,6 +13,16 @@ from SystemTraceLibrary.model.host_registry_model import HostModule, HostRegistr
 from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
+def _get_period_marks(period, module_id):
+    start = db.DataHandlerService().execute(
+        TableSchemaService().tables.Points.queries.select_state('Start', module_id, period))
+    start = None if start == [] else start[0][0]
+    end = db.DataHandlerService().execute(
+        TableSchemaService().tables.Points.queries.select_state('End', module_id, period))
+    end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
+    return dict(start_mark=start, end_mark=end)
+
+
 class BIKeywords:
     __doc__ = """=== Statistics, measurement, analise keywords ===
     `Generate Module Statistics`
@@ -31,23 +41,18 @@ class BIKeywords:
     def get_keyword_names(self):
         return [self.generate_module_statistics.__name__]
 
-    def _get_period_marks(self, period, module_id):
-        start = db.DataHandlerService().execute(TableSchemaService().tables.Points.queries.select_state('Start', module_id, period))
-        start = None if start == [] else start[0][0]
-        end = db.DataHandlerService().execute(TableSchemaService().tables.Points.queries.select_state('End', module_id, period))
-        end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
-        return dict(start_mark=start, end_mark=end)
-
     @keyword("Generate Module Statistics")
-    def generate_module_statistics(self, period=None, alias=None):
+    def generate_module_statistics(self, period=None, plugin=None, alias=None):
         module: HostModule = HostRegistryCache().get_connection(alias)
-        marks = self._get_period_marks(period, module.host_id) if period else {}
+        marks = _get_period_marks(period, module.host_id) if period else {}
 
         if not os.path.exists(self._image_path):
             os.mkdir(self._image_path)
         body = ''
 
-        for alias, plugin in {k: v for k, v in module.active_plugins.items()}.items():
+        chart_plugins = {k: v for k, v in module.active_plugins.items() if plugin is None or k == plugin}
+
+        for alias, plugin in chart_plugins.items():
             for chart in plugin.affiliated_charts():
                 try:
                     sql_query = chart.compose_sql_query(host_name=plugin.thread_name, **marks)

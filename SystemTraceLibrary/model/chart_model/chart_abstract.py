@@ -28,7 +28,8 @@ def time_string_reformat_cb(from_format, to_format):
 
 
 class ChartAbstract(ABC):
-    def __init__(self):
+    def __init__(self, *sections):
+        self._sections = sections
         self._verify_sql_query_for_variables()
         self._ext = '.png'
 
@@ -36,9 +37,8 @@ class ChartAbstract(ABC):
         assert '{host_name}' in self.get_sql_query, "Variable '{host_name} missing query text"
 
     @property
-    @abstractmethod
     def sections(self):
-        raise NotImplementedError()
+        return self._sections
 
     @property
     @abstractmethod
@@ -79,12 +79,7 @@ class ChartAbstract(ABC):
 
     def generate_chart_data(self, query_results: Iterable[Iterable]) \
             -> Tuple[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
-        return (
-            (self.title,
-             self.x_axes(query_results),
-             self.y_axes(query_results),
-             query_results),
-        )
+        return (self.title, self.x_axes(query_results), self.y_axes(query_results), query_results),
 
     def generate(self, sql_data, abs_image_path, prefix=None, **marks):
         try:

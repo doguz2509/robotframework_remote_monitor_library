@@ -10,7 +10,7 @@ from SystemTraceLibrary.utils import get_error_info
 class aTopSystemLevelChart(ChartAbstract):
     def __init__(self, *sections):
         self._sections = sections
-        ChartAbstract.__init__(self)
+        ChartAbstract.__init__(self, *sections)
 
     @property
     def sections(self):
