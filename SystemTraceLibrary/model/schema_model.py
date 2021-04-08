@@ -139,7 +139,7 @@ class Table(object):
 class DataUnit:
     def __init__(self, table: Table, *data, **kwargs):
         self._table = table
-        self._ts = datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
+        self._ts = kwargs.get('datetime', None) or datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
         self._timeout = kwargs.get('timeout', None)
         self._timer: Timer = None
         self._data: list = list(data)
