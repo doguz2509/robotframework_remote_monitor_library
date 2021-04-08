@@ -50,7 +50,7 @@ class BIKeywords:
             os.mkdir(self._image_path)
         body = ''
 
-        chart_plugins = {k: v for k, v in module.active_plugins.items() if plugin is None or k == plugin}
+        chart_plugins = {k: v for k, v in module.active_plugins.items() if plugin is None or type(v).__name__ == plugin}
 
         for alias, plugin in chart_plugins.items():
             for chart in plugin.affiliated_charts():
