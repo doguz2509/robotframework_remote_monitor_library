@@ -9,6 +9,7 @@ from .model import TimeReferencedTable
 from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from SystemTraceLibrary.model.runner_model.ssh_runner import SSHLibraryCommandScheduler
 from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
+from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from SystemTraceLibrary.utils.sql_engine import insert_sql
 
 DEFAULT_DB_FILE = 'SystemTraceLibrary.db'
@@ -17,12 +18,12 @@ TICKER_INTERVAL = 1
 
 class TraceHost(Table):
     def __init__(self):
-        super().__init__(name=None, fields=[Field('HOST_ID', FieldType.Int, True), Field('HostName')])
+        super().__init__(name='TraceHost', fields=[Field('HOST_ID', FieldType.Int, True), Field('HostName')])
 
 
 class TimeLine(Table):
     def __init__(self):
-        Table.__init__(self, name=None,
+        Table.__init__(self, name='TimeLine',
                        fields=[Field('TL_ID', FieldType.Int, True), Field('TimeStamp', FieldType.Text)],
                        queries=[Query('select_last', 'SELECT TL_ID FROM TimeLine WHERE TimeStamp == "{timestamp}"')]
                        )
@@ -39,7 +40,7 @@ class TimeLine(Table):
 
 class Points(Table):
     def __init__(self):
-        Table.__init__(self,
+        Table.__init__(self, name='Points',
                        fields=(Field('HOST_REF', FieldType.Int), Field('PointName'), Field('Start'), Field('End')),
                        foreign_keys=[ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID')],
                        queries=[Query('select_state', """SELECT {} FROM Points
@@ -155,3 +156,11 @@ class DataHandlerService(sql.SQL_DB):
                 sleep(0.5)
 
         Logger().debug(f"Background task stopped invoked")
+
+
+__all__ = [
+    'DataHandlerService',
+    'TableSchemaService',
+    'PlugInService',
+    'DB_DATETIME_FORMAT'
+]
