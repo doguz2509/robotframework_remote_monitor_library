@@ -159,7 +159,7 @@ class ConnectionKeywords(TraceListener):
         self._modules.close_all()
 
     @keyword("Start trace plugin")
-    def start_trace_plugin(self, *plugin_names, alias=None, **options):
+    def start_trace_plugin(self, plugin_name, alias=None, **options):
         """
         Start plugin by its name on host queried by options keys
 
@@ -169,25 +169,23 @@ class ConnectionKeywords(TraceListener):
         - options: interval=... , persistent=yes/no
 
         | Alias              | Class               | Table  |
-        | aTopPlugIn          | aTopPlugIn          |    |
+        | aTop          | aTop          |    |
         |                    |                     | atop_system_level |
 
         """
         try:
             module: HostModule = self._modules.get_connection(alias)
-            for plugin_name in plugin_names:
-                assert plugin_name in db.PlugInService().keys(), \
-                    f"PlugIn '{plugin_name}' not registered"
-                module.plugin_start(plugin_name, **options)
+            assert plugin_name in db.PlugInService().keys(), \
+                f"PlugIn '{plugin_name}' not registered"
+            module.plugin_start(plugin_name, **options)
         except Exception as e:
             f, l = get_error_info()
             raise type(e)(f"{e}; File: {f}:{l}")
 
     @keyword("Stop trace plugin")
-    def stop_trace_plugin(self, *plugin_names, alias=None):
-        module = HostRegistryCache().get_module(alias)
-        for plugin_name in plugin_names:
-            module.plugin_terminate(plugin_name)
+    def stop_trace_plugin(self, plugin_name, alias=None):
+        module = HostRegistryCache().get_connection(alias)
+        module.plugin_terminate(plugin_name)
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
