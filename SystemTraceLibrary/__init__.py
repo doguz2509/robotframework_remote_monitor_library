@@ -14,6 +14,7 @@ __url__ = 'https://github.com/doguz2509/robotframework_system_trace_library'
 __all__ = [
     'api',
     'builtin_plugins',
+    'SystemTraceLibrary',
     __author_email__,
     __author__,
     __version__,

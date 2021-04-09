@@ -33,6 +33,13 @@ class SystemTraceLibrary(ConnectionKeywords, BIKeywords):
         {}
 
         {}
+        
+        == BuiltIn plugins ==
+        
+        System support following plugins:
+        - aTop - monitor system io, memory, cpu, etc.
+        - Time - monitor process io, memory, cpu
+         
         """.format(ConnectionKeywords.__doc__, BIKeywords.__doc__)
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)
