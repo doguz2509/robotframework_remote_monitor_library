@@ -73,11 +73,11 @@ class HostModule:
         logger.info(f"PlugIn '{plugin_name}' started")
 
     def plugin_terminate(self, plugin_name):
-        plugin = self._active_plugins.get(plugin_name, None)
         try:
+            plugin = [p for p in self._active_plugins.values() if p.type == plugin_name][0]
             assert plugin
             plugin.stop()
-        except AssertionError:
+        except (AssertionError, IndexError):
             logger.warn(f"Plugin '{plugin_name}' not active")
         else:
             logger.info(f"PlugIn '{plugin_name}' gracefully stopped")

@@ -208,6 +208,6 @@ class SSHLibraryCommandScheduler(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"End interrupt-session for '{self}'")
         except Exception as e:
             f, li = get_error_info()
-            Logger.error(msg=f"{e}; File: {f}:{li}")
+            Logger().error(msg=f"{e}; File: {f}:{li}")
             raise RunnerError(f"{e}; File: {f}:{li}")
 
