@@ -9,7 +9,7 @@ from .model import TimeReferencedTable
 from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from SystemTraceLibrary.model.runner_model.ssh_runner import SSHLibraryCommandScheduler
 from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
-from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT
+from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
 from SystemTraceLibrary.utils.sql_engine import insert_sql
 
 DEFAULT_DB_FILE = 'SystemTraceLibrary.db'
@@ -28,10 +28,10 @@ class TimeLine(Table):
                        queries=[Query('select_last', 'SELECT TL_ID FROM TimeLine WHERE TimeStamp == "{timestamp}"')]
                        )
 
-    def refresh_ts_id(self, sql_engine, timestamp):
+    def cache_timestamp(self, sql_engine, timestamp):
         last_tl_id = sql_engine.execute(self.queries.select_last.sql.format(timestamp=timestamp))
         if len(last_tl_id) == 0:
-            sql_engine.execute(insert_sql(self.name, [f.name for f in self.fields]), *(None, timestamp))
+            DataHandlerService().execute(insert_sql(self.name, [f.name for f in self.fields]), *(None, timestamp))
             last_tl_id = sql_engine.get_last_row_id
         else:
             last_tl_id = last_tl_id[0][0]
@@ -47,11 +47,24 @@ class Points(Table):
                        WHERE HOST_REF = {} AND PointName = '{}'""")])
 
 
+class OutputCache(Table):
+    def __init__(self):
+        Table.__init__(self, name=None,
+                       fields=[Field('OUTPUT_ID', FieldType.Int, True), Field('Data')])
+
+    def cache_output(self, _data):
+        data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
+        if len(data_ref) == 0:
+            DataHandlerService().execute(insert_sql(self.name, self.columns), *(None, _data))
+            data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
+        return data_ref[0][0]
+
+
 @Singleton
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TraceHost(), TimeLine(), Points()):
+        for builtin_table in (TraceHost(), TimeLine(), Points(), OutputCache()):
             self.register_table(builtin_table)
 
     @property
@@ -137,7 +150,7 @@ class DataHandlerService(sql.SQL_DB):
                     if type(item).__name__ == threadsafe.Empty.__name__:
                         raise threadsafe.Empty()
                     if isinstance(item.table, TimeReferencedTable):
-                        last_tl_id = TableSchemaService().tables.TimeLine.refresh_ts_id(self, item.timestamp)
+                        last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
                     else:
                         insert_sql_str, rows = item()
@@ -162,5 +175,6 @@ __all__ = [
     'DataHandlerService',
     'TableSchemaService',
     'PlugInService',
-    'DB_DATETIME_FORMAT'
+    'DB_DATETIME_FORMAT',
+    'OutputCache'
 ]
