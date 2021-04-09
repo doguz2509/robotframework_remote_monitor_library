@@ -100,7 +100,7 @@ class aTopParser(plugins.Parser):
         return True
 
 
-class aTopPlugIn(plugins.PlugInAPI):
+class aTop(plugins.PlugInAPI):
     SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
 
     def __init__(self, parameters, data_handler, **kwargs):

@@ -1,4 +1,4 @@
-from .runner import aTopPlugIn
+from .runner import aTop
 
 
-__all__ = [aTopPlugIn.__name__]
+__all__ = [aTop.__name__]

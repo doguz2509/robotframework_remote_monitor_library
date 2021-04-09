@@ -19,6 +19,9 @@ class aTopSystemLevelChart(ChartAbstract):
     def y_axes(self, data: [Iterable[Any]]) -> Iterable[Any]:
         return [i for i in json.loads([y[0] for y in data][0]) if i not in ['no', 'SUB_ID']]
 
+    def data_area(self, data: [Iterable[Iterable]]) -> [Iterable[Iterable]]:
+        return data
+
     @property
     def file_name(self) -> str:
         return "{name}.png"
@@ -39,7 +42,7 @@ class aTopSystemLevelChart(ChartAbstract):
                 [i[0] for i in query_results if any([i[0].startswith(section) for section in self._sections])]):
             try:
                 data = [i[1:] for i in query_results if i[0] == type_]
-                x_axes = self.x_axes([i[1] for i in data])
+                x_axes = self.x_axes(data, 1)
                 y_axes = self.y_axes(data)
                 data = [i[2:] for i in data]
                 data = [u[0:len(y_axes)] for u in data]
