@@ -17,8 +17,8 @@ print(f"Version: {VERSION}")
 update_set = dict(VERSION=VERSION, package_name='SystemTraceLibrary')
 
 long_description = ''
-with open("readme_template.md", "r", encoding="utf-8") as reader:
-    with open("README.md", "w+", encoding='utf-8') as writer:
+with open(join(current_dir, "readme_template.md"), "r", encoding="utf-8") as reader:
+    with open(join(current_dir, "README.md"), "w+", encoding='utf-8') as writer:
         lines = reader.read()
         for k, v in update_set.items():
             lines = lines.replace(f"<{k}>", v)
