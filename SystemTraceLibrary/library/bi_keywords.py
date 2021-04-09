@@ -38,8 +38,7 @@ class BIKeywords:
         self._log_path = rel_log_path
         self._images = images
         self._image_path = os.path.normpath(os.path.join(self._output_dir, self._log_path, self._images))
-        if not os.path.exists(self._image_path):
-            os.mkdir(self._image_path)
+
 
     def get_keyword_names(self):
         return [self.generate_module_statistics.__name__]
@@ -50,6 +49,10 @@ class BIKeywords:
 
     @keyword("Generate Module Statistics")
     def generate_module_statistics(self, period=None, plugin=None, alias=None):
+
+        if not os.path.exists(self._image_path):
+            os.mkdir(self._image_path)
+
         module: HostModule = HostRegistryCache().get_connection(alias)
         marks = _get_period_marks(period, module.host_id) if period else {}
         chart_plugins = {k: v for k, v in module.active_plugins.items() if plugin is None or type(v).__name__ == plugin}
