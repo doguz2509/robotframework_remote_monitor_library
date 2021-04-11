@@ -1,3 +1,4 @@
+
 from threading import Event, Thread
 from time import sleep
 from typing import List, AnyStr, Mapping
@@ -5,12 +6,12 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
-from .model import TimeReferencedTable
-from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from SystemTraceLibrary.model.runner_model.ssh_runner import SSHLibraryCommandScheduler
-from SystemTraceLibrary.utils import Singleton, sql, threadsafe, Logger, get_error_info, flat_iterator
-from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
+from SystemTraceLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
+from SystemTraceLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
+from SystemTraceLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from SystemTraceLibrary.utils.sql_engine import insert_sql
+from .model import TimeReferencedTable
 
 DEFAULT_DB_FILE = 'SystemTraceLibrary.db'
 TICKER_INTERVAL = 1
@@ -55,7 +56,9 @@ class OutputCache(Table):
     def cache_output(self, _data):
         data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
         if len(data_ref) == 0:
+            sql_text = insert_sql(self.name, self.columns)
             DataHandlerService().execute(insert_sql(self.name, self.columns), *(None, _data))
+            Logger().debug(f"{sql_text}\n{_data}")
             data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
         return data_ref[0][0]
 
@@ -88,7 +91,7 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryCommandScheduler]):
 class DataHandlerService(sql.SQL_DB):
     def __init__(self):
         self._threads: List[Thread] = []
-        self._queue = threadsafe.tsQueue()
+        self._queue = collections.tsQueue()
         self._event: Event = None
         self._db: sql.SQL_DB = None
 
@@ -147,8 +150,8 @@ class DataHandlerService(sql.SQL_DB):
             try:
                 data_enumerator = self._queue.get()
                 for item in flat_iterator(*data_enumerator):
-                    if type(item).__name__ == threadsafe.Empty.__name__:
-                        raise threadsafe.Empty()
+                    if type(item).__name__ == collections.Empty.__name__:
+                        raise collections.Empty()
                     if isinstance(item.table, TimeReferencedTable):
                         last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
@@ -159,7 +162,7 @@ class DataHandlerService(sql.SQL_DB):
                     item.result = result
                     Logger().debug("\n\t{}\n\t{}".format(insert_sql_str,
                                                          '\n\t'.join([str(r) for r in (rows if rows else result)])))
-            except threadsafe.Empty:
+            except collections.Empty:
                 sleep(2)
             except Exception as e:
                 f, l = get_error_info()
