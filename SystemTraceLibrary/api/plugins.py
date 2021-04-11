@@ -19,6 +19,7 @@ class PlugInAPI(ABC, SSHLibraryCommandScheduler, plugin_integration_abstract):
 __all__ = ['PlugInAPI',
            'CommandSet_Type',
            Command.__name__,
+           'CommandSet_Type',
            Parser.__name__,
            ChartAbstract.__name__,
            Configuration.__name__
