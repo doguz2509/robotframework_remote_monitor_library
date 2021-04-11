@@ -114,7 +114,7 @@ class ConnectionKeywords(TraceListener):
 
         """
         if not db.DataHandlerService().is_active:
-            with Logger as log:
+            with Logger() as log:
                 level = BuiltIn().get_variable_value('${LOG LEVEL}')
                 log.set_level('DEBUG' if level == 'TRACE' else level)
                 output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
@@ -126,6 +126,7 @@ class ConnectionKeywords(TraceListener):
             db.DataHandlerService().start()
         module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias)
         module.start()
+        logger.info(f"Connection {module.alias} ready to be monitored")
         _alias = self._modules.register(module, module.alias)
         self._start_period(alias=module.alias)
         return module.alias
@@ -178,14 +179,16 @@ class ConnectionKeywords(TraceListener):
             assert plugin_name in db.PlugInService().keys(), \
                 f"PlugIn '{plugin_name}' not registered"
             module.plugin_start(plugin_name, **options)
+            logger.info(f"PlugIn '{plugin_name}' started on {module.alias}", also_console=True)
         except Exception as e:
-            f, l = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{l}")
+            f, li = get_error_info()
+            raise type(e)(f"{e}; File: {f}:{li}")
 
     @keyword("Stop trace plugin")
-    def stop_trace_plugin(self, plugin_name, alias=None):
+    def stop_trace_plugin(self, plugin_name, alias=None, **options):
         module = HostRegistryCache().get_connection(alias)
-        module.plugin_terminate(plugin_name)
+        module.plugin_terminate(plugin_name, **options)
+        logger.info(f"PlugIn '{plugin_name}' stopped on {module.alias}", also_console=True)
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
