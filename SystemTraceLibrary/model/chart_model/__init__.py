@@ -43,7 +43,8 @@ def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None,
                 plt.savefig(file_path)
                 yield title.upper(), file_path
             except Exception as e:
-                errors.append(e)
+                f, li = get_error_info()
+                errors.append(type(e)(f"{title}, {prefix}; Error: {e}; File: {f}:{li}"))
     except Exception as e:
         f, l = get_error_info()
         raise RuntimeError(f"Probably SQL query failed; Reason: {e}; File: {f}:{l}")
