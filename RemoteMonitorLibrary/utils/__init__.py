@@ -15,6 +15,35 @@ def flat_iterator(*data):
             yield item
 
 
+class Counter:
+    def __init__(self):
+        self._counter = 0
+
+    def __str__(self):
+        return f"{self._counter}"
+
+    def __iadd__(self, other):
+        self._counter += other
+
+    def __eq__(self, other):
+        return self._counter == other
+
+    def __ne__(self, other):
+        return self._counter != other
+
+    def __gt__(self, other):
+        return self._counter > other
+
+    def __ge__(self, other):
+        return self._counter >= other
+
+    def __lt__(self, other):
+        return self._counter < other
+
+    def __le__(self, other):
+        return self._counter <= other
+
+
 __all__ = [
     'Singleton',
     'Logger',
@@ -25,7 +54,8 @@ __all__ = [
     'get_class_from_module',
     'load_classes_from_module_by_name',
     'load_modules',
-    'plugins_table'
+    'plugins_table',
+    'Counter'
 ]
 
 

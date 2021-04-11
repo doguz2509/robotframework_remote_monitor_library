@@ -34,9 +34,9 @@ LibDoc: [Library documentation](docs/RemoteMonitorLibrary.html)
     ...     [cumulative (Default: False)]
     ...     [custom_plugins (Default: None)]
     
-    Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}  [${PORT} (Default: 22)] 
+    Suite Setup  run keywords  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  [${PORT} (Default: 22)] 
     ...                 [alias=${SUITE_NAME} (Default: user@host)]
-    ...          AND  start trace plugin  aTopPlugIn  interval=1s
+    ...          AND  Start monitor plugin  aTopPlugIn  interval=1s
     Test Setup   Start period  ${TEST_NAME}
     Test Teardown  run keywords  Stop period   ${TEST_NAME}
     ...             AND  generate module statistics  ${TEST_NAME}

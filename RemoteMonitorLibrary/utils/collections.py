@@ -1,8 +1,6 @@
 from threading import RLock
 from typing import Any
 
-from . import Logger
-
 
 class Empty(Exception):
     pass
@@ -17,7 +15,6 @@ class tsQueue:
     def put(self, item):
         with self._lock:
             self._queue.append(item)
-            Logger().debug(f"Put item ({len(self._queue)})")
 
     def get(self) -> Any:
         with self._lock:
@@ -25,14 +22,6 @@ class tsQueue:
                 yield self._queue.pop(0)
             except IndexError:
                 yield Empty()
-
-    # def get(self, get_count=None) -> list:
-    #     count = 0
-    #     limit = get_count or self._get_limit
-    #     while count <= limit:
-    #         count += 1
-    #         yield self._get()
-    #         sleep(0.01)
 
     def __len__(self):
         return len(self._queue)

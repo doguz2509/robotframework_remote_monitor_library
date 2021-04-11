@@ -5,7 +5,7 @@ from SSHLibrary import SSHLibrary
 
 from RemoteMonitorLibrary.model import schema_model as model
 from RemoteMonitorLibrary.model.chart_model.chart_abstract import ChartAbstract
-from RemoteMonitorLibrary.utils import get_error_info
+from RemoteMonitorLibrary.utils import get_error_info, Counter
 
 
 class Parser:
@@ -16,12 +16,18 @@ class Parser:
         """
         self.host_id = parameters.pop('host_id')
         self.table = parameters.pop('table')
-        self.data_handler = parameters.pop('data_handler')
+        self._data_handler = parameters.pop('data_handler')
+        self.counter = parameters.pop('counter', None)
         self._options = parameters
 
     @property
     def options(self):
         return self._options
+
+    def data_handler(self, data):
+        if self.counter is not None:
+            self.counter += 1
+        self._data_handler(data)
 
     def __call__(self, *outputs) -> bool:
         raise NotImplementedError()
@@ -79,6 +85,7 @@ class plugin_runner_abstract:
         self.variables = {}
         self._data_handler = data_handler
         self._name = kwargs.get('name')
+        self._iteration_counter = 0
 
     def store_variable(self, variable_name):
         def _(value):
@@ -91,7 +98,16 @@ class plugin_runner_abstract:
         return self._name
 
     @property
+    def iteration_counter(self) -> int:
+        return self._iteration_counter
+
+    @iteration_counter.setter
+    def iteration_counter(self, add):
+        self._iteration_counter += add
+
+    @property
     def data_handler(self):
+        self.iteration_counter += 1
         return self._data_handler
 
     @property

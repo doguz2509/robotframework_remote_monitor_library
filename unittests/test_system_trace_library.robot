@@ -6,26 +6,27 @@ Library  RemoteMonitorLibrary.RemoteMonitorLibrary
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  run keywords  create host connection  ${HOST}  ${USER}  ${PASSWORD}
-...          AND  start trace plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
+Suite Setup  run keywords  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-Suite Teardown  run keywords  Close host connection
-...             AND  generate module statistics
+Suite Teardown  run keywords  Close host monitor
+...             AND  generate module statistics  plugin=aTop
 
 *** Variables ***
 ${DURATION}  10s
-${INTERVAL}  1s
+${INTERVAL}  0.5s
 ${PERSISTENT}  yes
 
 *** Test Cases ***
 Test Time
     [Tags]    DEBUG
-    start trace plugin  Time  command=make -j 4 clean all 2>&1  interval=1  name=Complilation  start_folder=~/bm_noise/linux-5.11.10
-#    start trace plugin  Time  command=ls -l  interval=1  name=HomeDirList
+    Start monitor plugin  Time  command=make -j 4 clean all 2>&1  interval=1
+    ...                         name=Complilation  start_folder=~/bm_noise/linux-5.11.10
+#    Start monitor plugin  Time  command=ls -l  interval=1  name=HomeDirList
     sleep  ${DURATION}  make something here
-    stop trace plugin  Time  name=Complilation
-#    generate module statistics  plugin=Time
+    Stop monitor plugin  Time  name=Complilation
+    generate module statistics  plugin=Time  name=Complilation
 
 #Show commands
 #     open connection  ${HOST}

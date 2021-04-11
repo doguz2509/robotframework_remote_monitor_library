@@ -92,13 +92,6 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
     return res
 
 
-class ShowCommandParser(plugins.Parser):
-
-    def __call__(self, *outputs) -> bool:
-        stdout, rc = outputs
-        Logger().info(f"{stdout}")
-
-
 class aTopParser(plugins.Parser):
     def __init__(self, **kwargs):
         plugins.Parser.__init__(self, **kwargs)
@@ -119,12 +112,12 @@ class aTopParser(plugins.Parser):
                     self._ts_cache.append(ts)
                     self.data_handler(model.DataUnit(self.table, *data))
 
-        except AssertionError as e:
-            Logger().error(f"{e}")
         except Exception as e:
-            Logger().error(f"Unexpected error: {type(e).__name__}:{e}")
+            f, li = get_error_info()
+            Logger().error(f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
         else:
             return True
+        return False
 
 
 class aTop(plugins.PlugInAPI):
@@ -164,7 +157,7 @@ class aTop(plugins.PlugInAPI):
             f"atop -r {self.folder}/{self.file} -b `date +%H:`$((`date +%_M` - 1)) -e `date +%H:%M`",
             sudo=True, sudo_password=True, return_rc=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
-                              data_handler=self._data_handler)),
+                              data_handler=self._data_handler, counter=self.iteration_counter)),
 
     @property
     def teardown(self) -> plugins.CommandSet_Type:

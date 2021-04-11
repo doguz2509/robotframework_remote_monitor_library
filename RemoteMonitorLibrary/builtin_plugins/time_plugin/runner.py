@@ -15,6 +15,7 @@ and you'll know something is happening when you start to see real compilation ha
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary
+from robot.api import logger
 from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import plugins, model, db, Logger
@@ -41,11 +42,10 @@ class TimeParser(plugins.Parser):
             row_dict.update({'Output': data_ref})
             row = self.table.template(self.host_id, None, *row_dict.values())
             self.data_handler(model.DataUnit(self.table, row))
-
             return True
         except Exception as e:
             f, li = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{li}")
+            raise type(e)(f"{self.__class__.__name__} -> {type(e).__name__}: {e}; File: {f}:{li}")
 
 
 class Time(plugins.PlugInAPI):
@@ -87,3 +87,8 @@ class Time(plugins.PlugInAPI):
                                parser=TimeParser(host_id=self.host_id,
                                                  table=self.affiliated_tables()[0],
                                                  data_handler=self.data_handler, Command=self.name)),
+
+    def start(self):
+        super().start()
+        logger.info(f"PlugIn {self.__class__.__name__} start command '{self._command}' as [{self.name}]",
+                    also_console=True)

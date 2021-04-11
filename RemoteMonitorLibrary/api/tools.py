@@ -1,4 +1,8 @@
-from ..utils.collections import CacheList, Logger
+from ..utils.collections import CacheList
+from ..utils.bg_logger import Logger
 
 
-__all__ = ['CacheList', 'Logger']
+__all__ = [
+    'CacheList',
+    'Logger'
+]

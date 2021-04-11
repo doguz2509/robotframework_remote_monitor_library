@@ -33,6 +33,9 @@ class HostModule:
     def alias(self):
         return self.config.parameters.alias
 
+    def __str__(self):
+        return self.config.parameters.host
+
     @property
     def event(self):
         return self.config.parameters.event
@@ -72,10 +75,12 @@ class HostModule:
         self._active_plugins[f"{plugin}"] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 
-    @staticmethod
-    def _get_plugin(plugin_list, plugin_name, **options):
+    def get_plugin(self, plugin_name=None, **options):
         res = []
-        for p in plugin_list:
+        if plugin_name is None:
+            return list(self._active_plugins.values())
+
+        for p in self._active_plugins.values():
             if type(p).__name__ != plugin_name:
                 continue
             if len(options) > 0:
@@ -92,14 +97,18 @@ class HostModule:
         return res
 
     def plugin_terminate(self, plugin_name, **options):
+        err = []
         try:
-            plugins_to_stop = self._get_plugin(self._active_plugins.values(), plugin_name, **options)
+            plugins_to_stop = self.get_plugin(plugin_name, **options)
             assert len(plugins_to_stop) > 0, f"Plugins '{plugin_name}' not matched in list"
             for plugin in plugins_to_stop:
-                plugin.stop()
-
-        except (AssertionError, IndexError):
-            logger.warn(f"Plugin '{plugin_name}' not active")
+                try:
+                    plugin.stop()
+                    assert plugin.iteration_counter > 0
+                except AssertionError:
+                    logger.warn(f"Plugin '{plugin}' didn't got monitor data during execution")
+        except (AssertionError, IndexError) as e:
+            logger.info(f"Plugin '{plugin_name}' raised error: {type(e).__name__}: {e}")
         else:
             logger.info(f"PlugIn '{plugin_name}' gracefully stopped")
 
