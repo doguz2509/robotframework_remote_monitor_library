@@ -72,11 +72,32 @@ class HostModule:
         self._active_plugins[f"{plugin}"] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 
-    def plugin_terminate(self, plugin_name):
+    @staticmethod
+    def _get_plugin(plugin_list, plugin_name, **options):
+        res = []
+        for p in plugin_list:
+            if type(p).__name__ != plugin_name:
+                continue
+            if len(options) > 0:
+                for name, value in options.items():
+                    if hasattr(p, name):
+                        p_value = getattr(p, name, None)
+                        if p_value is None:
+                            continue
+                        if p_value != value:
+                            continue
+                    res.append(p)
+            else:
+                res.append(p)
+        return res
+
+    def plugin_terminate(self, plugin_name, **options):
         try:
-            plugin = [p for p in self._active_plugins.values() if p.type == plugin_name][0]
-            assert plugin
-            plugin.stop()
+            plugins_to_stop = self._get_plugin(self._active_plugins.values(), plugin_name, **options)
+            assert len(plugins_to_stop) > 0, f"Plugins '{plugin_name}' not matched in list"
+            for plugin in plugins_to_stop:
+                plugin.stop()
+
         except (AssertionError, IndexError):
             logger.warn(f"Plugin '{plugin_name}' not active")
         else:
