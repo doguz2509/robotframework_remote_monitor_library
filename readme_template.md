@@ -19,7 +19,7 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
 
 ## Installation
 
-    python -m pip install robotframework_system_trace_library
+    python -m pip install robotframework-remote-monitor-library
 
 ## Usage
 
