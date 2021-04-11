@@ -15,6 +15,7 @@ and you'll know something is happening when you start to see real compilation ha
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary
+from robot.utils import DotDict
 
 from SystemTraceLibrary.api import plugins, model, db
 from .tables import TimeMeasurement, CMD_TIME_FORMAT
@@ -29,10 +30,12 @@ class TimeParser(plugins.Parser):
         try:
             command_out, time_out = outputs
             data = time_out.split(',')
-            row_dict = [v.replace('%', '') for (_, v) in [entry.split(':', 1) for entry in data]]
+            row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
+            if self.options.get('Command', None):
+                row_dict.update({'Command': self.options.get('Command')})
             data_ref = db.OutputCache().cache_output(command_out)
-            row_dict.append(data_ref)
-            row = self.table.template(self.host_id, None, *row_dict)
+            row_dict.update({'Output': data_ref})
+            row = self.table.template(self.host_id, None, *row_dict.values())
             self.data_handler(model.DataUnit(self.table, row))
             return True
         except Exception as e:
@@ -47,6 +50,7 @@ class Time(plugins.PlugInAPI):
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
         self._command = options.get('command', None)
+        self._command_name = options.get('name', None)
         self._noise_cmd_sudo = options.get('sudo', False)
         self._noise_cmd_sudo_password = options.get('password', False)
         assert self._command, "Command not provided"
@@ -71,4 +75,4 @@ class Time(plugins.PlugInAPI):
                                sudo=self._noise_cmd_sudo, sudo_password=self._noise_cmd_sudo_password,
                                parser=TimeParser(host_id=self.host_id,
                                                  table=self.affiliated_tables()[0],
-                                                 data_handler=self.data_handler)),
+                                                 data_handler=self.data_handler, Command=self._command_name)),
