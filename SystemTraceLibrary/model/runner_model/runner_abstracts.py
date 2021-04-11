@@ -14,9 +14,14 @@ class Parser:
 
         :param parameters:
         """
-        self.host_id = parameters.get('host_id')
-        self.table = parameters.get('table')
-        self.data_handler = parameters.get('data_handler')
+        self.host_id = parameters.pop('host_id')
+        self.table = parameters.pop('table')
+        self.data_handler = parameters.pop('data_handler')
+        self._options = parameters
+
+    @property
+    def options(self):
+        return self._options
 
     def __call__(self, *outputs) -> bool:
         raise NotImplementedError()
@@ -49,10 +54,10 @@ class Command:
         command_kwargs = dict(**self._kwargs)
         command = self._command
 
-        if command_kwargs.get('sudo', False):
+        if command_kwargs.pop('sudo', False):
             command = f'sudo {command}'
         elif command_kwargs.get('sudo_password', False):
-            command = 'echo %s | sudo --stdin --prompt "" %s' % (kwargs.get('sudo_password', None), command)
+            command = 'echo %s | sudo --stdin --prompt "" %s' % (kwargs.pop('sudo_password'), command)
 
         try:
             output = self._method(ssh_client, command, **command_kwargs)
@@ -113,6 +118,7 @@ class plugin_runner_abstract:
 
 
 class plugin_integration_abstract(object):
+
     def __hash__(self):
         return hash(f"{self.__class__.__name__}_{id(self)}")
 

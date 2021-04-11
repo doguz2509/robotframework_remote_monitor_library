@@ -86,7 +86,7 @@ class SSHLibraryCommandScheduler(plugin_runner_abstract, metaclass=ABCMeta):
         except Exception as err:
             f, li = get_error_info()
             self.stop()
-            Logger.error(f"{err}; File: {f}:{li}")
+            Logger().error(f"{err}; File: {f}:{li}")
             raise RunnerError(f"{err}; File: {f}:{li}")
         else:
             self._is_logged_in = True
