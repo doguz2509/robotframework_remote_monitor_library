@@ -6,8 +6,7 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
-import SystemTraceLibrary.model.runner_model.runner_abstracts
-from SystemTraceLibrary.api import Logger, plugins, model
+from SystemTraceLibrary.api import Logger, plugins, model, tools
 from SystemTraceLibrary.utils import Size, get_error_info
 
 from .charts import aTopSystemLevelChart
@@ -70,11 +69,13 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
                 for k in pattern.keys():
                     pattern[k] = Size(pattern[k]).set_format('M').number
             elif type_ in ['LVM', 'DSK', 'NET']:
-                items = [re.split(r'\s+', s.strip(), 1) for s in data_]
+                items = [re.split(r'\s+', s.strip()) for s in data_]
                 for item in items:
                     if len(item) == 1 or item[1] == '----':
                         pattern.update({'source': '-1'})
                         sub_id = f"{type_}_{item[0]}"
+                    elif len(item) >= 2:
+                        pattern.update({item[0]: item[1].replace('%', '')})
                     else:
                         pattern.update({item[0]: re.sub(r'[\sKbpms%]+', '', item[1])})
             else:
@@ -83,26 +84,50 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
             res.append(columns_template(
                 *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
         except ValueError as e:
-            Logger.error(f"aTop parse error: {e}")
+            Logger().error(f"aTop parse error: {e}")
         except Exception as e:
             f, l = get_error_info()
-            Logger.error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
+            Logger().error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
             raise
     return res
 
 
+class ShowCommandParser(plugins.Parser):
+
+    def __call__(self, *outputs) -> bool:
+        stdout, rc = outputs
+        Logger().info(f"{stdout}")
+
+
 class aTopParser(plugins.Parser):
+    def __init__(self, **kwargs):
+        plugins.Parser.__init__(self, **kwargs)
+        self._ts_cache = tools.CacheList()
+
     def __call__(self, *output) -> bool:
         table_template = self.table.template
-        output = ''.join(output)
-        data = _generate_atop_system_level(output, table_template, self.host_id, None)
-        self.data_handler(model.DataUnit(self.table, *data))
-        return True
+        try:
+            stdout, rc = output
+            assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}"
+            for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
+                #  - MLP-INT-ManualVM-centos82-BuildMachine   2021/04/10  14:47:00   ----------------     1s elapsed
+                lines = atop_portion.splitlines()
+                f_line = lines.pop(0)
+                ts = '_'.join(re.split(r'\s+', f_line)[2:4])
+                if ts not in self._ts_cache:
+                    data = _generate_atop_system_level('\n'.join(lines), table_template, self.host_id, None)
+                    self._ts_cache.append(ts)
+                    self.data_handler(model.DataUnit(self.table, *data))
+
+        except AssertionError as e:
+            Logger().error(f"{e}")
+        except Exception as e:
+            Logger().error(f"Unexpected error: {type(e).__name__}:{e}")
+        else:
+            return True
 
 
 class aTop(plugins.PlugInAPI):
-    SYNC_DATE_FORMAT = '%Y%m%d %H:%M:%S'
-
     def __init__(self, parameters, data_handler, **kwargs):
         plugins.PlugInAPI.__init__(self, parameters, data_handler, **kwargs)
         self.file = 'atop.dat'
@@ -120,10 +145,10 @@ class aTop(plugins.PlugInAPI):
                aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
     @property
-    def setup(self) -> SystemTraceLibrary.model.runner_model.runner_abstracts.CommandSet_Type:
+    def setup(self) -> plugins.CommandSet_Type:
         return [plugins.Command(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
                 plugins.Command(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True, sudo_password=True),
-                plugins.Command(SSHLibrary.execute_command, f'mkdir -p {self.folder}', sudo=True, sudo_password=True),
+                plugins.Command(SSHLibrary.execute_command, f'mkdir -p {self.folder}'),
                 plugins.Command(SSHLibrary.start_command, "{nohup} atop -w {folder}/{file} {interval} &".format(
                     nohup='' if self.persistent else 'nohup',
                     folder=self.folder,
@@ -133,12 +158,13 @@ class aTop(plugins.PlugInAPI):
                 ]
 
     @property
-    def periodic_commands(self):
-        return plugins.Command(SSHLibrary.execute_command,
-                               f'atop -r {self.folder}/{self.file} -b `date +%H:%M:%S` -e `date +%H:%M:%S`|tee',
-                               sudo=True, sudo_password=True,
-                               parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
-                                                 data_handler=self._data_handler)),
+    def periodic_commands(self) -> plugins.CommandSet_Type:
+        return plugins.Command(
+            SSHLibrary.execute_command,
+            f"atop -r {self.folder}/{self.file} -b `date +%H:`$((`date +%_M` - 1)) -e `date +%H:%M`",
+            sudo=True, sudo_password=True, return_rc=True,
+            parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
+                              data_handler=self._data_handler)),
 
     @property
     def teardown(self) -> plugins.CommandSet_Type:
