@@ -1,6 +1,6 @@
 import os
 
-from RemoteMonitorLibrary.library import SystemTraceLibrary
+from RemoteMonitorLibrary.library import RemoteMonitorLibrary
 from RemoteMonitorLibrary import utils
 from RemoteMonitorLibrary import api
 from RemoteMonitorLibrary import builtin_plugins
@@ -16,7 +16,7 @@ __package_name__ = os.path.split(os.path.split(__file__)[0])[1]
 __all__ = [
     'api',
     'builtin_plugins',
-    'SystemTraceLibrary',
+    'RemoteMonitorLibrary',
     '__author_email__',
     '__author__',
     '__version__',

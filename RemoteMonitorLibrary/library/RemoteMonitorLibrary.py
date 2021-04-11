@@ -18,7 +18,7 @@ DEFAULT_SYSTEM_LOG_FILE = 'RemoteMonitorLibrary.log'
 
 
 @library(scope='GLOBAL', version=VERSION)
-class SystemTraceLibrary(ConnectionKeywords, BIKeywords):
+class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
     def __init__(self, location=DEFAULT_SYSTEM_TRACE_LOG, file_name=DEFAULT_SYSTEM_LOG_FILE, custom_plugins='',
                  **kwargs):

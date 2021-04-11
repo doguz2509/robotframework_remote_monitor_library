@@ -1,5 +1,5 @@
 
-from RemoteMonitorLibrary import SystemTraceLibrary
+from RemoteMonitorLibrary import RemoteMonitorLibrary
 
 
 __all__ = []

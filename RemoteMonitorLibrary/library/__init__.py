@@ -1,5 +1,5 @@
-from .SystemTraceLibrary import SystemTraceLibrary
+from .RemoteMonitorLibrary import RemoteMonitorLibrary
 
 
-__all__ = [SystemTraceLibrary.__name__]
+__all__ = [RemoteMonitorLibrary.__name__]
 
