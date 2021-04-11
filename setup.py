@@ -6,15 +6,18 @@ from shutil import rmtree
 from robot.libdoc import libdoc
 from setuptools import setup, find_packages
 
-from SystemTraceLibrary import __author__, __author_email__, __url__
+from RemoteMonitorLibrary import __author__, __author_email__, __url__, __package_name__
+from RemoteMonitorLibrary.utils.string_utils import to_title
 
 current_dir = dirname(abspath(__file__))
 
-with open(join(current_dir, "SystemTraceLibrary", "version.py"), encoding="utf-8") as f:
+with open(join(current_dir, "RemoteMonitorLibrary", "version.py"), encoding="utf-8") as f:
     VERSION = re.search(r"""VERSION = ('|")(.*)('|")""", f.read()).group(2)
 
 print(f"Version: {VERSION}")
-update_set = dict(VERSION=VERSION, package_name='SystemTraceLibrary')
+update_set = dict(VERSION=VERSION,
+                  package_name=__package_name__,
+                  package_title=to_title(__package_name__))
 
 long_description = ''
 with open(join(current_dir, "readme_template.md"), "r", encoding="utf-8") as reader:
@@ -27,8 +30,8 @@ with open(join(current_dir, "readme_template.md"), "r", encoding="utf-8") as rea
         writer.write(lines)
         print(lines)
 
-py_file = os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.py')
-html_file = os.path.join(current_dir, 'SystemTraceLibrary', 'library', 'SystemTraceLibrary.html')
+py_file = os.path.join(current_dir, 'RemoteMonitorLibrary', 'library', 'RemoteMonitorLibrary.py')
+html_file = os.path.join(current_dir, 'RemoteMonitorLibrary', 'library', 'RemoteMonitorLibrary.html')
 
 libdoc(py_file, html_file, 'SystemStraceLibrary', VERSION)
 
@@ -38,7 +41,7 @@ setup(
     name='robotframework-system-trace-library',
     version=VERSION,
     packages=find_packages(exclude=['venv']),
-    package_data={'': ['*.html', 'SystemTraceLibrary/library/*.html']},
+    package_data={'': ['*.html', 'RemoteMonitorLibrary/library/*.html']},
     url=__url__,
     license='MIT',
     author=__author__,

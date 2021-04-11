@@ -1,7 +1,7 @@
-# System Trace Library (Version <VERSION>)
+# <package_title> (Version <VERSION>)
 
 ## Overview
-SystemTraceLibrary allow collect system data of target linux host during any Robotframework 
+<package_name> allow collect system data of target linux host during any Robotframework 
 testing process being running
 
 ### Architecture
@@ -23,12 +23,12 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
 
 ## Usage
 
-LibDoc: [Library documentation](docs/SystemTraceLibrary.html)
+LibDoc: [Library documentation](docs/<package_name>.html)
 
 ### Test/Keywords within *.robot file
 
     *** Settings ***
-    Library  SystemTraceLibrary 
+    Library  <package_name> 
     ...     [location (Default: logs)] 
     ...     [file_name (Default: system_trace.db)]
     ...     [cumulative (Default: False)]
@@ -106,7 +106,7 @@ Main init project file for expose Plugin class
         In case it not requires, use model.Table base class
 ##### Parser definition
    
-   parser.py
+    parser.py
          from <package_name>.api import plugins, model
          
          class my_parser(plugins.Parser):
@@ -128,7 +128,7 @@ Main init project file for expose Plugin class
         Creating charts require familirisation with pandas & matplotlib
 
 ## Prerequisites
-    atop  preinstalled
+    Preinstalled: atop, time
 
 ## Supported OS
     All linux based system where atop supported

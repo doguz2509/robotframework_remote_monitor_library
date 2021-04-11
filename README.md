@@ -1,7 +1,7 @@
-# System Trace Library (Version 1.3.00)
+# Remote Monitor Library (Version 1.3.00)
 
 ## Overview
-SystemTraceLibrary allow collect system data of target linux host during any Robotframework 
+RemoteMonitorLibrary allow collect system data of target linux host during any Robotframework 
 testing process being running
 
 ### Architecture
@@ -23,12 +23,12 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
 
 ## Usage
 
-LibDoc: [Library documentation](docs/SystemTraceLibrary.html)
+LibDoc: [Library documentation](docs/RemoteMonitorLibrary.html)
 
 ### Test/Keywords within *.robot file
 
     *** Settings ***
-    Library  SystemTraceLibrary 
+    Library  RemoteMonitorLibrary 
     ...     [location (Default: logs)] 
     ...     [file_name (Default: system_trace.db)]
     ...     [cumulative (Default: False)]
@@ -68,7 +68,7 @@ Main init project file for expose Plugin class
 ##### Runner definition
 
     runner.py
-        from SystemTraceLibrary.api import plugins
+        from RemoteMonitorLibrary.api import plugins
         from .tables import plugin_table
         from .charts import plugin_chart
         
@@ -90,7 +90,7 @@ Main init project file for expose Plugin class
 ##### Tables definition
 
     tables.py
-        from SystemTraceLibrary.api import model
+        from RemoteMonitorLibrary.api import model
 
         class my_plugin_table(model.TimeReferencedTable / model.Table):
             def __init__(self):
@@ -106,8 +106,8 @@ Main init project file for expose Plugin class
         In case it not requires, use model.Table base class
 ##### Parser definition
    
-   parser.py
-         from SystemTraceLibrary.api import plugins, model
+    parser.py
+         from RemoteMonitorLibrary.api import plugins, model
          
          class my_parser(plugins.Parser):
             def __call__(*output) -> bool:
@@ -120,7 +120,7 @@ Main init project file for expose Plugin class
 ##### Chart definition
 
     charts.py
-        from SystemTraceLibrary.api.plugins import ChartAbstract
+        from RemoteMonitorLibrary.api.plugins import ChartAbstract
         
         class MyPlugInChart(ChartAbstract):
             pass
@@ -128,7 +128,7 @@ Main init project file for expose Plugin class
         Creating charts require familirisation with pandas & matplotlib
 
 ## Prerequisites
-    atop  preinstalled
+    Preinstalled: atop, time
 
 ## Supported OS
     All linux based system where atop supported

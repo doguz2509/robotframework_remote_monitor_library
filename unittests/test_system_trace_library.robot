@@ -1,8 +1,8 @@
 *** Settings ***
 Documentation    Suite description
 
-#Library  SystemTraceLibrary.SystemTraceLibrary  custom_plugins=./
-Library  SystemTraceLibrary.SystemTraceLibrary
+#Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary
 Library  SSHLibrary
 Library  BuiltIn
 
@@ -21,7 +21,7 @@ ${PERSISTENT}  yes
 *** Test Cases ***
 Test Time
     [Tags]    DEBUG
-    start trace plugin  Time  command=cd ~/bm_noise/linux-5.11.10;make -j 4 clean all  interval=1  name=Complilation
+    start trace plugin  Time  command=make -j 4 clean all 2>&1  interval=1  name=Complilation  start_folder=~/bm_noise/linux-5.11.10
 #    start trace plugin  Time  command=ls -l  interval=1  name=HomeDirList
     sleep  ${DURATION}  make something here
     stop trace plugin  Time  name=Complilation
