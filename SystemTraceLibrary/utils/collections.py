@@ -1,5 +1,4 @@
 from threading import RLock
-from time import sleep
 from typing import Any
 
 from . import Logger
@@ -42,3 +41,14 @@ class tsQueue:
 
     def empty(self):
         return len(self) == 0
+
+
+class CacheList(list):
+    def __init__(self, max_size=50):
+        list.__init__(self)
+        self._max_size = max_size
+
+    def append(self, item) -> None:
+        while len(self) >= self._max_size:
+            self.pop(0)
+        super().append(item)
