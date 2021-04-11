@@ -30,15 +30,15 @@ with open(join(current_dir, "readme_template.md"), "r", encoding="utf-8") as rea
         writer.write(lines)
         print(lines)
 
-py_file = os.path.join(current_dir, 'RemoteMonitorLibrary', 'library', 'RemoteMonitorLibrary.py')
-html_file = os.path.join(current_dir, 'RemoteMonitorLibrary', 'library', 'RemoteMonitorLibrary.html')
+py_file = os.path.join(current_dir, __package_name__, 'library', f'{__package_name__}.py')
+html_file = os.path.join(current_dir, __package_name__, 'library', f'{__package_name__}.html')
 
-libdoc(py_file, html_file, 'SystemStraceLibrary', VERSION)
+libdoc(py_file, html_file, __package_name__, VERSION)
 
 rmtree('dist', True)
 
 setup(
-    name='robotframework-system-trace-library',
+    name='robotframework-remote-monitor-library',
     version=VERSION,
     packages=find_packages(exclude=['venv']),
     package_data={'': ['*.html', 'RemoteMonitorLibrary/library/*.html']},
