@@ -6,7 +6,9 @@ from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
 from robot.utils import is_truthy
 
-from RemoteMonitorLibrary.api import db, Logger
+from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api.tools import Logger
+
 from RemoteMonitorLibrary.library.listener import TraceListener
 from RemoteMonitorLibrary.model.host_registry_model import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
@@ -26,7 +28,7 @@ class ConnectionKeywords(TraceListener):
     `Start monitor plugin`
     
     `Stop monitor plugin`
-
+    
     === Mark points ===
     
     `Start period`
@@ -157,11 +159,9 @@ class ConnectionKeywords(TraceListener):
         Arguments:
         - plugin_names: name must be one for following in loaded table, column 'Class'
         - alias: host monitor alias (Default: Current if omitted)
-        - options: interval=... , persistent=yes/no, name=<some short description for DB>
+        - options: interval=... , persistent=yes/no,
 
-        | Alias         | Class         | Table  |
-        | aTop          | aTop          |    |
-        |               |               | atop_system_level |
+        extra parameters relevant for particular plugin can be found in `BuiltIn plugins` section
 
         """
         try:

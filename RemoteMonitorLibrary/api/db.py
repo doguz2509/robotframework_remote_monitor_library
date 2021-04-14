@@ -6,12 +6,12 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.model.runner_model.ssh_runner import SSHLibraryCommandScheduler
 from RemoteMonitorLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 from .model import TimeReferencedTable
+from .plugins import SSHLibraryCommandScheduler
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1

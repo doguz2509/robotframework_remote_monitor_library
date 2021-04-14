@@ -76,62 +76,9 @@ class ChartAbstract(ABC):
     def data_area(self, data: [Iterable[Iterable]]) -> [Iterable[Iterable]]:
         return [r[1:] for r in data]
 
-    # @staticmethod
-    # def _get_y_limit(data):
-    #     return max([max(y) for y in [x[1:] for x in data]])
-
     def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) \
             -> Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
         title = self.title + (f'_{extension}' if extension else '')
         return (title, self.x_axes(query_results), self.y_axes(query_results),
                 self.data_area(query_results)),
-
-    # def generate_charts(self, sql_data, abs_image_path, prefix=None, **marks):
-    #     try:
-    #         errors = []
-    #         data_list = self.generate_chart_data(sql_data)
-    #         for data in data_list:
-    #             try:
-    #                 title, x, y, chart_data = data
-    #                 file_name = self.file_name.format(name=title.lower())
-    #                 file_name = f"{prefix}_{file_name}" if prefix else file_name
-    #                 file_path = os.path.join(abs_image_path, re.sub(r'\s+|@|:', '_', file_name))
-    #                 if os.path.exists(file_path):
-    #                     os.remove(file_path)
-    #                 plt.style.use('classic')
-    #                 df = pd.DataFrame(chart_data, columns=y, index=x)
-    #                 y_limit = self._get_y_limit(chart_data)
-    #                 df.cumsum()
-    #                 mp = df.plot(legend=True)
-    #                 for label in mp.axes.get_xticklabels():
-    #                     label.set_rotation(25)
-    #                     label.set_x(10)
-    #                 plt.ylim(0, y_limit * 1.3)
-    #                 plt.xlabel('Time')
-    #                 # TODO: Add vertical mark line on chart
-    #                 # if len(marks) > 0:
-    #                 #     fig, ax = plt.subplots()
-    #                 #     for mark, time in marks.items():
-    #                 #         ax.axvline(df.index.searchsorted(time),
-    #                 #         color='red', linestyle="--", lw=2, label="lancement")
-    #                 #     plt.tight_layout()
-    #                 plt.savefig(file_path)
-    #                 yield title.upper(), file_path
-    #             except Exception as e:
-    #                 errors.append(e)
-    #     except Exception as e:
-    #         f, l = get_error_info()
-    #         raise RuntimeError(f"Probably SQL query failed; Reason: {e}; File: {f}:{l}")
-    #     else:
-    #         if len(errors) > 0:
-    #             raise RuntimeError("Following sub charts creation error:\n\t{}".format(
-    #                 '\n\t'.join([f"{i}. {e}" for i, e in enumerate(errors)])
-    #             ))
-    #
-    # def __enter__(self):
-    #     return self
-    #
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     if exc_type is not None:
-    #         raise exc_type(exc_val, exc_tb)
 

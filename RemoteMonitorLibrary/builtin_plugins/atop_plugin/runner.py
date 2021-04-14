@@ -6,7 +6,7 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
-from RemoteMonitorLibrary.api import Logger, plugins, model, tools
+from RemoteMonitorLibrary.api import plugins, model, tools
 from RemoteMonitorLibrary.utils import Size, get_error_info
 
 from .charts import aTopSystemLevelChart
@@ -84,10 +84,10 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
             res.append(columns_template(
                 *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
         except ValueError as e:
-            Logger().error(f"aTop parse error: {e}")
+            tools.Logger().error(f"aTop parse error: {e}")
         except Exception as e:
             f, l = get_error_info()
-            Logger().error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
+            tools.Logger().error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
             raise
     return res
 
@@ -114,7 +114,7 @@ class aTopParser(plugins.Parser):
 
         except Exception as e:
             f, li = get_error_info()
-            Logger().error(f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
+            tools.Logger().error(f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
         else:
             return True
         return False
@@ -154,7 +154,8 @@ class aTop(plugins.PlugInAPI):
     def periodic_commands(self) -> plugins.CommandSet_Type:
         return plugins.Command(
             SSHLibrary.execute_command,
-            f"atop -r {self.folder}/{self.file} -b `date +%H:`$((`date +%_M` - 1)) -e `date +%H:%M`",
+            f"atop -r {self.folder}/{self.file} -b `date +'%Y%d%m%H%M'`",
+            #  atop -r ~/atop_temp/atop.dat -b `date +'%Y%d%m%H%M'`
             sudo=True, sudo_password=True, return_rc=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
                               data_handler=self._data_handler, counter=self.iteration_counter)),

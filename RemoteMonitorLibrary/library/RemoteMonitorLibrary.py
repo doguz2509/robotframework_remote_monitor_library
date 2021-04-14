@@ -9,7 +9,7 @@ from RemoteMonitorLibrary import builtin_plugins
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
-from RemoteMonitorLibrary.model.runner_model import SSHLibraryCommandScheduler
+from RemoteMonitorLibrary.runner import SSHLibraryCommandScheduler
 from RemoteMonitorLibrary.utils import load_modules, plugins_table
 from RemoteMonitorLibrary.version import VERSION
 
@@ -24,7 +24,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
                  **kwargs):
         self.__doc__ = """
         
-        Trace System or any other data on linux hosts
+        Remote Monitor CPU (wirth aTop), & Process (with Time) or any other data on linux hosts with custom plugins
         Allow periodical execution of commands set on one or more linux hosts with collecting data within SQL db following with some BI activity
         For current phase only data presentation in charts available.
         
@@ -37,10 +37,14 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         == BuiltIn plugins ==
         
         System support following plugins:
-        - aTop - monitor system io, memory, cpu, etc.
-        - Time - monitor process io, memory, cpu
-         
-        """.format(ConnectionKeywords.__doc__, BIKeywords.__doc__)
+        
+        {}
+        
+        {} 
+        """.format(ConnectionKeywords.__doc__,
+                   BIKeywords.__doc__,
+                   builtin_plugins.atop_plugin.__doc__,
+                   builtin_plugins.time_plugin.__doc__)
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)
         BIKeywords.__init__(self, location)

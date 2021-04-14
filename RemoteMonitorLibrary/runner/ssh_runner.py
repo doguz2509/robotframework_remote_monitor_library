@@ -1,15 +1,15 @@
+
 from abc import ABCMeta
 from datetime import datetime, timedelta
 from enum import Enum
 from threading import Event, Thread
 from time import sleep
-from typing import Callable
 
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict, is_truthy
 
 from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError
-from RemoteMonitorLibrary.model.runner_model.runner_abstracts import plugin_runner_abstract
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract
 from RemoteMonitorLibrary.utils import Logger, get_error_info
 
 

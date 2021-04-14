@@ -18,7 +18,8 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.api import plugins, model, db, Logger
+from RemoteMonitorLibrary.api import plugins, model, db
+from RemoteMonitorLibrary.api.tools import Logger
 from .tables import TimeMeasurement, CMD_TIME_FORMAT
 from .charts import TimeChart
 from ...utils import get_error_info
@@ -45,7 +46,7 @@ class TimeParser(plugins.Parser):
             return True
         except Exception as e:
             f, li = get_error_info()
-            raise type(e)(f"{self.__class__.__name__} -> {type(e).__name__}: {e}; File: {f}:{li}")
+            Logger().error(f"{self.__class__.__name__} -> {type(e).__name__}: {e}; File: {f}:{li}\n{time_output}")
 
 
 class Time(plugins.PlugInAPI):

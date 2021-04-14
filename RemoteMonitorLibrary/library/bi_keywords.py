@@ -8,7 +8,7 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.db import TableSchemaService
-from RemoteMonitorLibrary.model.chart_model import generate_charts
+from RemoteMonitorLibrary.runner.chart_generator import generate_charts
 from RemoteMonitorLibrary.model.chart_model.html_template import HTML_IMAGE_REF, HTML
 from RemoteMonitorLibrary.model.host_registry_model import HostModule, HostRegistryCache
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
