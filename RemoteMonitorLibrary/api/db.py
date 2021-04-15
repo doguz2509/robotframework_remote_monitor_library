@@ -1,4 +1,3 @@
-
 from threading import Event, Thread
 from time import sleep
 from typing import List, AnyStr, Mapping
@@ -6,7 +5,7 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.model.schema_model import Field, FieldType, ForeignKey, Table, Query, DataUnit
+from RemoteMonitorLibrary.model.schema_model import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query, DataUnit
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
@@ -19,13 +18,13 @@ TICKER_INTERVAL = 1
 
 class TraceHost(Table):
     def __init__(self):
-        super().__init__(name='TraceHost', fields=[Field('HOST_ID', FieldType.Int, True), Field('HostName')])
+        super().__init__(name='TraceHost', fields=[Field('HOST_ID', FieldType.Int, PrimaryKeys(True)), Field('HostName')])
 
 
 class TimeLine(Table):
     def __init__(self):
         Table.__init__(self, name='TimeLine',
-                       fields=[Field('TL_ID', FieldType.Int, True), Field('TimeStamp', FieldType.Text)],
+                       fields=[Field('TL_ID', FieldType.Int, PrimaryKeys(True)), Field('TimeStamp', FieldType.Text)],
                        queries=[Query('select_last', 'SELECT TL_ID FROM TimeLine WHERE TimeStamp == "{timestamp}"')]
                        )
 
@@ -48,26 +47,11 @@ class Points(Table):
                        WHERE HOST_REF = {} AND PointName = '{}'""")])
 
 
-class OutputCache(Table):
-    def __init__(self):
-        Table.__init__(self, name=None,
-                       fields=[Field('OUTPUT_ID', FieldType.Int, True), Field('Data')])
-
-    def cache_output(self, _data):
-        data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
-        if len(data_ref) == 0:
-            sql_text = insert_sql(self.name, self.columns)
-            DataHandlerService().execute(insert_sql(self.name, self.columns), *(None, _data))
-            Logger().debug(f"{sql_text}\n{_data}")
-            data_ref = DataHandlerService().execute(f"select OUTPUT_ID from OutputCache where Data = '{_data}' ")
-        return data_ref[0][0]
-
-
 @Singleton
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TraceHost(), TimeLine(), Points(), OutputCache()):
+        for builtin_table in (TraceHost(), TimeLine(), Points()):
             self.register_table(builtin_table)
 
     @property
@@ -179,5 +163,5 @@ __all__ = [
     'TableSchemaService',
     'PlugInService',
     'DB_DATETIME_FORMAT',
-    'OutputCache'
+    'LinesCache'
 ]

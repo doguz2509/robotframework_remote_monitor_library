@@ -1,7 +1,7 @@
-from . import atop_plugin
-from . import time_plugin
+from .atop_plugin import aTop
+from .time_plugin import Time
 
 __all__ = [
-    'atop_plugin',
-    'time_plugin'
+    'aTop',
+    'Time'
 ]

@@ -1,5 +1,5 @@
 import os
-from inspect import isclass
+from inspect import isclass, ismodule
 from os.path import join as path_join
 from typing import Mapping, Any
 
@@ -54,7 +54,7 @@ def load_modules(*modules, **options):
                 result_modules.update(
                     load_classes_from_module_from_dir(os.path.normpath(os.path.join(base_path, module_)),
                                                       base_class))
-        elif type(module_).__name__ == 'module':
+        elif ismodule(module_):
             for name, class_ in get_class_from_module(module_, base_class).items():
                 if name in result_modules.keys():
                     logger.warn(f"Module '{result_modules[name]}' overloaded with '{class_}'")

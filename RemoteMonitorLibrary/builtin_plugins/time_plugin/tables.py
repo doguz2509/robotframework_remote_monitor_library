@@ -34,6 +34,28 @@ class TimeMeasurement(model.TimeReferencedTable):
         model.TimeReferencedTable.__init__(self,
                                            name='TimeMeasurement',
                                            fields=[model.Field(f, model.FieldType.Int)
-                                                   for f in CMD_TIME_FORMAT.keys()] + [model.Field('OUTPUT_REF')],
-                                           foreign_keys=[model.ForeignKey('OUTPUT_REF', 'OutputCache', 'OUTPUT_ID')])
+                                                   for f in CMD_TIME_FORMAT.keys()] +
+                                                  [model.Field('OUTPUT_ID', model.FieldType.Int)])
+
+
+class LinesCacheMap(model.Table):
+    def __init__(self):
+        model.Table.__init__(self, name=None,
+                             fields=[
+                                 model.Field('OUTPUT_REF', model.FieldType.Int),
+                                 model.Field('ORDER_ID', model.FieldType.Int),
+                                 model.Field('LINE_REF', model.FieldType.Int)],
+                             foreign_keys=[model.ForeignKey('OUTPUT_REF', 'TimeMeasurement', 'OUTPUT_ID'),
+                                           model.ForeignKey('LINE_REF', 'LinesCache', 'LINE_ID')],
+                             queries=[model.Query('last_output_id', 'select max(OUTPUT_REF) from LinesCacheMap')])
+
+
+class LinesCache(model.Table):
+    def __init__(self):
+        model.Table.__init__(self, name=None,
+                             fields=[model.Field('LINE_ID',
+                                                 model.FieldType.Int,
+                                                 model.PrimaryKeys(True)),
+                                     model.Field('Line')])
+
 

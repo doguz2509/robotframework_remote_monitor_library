@@ -20,7 +20,7 @@ from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import plugins, model, db
 from RemoteMonitorLibrary.api.tools import Logger
-from .tables import TimeMeasurement, CMD_TIME_FORMAT
+from .tables import TimeMeasurement, CMD_TIME_FORMAT, LinesCache, LinesCacheMap
 from .charts import TimeChart
 from ...utils import get_error_info
 
@@ -38,7 +38,7 @@ class TimeParser(plugins.Parser):
 
             if self.options.get('Command', None):
                 row_dict.update({'Command': self.options.get('Command')})
-            data_ref = db.OutputCache().cache_output(command_out)
+            data_ref = cache_output(command_out)
 
             row_dict.update({'Output': data_ref})
             row = self.table.template(self.host_id, None, *row_dict.values())
@@ -73,7 +73,7 @@ class Time(plugins.PlugInAPI):
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return TimeMeasurement(),
+        return TimeMeasurement(), LinesCache(), LinesCacheMap()
 
     @staticmethod
     def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
@@ -93,3 +93,22 @@ class Time(plugins.PlugInAPI):
         super().start()
         logger.info(f"PlugIn {self.__class__.__name__} start command '{self._command}' as [{self.name}]",
                     also_console=True)
+
+
+def cache_output(output: str):
+    new_output_ref = exist_out_put_ref = None
+    for line_id, line in enumerate(output.splitlines()):
+        try:
+            exist_out_put_ref, line_ref = db.DataHandlerService().execute(
+                f"""SELECT OUTPUT_REF, LINE_ID 
+                    FROM LinesCacheMap lc 
+                    JOIN lc ON lc.LINE_REF = LinesCache.LINE_ID
+                    WHERE LinesCache.Line = '{line}'""")[0]
+        except IndexError:
+            new_output_ref = db.DataHandlerService().execute(
+                db.TableSchemaService().tables.LinesCacheMap.queries.last_output_id) + 1
+            db.DataHandlerService().execute(db.insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
+            line_ref = db.DataHandlerService().get_last_row_id
+            db.DataHandlerService().execute(db.insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
+                                            *(new_output_ref, line_id, line_ref))
+    return new_output_ref or exist_out_put_ref

@@ -8,9 +8,9 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.db import TableSchemaService
-from RemoteMonitorLibrary.runner.chart_generator import generate_charts
-from RemoteMonitorLibrary.model.chart_model.html_template import HTML_IMAGE_REF, HTML
+from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.model.host_registry_model import HostModule, HostRegistryCache
+from RemoteMonitorLibrary.runner.chart_generator import generate_charts
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
@@ -67,8 +67,8 @@ class BIKeywords:
         chart_plugins = module.get_plugin(plugin, **options)
         chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
         marks = _get_period_marks(period, module.host_id) if period else {}
-        body = ''
-
+        # body = ''
+        body_data = []
         for plugin in chart_plugins:
             for chart in plugin.affiliated_charts():
                 try:
@@ -78,16 +78,19 @@ class BIKeywords:
                     for picture_name, file_path in generate_charts(chart, sql_data, self._image_path, prefix=chart_title):
                         relative_image_path = os.path.relpath(file_path, os.path.normpath(
                             os.path.join(self._output_dir, self._log_path)))
-                        body += HTML_IMAGE_REF.format(relative_path=relative_image_path, picture_title=picture_name)
+                        # body += HTML_IMAGE_REF.format(relative_path=relative_image_path, picture_title=picture_name)
+                        body_data.append((picture_name, relative_image_path))
                 except Exception as e:
                     logger.error(f"Error: {e}")
 
-        html_file_name = "{}.html".format(chart_title)
-        html = HTML.format(title=chart_title, body=body)
-        html_full_path = os.path.normpath(os.path.join(self._output_dir, self._log_path, html_file_name))
-        html_link_path = '/'.join([self._log_path, html_file_name])
-        with open(html_full_path, 'w') as sw:
-            sw.write(html)
+        # html_file_name = "{}.html".format(chart_title)
+        # html = HTML.format(title=chart_title, body=body)
+        # html_full_path = os.path.normpath(os.path.join(self._output_dir, self._log_path, html_file_name))
+        # html_link_path = '/'.join([self._log_path, html_file_name])
+        # with open(html_full_path, 'w') as sw:
+        #     sw.write(html)
+
+        html_link_path = create_html(self._output_dir, self._log_path, chart_title, *body_data)
         html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
-        logger.warn(html_link_text, html=True)
+        logger.warn(html_link_path, html=True)
         return html_link_text

@@ -17,8 +17,17 @@ class FieldType(Enum):
     Real = 'REAL'
 
 
+class PrimaryKeys:
+    def __init__(self, auto_increment=False):
+        self._auto_increment = auto_increment
+
+    def __str__(self):
+        return 'AUTOINCREMENT' if self._auto_increment else ''
+
+
 class Field:
-    def __init__(self, name, type_: FieldType = None, key=False):
+    def __init__(self, name, type_: FieldType = None, primary_key: PrimaryKeys = None,
+                 not_null=False, unique=False):
         """
         Table field definition
         :param name: Table name string
@@ -27,7 +36,9 @@ class Field:
 
         self._name: str = name
         self._type: FieldType = type_ or FieldType.Text
-        self._key = key
+        self._primary_key = primary_key
+        self._not_null = not_null
+        self._unique = unique
 
     @property
     def name(self):
@@ -38,11 +49,19 @@ class Field:
         return self._type
 
     @property
-    def key(self):
-        return self._key
+    def primary_key(self):
+        return f" {self._primary_key}" if self._primary_key else ''
+
+    @property
+    def not_null(self):
+        return ' NOT NULL' if self._not_null else ''
+
+    @property
+    def unique(self):
+        return ' UNIQUE' if self._unique else ''
 
     def __str__(self):
-        return f"{self.name} {self.type.value}{' PRIMARY KEY' if self.key else ''}"
+        return f"{self.name} {self.type.value}{self.not_null}{self.unique}{self.primary_key}"
 
 
 class Query:

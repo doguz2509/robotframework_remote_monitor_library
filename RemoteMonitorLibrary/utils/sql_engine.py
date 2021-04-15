@@ -147,8 +147,8 @@ def select_sql(name, *fields, **filter_data):
     return f'SELECT {fields}\nFROM {name}\nWHERE {where}'
 
 
-def insert_sql(name, columns):
-    return INSERT_TABLE_TEMPLATE.format(table=name, values=",".join(['?'] * len(columns)))
+def insert_sql(table_name, columns):
+    return INSERT_TABLE_TEMPLATE.format(table=table_name, values=",".join(['?'] * len(columns)))
 
 
 def update_sql(name, *columns, **where):

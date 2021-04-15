@@ -95,7 +95,7 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
 class aTopParser(plugins.Parser):
     def __init__(self, **kwargs):
         plugins.Parser.__init__(self, **kwargs)
-        self._ts_cache = tools.CacheList()
+        self._ts_cache = tools.CacheList(6000 / timestr_to_secs(kwargs.get('interval', '1x')))
 
     def __call__(self, *output) -> bool:
         table_template = self.table.template
@@ -153,12 +153,11 @@ class aTop(plugins.PlugInAPI):
     @property
     def periodic_commands(self) -> plugins.CommandSet_Type:
         return plugins.Command(
-            SSHLibrary.execute_command,
-            f"atop -r {self.folder}/{self.file} -b `date +'%Y%d%m%H%M'`",
-            #  atop -r ~/atop_temp/atop.dat -b `date +'%Y%d%m%H%M'`
+            SSHLibrary.execute_command, f"atop -r {self.folder}/{self.file} -b `date +%Y%m%d%H%M`",
             sudo=True, sudo_password=True, return_rc=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
-                              data_handler=self._data_handler, counter=self.iteration_counter)),
+                              data_handler=self._data_handler, counter=self.iteration_counter,
+                              interval=self.parameters.interval)),
 
     @property
     def teardown(self) -> plugins.CommandSet_Type:
