@@ -55,8 +55,8 @@ class Logger:
         elif level == 'CRITICAL':
             self._logger.critical(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
 
-    def info(self, msg):
-        self._write(msg, 'INFO')
+    def info(self, msg, console=False):
+        self._write(msg, 'INFO', console=console)
 
     def debug(self, msg):
         self._write(msg, 'DEBUG')
