@@ -49,7 +49,7 @@ class HostModule:
         DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.name,
                                                 TableSchemaService().tables.TraceHost.columns), None, self.alias)
 
-        self._host_id = DataHandlerService().get_last_row_id
+        self._host_id = DataHandlerService()._db.get_last_row_id
 
     def stop(self):
         try:

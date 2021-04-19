@@ -6,6 +6,7 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
+import RemoteMonitorLibrary.runner.ssh_runner
 from RemoteMonitorLibrary.api import plugins, model, tools
 from RemoteMonitorLibrary.utils import Size, get_error_info
 
@@ -95,12 +96,13 @@ def _generate_atop_system_level(input_text, columns_template, *defaults):
 class aTopParser(plugins.Parser):
     def __init__(self, **kwargs):
         plugins.Parser.__init__(self, **kwargs)
-        self._ts_cache = tools.CacheList(6000 / timestr_to_secs(kwargs.get('interval', '1x')))
+        self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
 
-    def __call__(self, *output) -> bool:
+    def __call__(self, output) -> bool:
         table_template = self.table.template
         try:
-            stdout, rc = output
+            stdout = output.get('stdout')
+            rc = output.get('rc')
             assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}"
             for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
                 #  - MLP-INT-ManualVM-centos82-BuildMachine   2021/04/10  14:47:00   ----------------     1s elapsed
@@ -114,15 +116,16 @@ class aTopParser(plugins.Parser):
 
         except Exception as e:
             f, li = get_error_info()
-            tools.Logger().error(f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
+            tools.Logger().error(
+                f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
         else:
             return True
         return False
 
 
 class aTop(plugins.PlugInAPI):
-    def __init__(self, parameters, data_handler, **kwargs):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, **kwargs)
+    def __init__(self, parameters, data_handler, **user_options):
+        plugins.PlugInAPI.__init__(self, parameters, data_handler, **user_options)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
@@ -138,21 +141,22 @@ class aTop(plugins.PlugInAPI):
                aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
     @property
-    def setup(self) -> plugins.CommandSet_Type:
-        return [plugins.Command(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
-                plugins.Command(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True, sudo_password=True),
-                plugins.Command(SSHLibrary.execute_command, f'mkdir -p {self.folder}'),
-                plugins.Command(SSHLibrary.start_command, "{nohup} atop -w {folder}/{file} {interval} &".format(
-                    nohup='' if self.persistent else 'nohup',
-                    folder=self.folder,
-                    file=self.file,
-                    interval=int(self.interval)),
-                                sudo=True, sudo_password=True)
-                ]
+    def setup(self):
+        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),\
+               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
+                                         sudo_password=True), \
+               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}'), \
+               plugins.SSHLibraryCommand(SSHLibrary.start_command,
+                                         "{nohup} atop -w {folder}/{file} {interval} &".format(
+                                             nohup='' if self.persistent else 'nohup',
+                                             folder=self.folder,
+                                             file=self.file,
+                                             interval=int(self.interval)),
+                                         sudo=True, sudo_password=True)
 
     @property
-    def periodic_commands(self) -> plugins.CommandSet_Type:
-        return plugins.Command(
+    def periodic_commands(self):
+        return plugins.SSHLibraryCommand(
             SSHLibrary.execute_command, f"atop -r {self.folder}/{self.file} -b `date +%Y%m%d%H%M`",
             sudo=True, sudo_password=True, return_rc=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
@@ -160,5 +164,5 @@ class aTop(plugins.PlugInAPI):
                               interval=self.parameters.interval)),
 
     @property
-    def teardown(self) -> plugins.CommandSet_Type:
-        return plugins.Command(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
+    def teardown(self):
+        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),

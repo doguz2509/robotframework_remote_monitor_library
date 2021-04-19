@@ -11,7 +11,7 @@ __doc__ = """
     Parameters can be supplied via keyword `Start monitor plugin` as key-value pairs
     
     Time plugin arguments:
-    - command: Command to be executed by /usr/bin/time (Mandatory)
+    - command: SSHLibraryCommand to be executed by /usr/bin/time (Mandatory)
       
       Note: Pay attention not to redirect stderr to stdout; Time write to stderr by itself and it send to parser
       

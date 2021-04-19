@@ -9,7 +9,7 @@ from RemoteMonitorLibrary import builtin_plugins
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
-from RemoteMonitorLibrary.runner import SSHLibraryCommandScheduler
+from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
 from RemoteMonitorLibrary.utils import load_modules, plugins_table
 from RemoteMonitorLibrary.version import VERSION
 
@@ -55,7 +55,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
         self._start_suite_name = ''
         plugin_modules = load_modules(builtin_plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
-                                      base_path=current_dir, base_class=SSHLibraryCommandScheduler)
+                                      base_path=current_dir, base_class=SSHLibraryPlugInWrapper)
         db.PlugInService().update(**plugin_modules)
         plugins_table(db.PlugInService())
         lib_path, lib_file = os.path.split(__file__)

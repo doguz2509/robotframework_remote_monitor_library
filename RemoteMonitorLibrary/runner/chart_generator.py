@@ -4,7 +4,7 @@ import re
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from RemoteMonitorLibrary.model.chart_model import ChartAbstract
+from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.utils import get_error_info
 
 

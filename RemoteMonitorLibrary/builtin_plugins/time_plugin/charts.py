@@ -32,12 +32,12 @@ class TimeChart(plugins.ChartAbstract):
                                                      table_name=self._table.name)
 
     def y_axes(self, data: [Iterable[Iterable]]) -> Iterable[Any]:
-        return self.sections
+        return [s.replace(self.title, '') for s in self.sections]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {', '.join(self.sections)}"
 
-    def generate_chart_data(self, query_results: Iterable[Iterable]) -> \
+    def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) -> \
             Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
 
         data_series = {}

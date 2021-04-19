@@ -34,8 +34,9 @@ class TimeMeasurement(model.TimeReferencedTable):
         model.TimeReferencedTable.__init__(self,
                                            name='TimeMeasurement',
                                            fields=[model.Field(f, model.FieldType.Int)
-                                                   for f in CMD_TIME_FORMAT.keys()] +
-                                                  [model.Field('OUTPUT_ID', model.FieldType.Int)])
+                                                   for f in CMD_TIME_FORMAT.keys()])
+        # +
+        # [model.Field('OUTPUT_ID')])
 
 
 class LinesCacheMap(model.Table):
@@ -57,5 +58,3 @@ class LinesCache(model.Table):
                                                  model.FieldType.Int,
                                                  model.PrimaryKeys(True)),
                                      model.Field('Line')])
-
-

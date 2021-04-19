@@ -3,6 +3,8 @@ from typing import Tuple
 from SSHLibrary import SSHLibrary
 
 import RemoteMonitorLibrary.model.runner_model.runner_model
+
+import RemoteMonitorLibrary.runner.ssh_runner
 from RemoteMonitorLibrary.api import model
 from RemoteMonitorLibrary.api import plugins
 
@@ -33,7 +35,7 @@ class my_address(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return plugins.Command('ls -l'), \
+        return RemoteMonitorLibrary.runner.ssh_runner.SSHLibraryCommand('ls -l'), \
                plugins.ReadOutput(SSHLibrary.read_until, 'ls', loglevel='DEBUG')
 
     @staticmethod
@@ -49,7 +51,7 @@ class my_job(plugins.PlugInAPI):
 
     @property
     def periodic_commands(self):
-        return RemoteMonitorLibrary.model.runner_model.runner_model.Command('ls -l'),
+        return RemoteMonitorLibrary.runner.ssh_runner.SSHLibraryCommand('ls -l'),
 
     @staticmethod
     def parse(data_handler, affiliated_tables: Tuple[model.Table], command_output) -> bool:

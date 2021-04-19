@@ -1,5 +1,5 @@
 import os
-from inspect import isclass, ismodule
+from inspect import isclass, ismodule, signature
 from os.path import join as path_join
 from typing import Mapping, Any
 
@@ -71,7 +71,8 @@ def _plugin_walk(plugins, callback):
         for t in v.affiliated_tables():
             callback(addon=f"{t.name:42s} [Table]")
         for t in v.affiliated_charts():
-            callback(addon=f"{t.title:15s}: {', '.join(t.sections):20s} [Chart]")
+            callback(addon=f"{t.title:15s}")
+            callback(name="\t\t\t: {:20s} [Chart]".format('\n'.join([s.replace(t.title, '') for s in t.sections])))
 
 
 class max_lookup:

@@ -1,11 +1,57 @@
 from enum import Enum
-from typing import Iterable, Callable, Any
+from typing import Iterable, Callable
 
-from SSHLibrary import SSHLibrary
+from RemoteMonitorLibrary.model import db_schema as model
+from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 
-from RemoteMonitorLibrary.model import schema_model as model
-from RemoteMonitorLibrary.model.chart_model.chart_abstract import ChartAbstract
-from RemoteMonitorLibrary.utils import get_error_info, Counter
+
+class _ExecutionResult:
+    def __init__(self, **kwargs):
+        self._return_stdout = kwargs.get('return_stdout', True)
+        self._return_stderr = kwargs.get('return_stderr', False)
+        self._return_rc = kwargs.get('return_rc', False)
+
+    @property
+    def expected_result_len(self):
+        _len = 0
+        if self._return_stdout:
+            _len += 1
+        if self._return_stderr:
+            _len += 1
+        if self._return_rc:
+            _len += 1
+        return _len
+
+    @property
+    def result_index(self):
+        _index = {}
+        if self._return_stdout:
+            yield 'stdout', 0
+            if self._return_stderr:
+                yield 'stderr', 1
+                if self._return_rc:
+                    yield 'rc', 2
+            else:
+                if self._return_rc:
+                    yield 'rc', 1
+        else:
+            if self._return_stderr:
+                yield 'stderr', 0
+                if self._return_rc:
+                    yield 'rc', 1
+            else:
+                if self._return_rc:
+                    yield 'rc', 0
+
+    def __call__(self, result):
+        if not isinstance(result, (tuple, list)):
+            result = [result]
+
+        assert len(result) == self.expected_result_len, \
+            f"Result not match expected elements: {result} [Expected: {self.expected_result_len}]"
+
+        for k, index in dict(self.result_index).items():
+            yield k, result[index]
 
 
 class Parser:
@@ -29,54 +75,11 @@ class Parser:
             self.counter += 1
         self._data_handler(data)
 
-    def __call__(self, *outputs) -> bool:
+    def __call__(self, output: dict) -> bool:
         raise NotImplementedError()
 
     def __str__(self):
         return self.__class__.__name__
-
-
-class Command:
-    def __init__(self, method: Callable, command, **kwargs):
-        self.repeat = kwargs.pop('repeat', 1)
-        self.variable_cb = kwargs.pop('variable_cb', None)
-        self.parser: Parser = kwargs.pop('parser', None)
-        if self.parser:
-            assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
-        self._method = method
-        self._command = command
-        self._kwargs = kwargs
-
-    @property
-    def sudo(self):
-        return self._kwargs.get('sudo', False)
-
-    def __str__(self):
-        return f"{self._method.__name__}: " \
-               f"{', '.join([f'{a}' for a in [self._command] + [f'{k}={v}' for k, v in self._kwargs.items()]])}" \
-               f"{'; Parser: '.format(self.parser) if self.parser else ''}"
-
-    def __call__(self, ssh_client: SSHLibrary, *args, **kwargs) -> Any:
-        command_kwargs = dict(**self._kwargs)
-        command = self._command
-
-        if command_kwargs.pop('sudo', False):
-            command = f'sudo {command}'
-        elif command_kwargs.get('sudo_password', False):
-            command = 'echo %s | sudo --stdin --prompt "" %s' % (kwargs.pop('sudo_password'), command)
-
-        try:
-            output = self._method(ssh_client, command, **command_kwargs)
-            if self.parser:
-                return self.parser(*output)
-            return output
-        except Exception as e:
-            f, li = get_error_info()
-            error_type = type(e)
-            raise error_type(f"{self.__class__.__name__} -> {error_type.__name__}:{e}; File: {f}:{li}")
-
-
-CommandSet_Type = Iterable[Command]
 
 
 class plugin_runner_abstract:
@@ -84,8 +87,9 @@ class plugin_runner_abstract:
         self._stored_shell = {}
         self.variables = {}
         self._data_handler = data_handler
-        self._name = kwargs.get('name')
+        self._name = kwargs.pop('name', self.__class__.__name__)
         self._iteration_counter = 0
+        self._host_id = kwargs.pop('host_id', None)
 
     def store_variable(self, variable_name):
         def _(value):
@@ -96,6 +100,10 @@ class plugin_runner_abstract:
     @property
     def name(self):
         return self._name
+
+    @property
+    def host_id(self):
+        return self._host_id
 
     @property
     def iteration_counter(self) -> int:
@@ -120,15 +128,15 @@ class plugin_runner_abstract:
         return FlowCommands
 
     @property
-    def setup(self) -> CommandSet_Type:
+    def setup(self):
         return ()
 
     @property
-    def periodic_commands(self) -> CommandSet_Type:
+    def periodic_commands(self):
         return ()
 
     @property
-    def teardown(self) -> CommandSet_Type:
+    def teardown(self):
         return ()
 
     def __enter__(self):
@@ -150,3 +158,10 @@ class plugin_integration_abstract(object):
     @staticmethod
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return []
+
+    @staticmethod
+    def to_json():
+        return {
+            'tables': [t.name for t in plugin_integration_abstract.affiliated_tables()],
+            'charts': [{chart.__class__.__name__: chart.sections for chart in plugin_integration_abstract.affiliated_charts()}]
+        }

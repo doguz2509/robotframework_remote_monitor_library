@@ -5,12 +5,12 @@ from typing import List, AnyStr, Mapping
 from robot.api import logger
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.model.schema_model import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query, DataUnit
+from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query, DataUnit
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 from .model import TimeReferencedTable
-from .plugins import SSHLibraryCommandScheduler
+from .plugins import SSHLibraryPlugInWrapper
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1
@@ -63,7 +63,7 @@ class TableSchemaService:
 
 
 @Singleton
-class PlugInService(dict, Mapping[AnyStr, SSHLibraryCommandScheduler]):
+class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
     def update(self, **plugin_modules):
         for plugin in plugin_modules.values():
             for table in plugin.affiliated_tables():
@@ -155,7 +155,7 @@ class DataHandlerService:
                 f, l = get_error_info()
                 Logger().error(f"Unexpected error occurred: {e}; File: {f}:{l}")
             else:
-                Logger().debug(f"Item get completed")
+                Logger().debug(f"Item handling completed")
                 sleep(0.5)
 
         Logger().debug(f"Background task stopped invoked")
@@ -165,6 +165,5 @@ __all__ = [
     'DataHandlerService',
     'TableSchemaService',
     'PlugInService',
-    'DB_DATETIME_FORMAT',
-    'LinesCache'
+    'DB_DATETIME_FORMAT'
 ]

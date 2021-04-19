@@ -3,9 +3,11 @@ import logging.handlers
 import os
 from threading import currentThread
 
+from robot.api import logger as robot_logger
+
 from .singleton import Singleton
 
-LINE_TEMPLATE = "Thread: {thread:30s} -> {msg}"
+LINE_TEMPLATE = "RemoteMonitorLibrary [Thread: {thread:15s}] -> {msg}"
 
 
 @Singleton
@@ -13,7 +15,7 @@ class Logger:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         handler = logging.StreamHandler()
-        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.7s] %(message)s")
         handler.setFormatter(self._formatter)
         self._logger.addHandler(logging.StreamHandler())
 
@@ -36,20 +38,37 @@ class Logger:
     def set_level(self, level='INFO'):
         self._logger.setLevel(level)
 
+    def _write(self, msg, level='INFO', console=False):
+        thread_name = currentThread().name
+        if thread_name == 'MainThread':
+            robot_logger.write(msg, level)
+        if console:
+            robot_logger.console(msg)
+        if level == 'INFO':
+            self._logger.info(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
+        elif level == 'WARN':
+            self._logger.warning(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
+        elif level == 'ERROR':
+            self._logger.error(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
+        elif level == 'DEBUG':
+            self._logger.debug(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
+        elif level == 'CRITICAL':
+            self._logger.critical(LINE_TEMPLATE.format(thread=thread_name, msg=msg))
+
     def info(self, msg):
-        self._logger.info(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
+        self._write(msg, 'INFO')
 
     def debug(self, msg):
-        self._logger.debug(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
+        self._write(msg, 'DEBUG')
 
     def warning(self, msg):
-        self._logger.warning(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
+        self._write(msg, 'WARN')
 
     def error(self, msg):
-        self._logger.error(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
+        self._write(msg, 'ERROR')
 
     def critical(self, msg):
-        self._logger.critical(LINE_TEMPLATE.format(thread=currentThread().name, msg=msg))
+        self._write(msg, 'CRITICAL')
 
     def __enter__(self):
         return self

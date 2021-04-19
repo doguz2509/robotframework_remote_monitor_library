@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from RemoteMonitorLibrary.model.schema_model import Table, Field, Query, PrimaryKeys, ForeignKey, FieldType, DataUnit
+from RemoteMonitorLibrary.model.db_schema import Table, Field, Query, PrimaryKeys, ForeignKey, FieldType, DataUnit
 
 
 class TimeReferencedTable(Table):

@@ -1,5 +1,4 @@
 import os
-from typing import List, Tuple
 
 HTML = """
 <!DOCTYPE html>
@@ -49,15 +48,13 @@ HTML_IMAGE_REF = """
 """
 
 
-def create_html(report_abs_path, report_rel_path, file_name: str,
-                body_data: List[Tuple[str, str]]) -> str:
-    body = ''
+def create_html(report_abs_path, report_rel_path, file_name: str, *body_data) -> str:
     html_file_name = "{}.html".format(file_name) if not file_name.endswith('.html') else file_name
     html_full_path = os.path.normpath(os.path.join(report_abs_path, report_rel_path, html_file_name))
     html_link_path = '/'.join([report_rel_path, html_file_name])
 
-    for file_path, picture_name in body_data:
-        body += HTML_IMAGE_REF.format(relative_path=file_path, picture_title=picture_name)
+    body = ''.join([HTML_IMAGE_REF.format(relative_path=file_path, picture_title=picture_name)
+                    for picture_name, file_path in body_data])
 
     with open(html_full_path, 'w') as sw:
         sw.write(HTML.format(title=file_name, body=body))

@@ -61,7 +61,7 @@ class BIKeywords:
         :Return - html link to chart file
         """
         if not os.path.exists(self._image_path):
-            os.mkdir(self._image_path)
+            os.makedirs(self._image_path, exist_ok=True)
 
         module: HostModule = HostRegistryCache().get_connection(alias)
         chart_plugins = module.get_plugin(plugin, **options)
@@ -92,5 +92,5 @@ class BIKeywords:
 
         html_link_path = create_html(self._output_dir, self._log_path, chart_title, *body_data)
         html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
-        logger.warn(html_link_path, html=True)
+        logger.warn(html_link_text, html=True)
         return html_link_text

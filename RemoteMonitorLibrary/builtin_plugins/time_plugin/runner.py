@@ -20,17 +20,21 @@ from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import plugins, model, db
 from RemoteMonitorLibrary.api.tools import Logger
-from .tables import TimeMeasurement, CMD_TIME_FORMAT, LinesCache, LinesCacheMap
 from .charts import TimeChart
+from .tables import TimeMeasurement, CMD_TIME_FORMAT
 from ...utils import get_error_info
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
 
 
 class TimeParser(plugins.Parser):
-    def __call__(self, *outputs) -> bool:
+    def __call__(self, outputs) -> bool:
+        command_out = outputs.get('stdout')
+        time_output = outputs.get('stderr')
+        rc = outputs.get('rc')
         try:
-            command_out, time_output = outputs
+
+            assert rc == 0, f"Result return rc {rc}"
             data = time_output.split(',')
             row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
             Logger().info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
@@ -38,42 +42,38 @@ class TimeParser(plugins.Parser):
 
             if self.options.get('Command', None):
                 row_dict.update({'Command': self.options.get('Command')})
-            data_ref = cache_output(command_out)
 
-            row_dict.update({'Output': data_ref})
             row = self.table.template(self.host_id, None, *row_dict.values())
-            self.data_handler(model.DataUnit(self.table, row))
+            du = model.DataUnit(self.table, row)
+            self.data_handler(du)
             return True
         except Exception as e:
             f, li = get_error_info()
-            Logger().error(f"{self.__class__.__name__} -> {type(e).__name__}: {e}; File: {f}:{li}\n{time_output}")
+            raise type(e)(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
+
+
+class TimeSSHCommand(plugins.SSHLibraryCommand):
+    def __init__(self, method, command, **user_options):
+        self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
+        self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
+        super().__init__(method, command=f'{self._time_cmd} -f "{self._format}" {command} > /dev/null', **user_options)
 
 
 class Time(plugins.PlugInAPI):
     def __init__(self, parameters, data_handler, **options):
         plugins.PlugInAPI.__init__(self, parameters, data_handler, **options)
         self._prefix = f"{self.__class__.__name__}_item:"
-        self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
+
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
         self._command = options.get('command', None)
         self._command_name = options.get('name', None)
-        self._noise_cmd_sudo = options.get('sudo', False)
-        self._noise_cmd_sudo_password = options.get('password', False)
-        self._start_folder = options.get('start_folder', None)
-        assert self._command, "Command not provided"
-
-    @property
-    def get_full_command(self):
-        return "{start}{time_cmd} -f \"{format}\" {command}".format(
-            start=f"cd {self._start_folder};" if self._start_folder else '',
-            time_cmd=self._time_cmd,
-            format=self._format,
-            command=self._command
-        )
+        self._start_in_folder = options.get('start_in_folder', None)
+        assert self._command, "SSHLibraryCommand not provided"
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return TimeMeasurement(), LinesCache(), LinesCacheMap()
+        return TimeMeasurement(),
+        # LinesCache(), LinesCacheMap()
 
     @staticmethod
     def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
@@ -82,12 +82,12 @@ class Time(plugins.PlugInAPI):
                      for name in ('Time', 'Memory', 'IO'))
 
     @property
-    def periodic_commands(self) -> plugins.CommandSet_Type:
-        return plugins.Command(SSHLibrary.execute_command, self.get_full_command, sudo=self._noise_cmd_sudo,
-                               sudo_password=self._noise_cmd_sudo_password, return_stderr=True,
-                               parser=TimeParser(host_id=self.host_id,
-                                                 table=self.affiliated_tables()[0],
-                                                 data_handler=self.data_handler, Command=self.name)),
+    def periodic_commands(self):
+        return TimeSSHCommand(SSHLibrary.execute_command, self._command,
+                              parser=TimeParser(host_id=self.host_id,
+                                                table=self.affiliated_tables()[0],
+                                                data_handler=self.data_handler, Command=self.name),
+                              return_stderr=True, return_rc=True, start_in_folder=self._start_in_folder),
 
     def start(self):
         super().start()
@@ -96,19 +96,37 @@ class Time(plugins.PlugInAPI):
 
 
 def cache_output(output: str):
-    new_output_ref = exist_out_put_ref = None
+    effective_output_ref = None
+    new_reference_set_required = False
+    lines_ref = []
     for line_id, line in enumerate(output.splitlines()):
         try:
-            exist_out_put_ref, line_ref = db.DataHandlerService().execute(
-                f"""SELECT OUTPUT_REF, LINE_ID 
-                    FROM LinesCacheMap lc 
-                    JOIN lc ON lc.LINE_REF = LinesCache.LINE_ID
-                    WHERE LinesCache.Line = '{line}'""")[0]
+            effective_output_ref, line_ref = db.DataHandlerService().execute(
+                f"""SELECT OUTPUT_REF, LINE_REF
+                    FROM LinesCacheMap 
+                    JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                    WHERE LinesCache.Line = '{line}' """)[0]
+            Logger().debug(f"Line '{line}' already exists; refer to OUTPUT_REF = {effective_output_ref}")
         except IndexError:
-            new_output_ref = db.DataHandlerService().execute(
-                db.TableSchemaService().tables.LinesCacheMap.queries.last_output_id) + 1
-            db.DataHandlerService().execute(db.insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
-            line_ref = db.DataHandlerService().get_last_row_id
-            db.DataHandlerService().execute(db.insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
-                                            *(new_output_ref, line_id, line_ref))
-    return new_output_ref or exist_out_put_ref
+            try:
+                if not new_reference_set_required:
+                    output_ref = db.DataHandlerService().execute(
+                        db.TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
+                    effective_output_ref = output_ref[0][0] + 1 if output_ref != [(None,)] else 0
+                    Logger().debug(
+                        f"Line '{line}' is new; refer to new OUTPUT_REF = {effective_output_ref}\n\tInsert line '{line}' ")
+                db.DataHandlerService().execute(db.insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
+                line_ref = db.DataHandlerService().get_last_row_id
+                new_reference_set_required = True
+            except Exception as e:
+                f, li = get_error_info()
+                raise type(e)(f"{e}; File: {f}:{li}")
+
+        if new_reference_set_required:
+            lines_ref.append((effective_output_ref, line_id, line_ref))
+
+    if new_reference_set_required:
+        db.DataHandlerService().execute(db.insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
+                                        lines_ref)
+
+    return effective_output_ref

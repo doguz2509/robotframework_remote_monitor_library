@@ -68,11 +68,12 @@ class ConnectionKeywords(TraceListener):
 
         suite_start_kw = self._normalise_auto_mark(options.get('start_suite', None), 'start_period')
         suite_end_kw = self._normalise_auto_mark(options.get('start_suite', None), 'stop_period')
-        test_start_kw = self._normalise_auto_mark(options.get('start_test', True), 'start_period')
-        test_end_kw = self._normalise_auto_mark(options.get('end_test', True), 'stop_period')
+        test_start_kw = self._normalise_auto_mark(options.get('start_test', None), 'start_period')
+        test_end_kw = self._normalise_auto_mark(options.get('end_test', None), 'stop_period')
 
         TraceListener.__init__(self, start_suite=suite_start_kw, end_suite=suite_end_kw,
                                start_test=test_start_kw, end_test=test_end_kw)
+        # TraceListener.__init__(self)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):

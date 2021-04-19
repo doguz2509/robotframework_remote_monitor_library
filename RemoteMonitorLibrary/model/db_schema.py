@@ -22,7 +22,7 @@ class PrimaryKeys:
         self._auto_increment = auto_increment
 
     def __str__(self):
-        return 'AUTOINCREMENT' if self._auto_increment else ''
+        return ' PRIMARY KEY' + ' AUTOINCREMENT' if self._auto_increment else ''
 
 
 class Field:
@@ -192,8 +192,8 @@ class DataUnit:
         data = self._update_data(self._table, self._data, **updates)
         return insert_sql(self._table.name, [t.name for t in self._table.fields]), [tuple(r) for r in data]
 
-    def __str__(self):
-        return f"{self.get_insert_data()}"
+    # def __str__(self):
+    #     return f"{self.get_insert_data()}"
 
     @staticmethod
     def _raise_timeout(msg):
