@@ -11,14 +11,24 @@ __doc__ = """
     Parameters can be supplied via keyword `Start monitor plugin` as key-value pairs
     
     Time plugin arguments:
-    - command: SSHLibraryCommand to be executed by /usr/bin/time (Mandatory)
+    
+    - command: command to be executed and measured by time (Mandatory)
+    
+    | /usr/bin/time -f "%... all time format fields (see man)" 'command' > /dev/null
       
-      Note: Pay attention not to redirect stderr to stdout; Time write to stderr by itself and it send to parser
+      Note: Pay attention not to redirect command stderr to stdout (avoid '2>&1'); Time write to stderr by itself and it send to parser
       
     - name: User friendly alias for command (Optional)
-    - start_folder: path to executable binary/script if execution by path not relevant (Optional)
+    - start_in_folder: path to executable binary/script if execution by path not relevant (Optional)
+      
+      If provided command will be executed as following:
+        
+    | cd 'start_in_folder' ; /usr/bin/time -f "" 'command' > /dev/null
+    
     - sudo: True if sudo required, False if omitted (Optional)
     - sudo_password: True if password required for sudo, False if omitted (Optional)
+    
+      On plugin start sudo and sudo_password will be replace with sudo password provided for connection module
 
 """
 
