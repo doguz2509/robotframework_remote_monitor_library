@@ -72,7 +72,7 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryCommandScheduler]):
 
 
 @Singleton
-class DataHandlerService(sql.SQL_DB):
+class DataHandlerService:
     def __init__(self):
         self._threads: List[Thread] = []
         self._queue = collections.tsQueue()
@@ -101,8 +101,7 @@ class DataHandlerService(sql.SQL_DB):
             for name, table in TableSchemaService().tables.items():
                 try:
                     assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
-                    self._db.create_table(table.name, sql.create_table_sql(table.name, table.fields,
-                                                                           table.foreign_keys))
+                    self._db.execute(sql.create_table_sql(table.name, table.fields, table.foreign_keys))
                 except AssertionError as e:
                     logger.warn(f"{e}")
                 except Exception as e:
@@ -127,6 +126,10 @@ class DataHandlerService(sql.SQL_DB):
 
     def execute(self, sql_text, *rows):
         return self._db.execute(sql_text, *rows)
+
+    @property
+    def get_last_row_id(self):
+        return self._db.get_last_row_id
 
     def _data_handler(self):
         Logger().debug(f"{self.__class__.__name__} Started with event {id(self._event)}")

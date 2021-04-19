@@ -64,39 +64,15 @@ class SQL_DB:
             self._logger.warning(f"Cannot remove db file - {path}; Continue with existing data")
             return False
 
-    def create_table(self, table_name, create_table_sql):
-        try:
-            self._cursor.execute(create_table_sql)
-            self._conn.commit()
-            self._table_cache.append(table_name)
-        except Exception as e:
-            raise RuntimeError(f"Cannot create table: Error{e}\nStatement: {create_table_sql}")
-        else:
-            return True
-
-    # @staticmethod
-    # def insert_sql(table_name, columns, field_set=None):
-    #     if field_set is None:
-    #         if isinstance(columns, (list, tuple)):
-    #             field_set = columns
-    #         else:
-    #             field_set = list(columns.keys())
-    #
-    #     columns_text = "{} ({})".format(table_name, ",".join(field_set))
-    #     value_text = "VALUES ({})".format(",".join(['?'] * len(field_set)))
-    #     return "INSERT INTO {table} {values}".format(table=columns_text, values=value_text)
-
-    # def insert_rows(self, data: List[Tuple]):
-    #     self._conn.executemany(self.insert_sql, data)
-    #     self._conn.commit()
-
-    # def insert_row(self, table_name, **field_value_pairs):
-    #     columns_text = "{}({})".format(table_name, ",".join(field_value_pairs.keys()))
-    #     value_text = "VALUES({})".format(",".join(['?' for _ in field_value_pairs.keys()]))
-    #     insert_sql = "INSERT INTO {table} {values}".format(table=columns_text, values=value_text)
-    #     task = [v for f, v in field_value_pairs]
-    #     self._logger.debug(f"Insert data:\n{task}")
-    #     self.execute(insert_sql, *task)
+    # def create_table(self, table_name, create_table_sql):
+    #     try:
+    #         self._cursor.execute(create_table_sql)
+    #         self._conn.commit()
+    #         self._table_cache.append(table_name)
+    #     except Exception as e:
+    #         raise RuntimeError(f"Cannot create table: Error{e}\nStatement: {create_table_sql}")
+    #     else:
+    #         return True
 
     def execute(self, sql: str, *args, **kwargs):
         _result = None
@@ -114,13 +90,11 @@ class SQL_DB:
                                                                             type(args).__name__))
             self._conn.commit()
             _result = self._cursor.fetchall()
-            # self._logger.debug("{}::execute: result entries: {}".format(self.__class__.__name__, len(_result)))
-            # self._logger.debug(f"{self.__class__.__name__}::execute: result entries:\n{_result}\n")
             return _result
 
     @property
     def get_last_row_id(self):
-        return self._db._cursor.lastrowid
+        return self._cursor.lastrowid
 
     def query_last_row(self, table_name, ref_field):
         sql = f'select {ref_field} from {table_name} ORDER BY {ref_field} DESC LIMIT 1'
