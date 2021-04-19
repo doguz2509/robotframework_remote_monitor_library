@@ -23,14 +23,14 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
     Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
-    Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
-    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-#    Start monitor plugin  Time  command=ls -l  interval=${INTERVAL}  name=HomeDirList
+#    Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
+#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    Start monitor plugin  Time  command=ls -l  interval=${INTERVAL}  name=HomeDirList
     sleep  ${DURATION}  make something here
 #    Stop monitor plugin  Time  name=Complilation
 #    stop monitor plugin  atop
-    generate module statistics  plugin=Time  name=Compilation
-#    generate module statistics  plugin=Time  name=HomeDirList
+#    generate module statistics  plugin=Time  name=Compilation
+    generate module statistics  plugin=Time  name=HomeDirList
     generate module statistics  plugin=aTop
 
     [Teardown]  close_all_host_monitors

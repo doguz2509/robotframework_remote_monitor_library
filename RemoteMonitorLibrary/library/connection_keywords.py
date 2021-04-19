@@ -35,7 +35,37 @@ class ConnectionKeywords(TraceListener):
     
     `Stop period`
     
-    `Set mark`"""
+    `Set mark`
+    
+    === Examples ===
+    
+    | ***** Settings ***** 
+    | Library           RemoteMonitorLibrary 
+    | Library           BuiltIn
+    | 
+    | Suite Setup       Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+    | Suite Teardown    close_all_host_monitors
+    |
+    | ***** Variables *****
+    | ${HOST}           ...
+    | ${USER}           ...
+    | ${PASSWORD}       ...
+    | ${INTERVAL}       1s
+    | ${PERSISTENT}     yes
+    | ${DURATION}       1h
+    |
+    | ***** Tests *****
+    | Test Host monitor
+    |   [Tags]  monitor
+    |   Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
+    |   Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
+    |   ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    |   sleep  ${DURATION}  make something here
+    |   Stop monitor plugin  Time  name=Complilation
+    |   [Teardown]  run keywords  generate module statistics  plugin=Time  name=Compilation
+    |   ...         AND  generate module statistics  plugin=aTop
+    |
+    """
 
     def __init__(self, rel_location, file_name, **options):
         """
