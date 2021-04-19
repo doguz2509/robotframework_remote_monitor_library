@@ -72,7 +72,7 @@ class HostModule:
         plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, **tail)
         plugin.start()
         logger.info(f"PlugIn '{plugin}' started")
-        self._active_plugins[f"{plugin}"] = plugin
+        self._active_plugins[hash(plugin)] = plugin
         logger.info(f"PlugIn '{plugin_name}' started")
 
     def get_plugin(self, plugin_name=None, **options):

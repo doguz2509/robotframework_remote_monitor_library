@@ -1,4 +1,3 @@
-
 from abc import ABCMeta
 from datetime import datetime, timedelta
 from enum import Enum
@@ -43,8 +42,8 @@ class SSHLibraryCommand:
     def __init__(self, method: Callable, command, **user_options):
         self.variable_cb = user_options.pop('variable_cb', None)
         self.parser: Parser = user_options.pop('parser', None)
-        self._sudo_expected = user_options.pop('sudo', False)
-        self._sudo_password_expected = user_options.pop('sudo_password', False)
+        self._sudo_expected = is_truthy(user_options.pop('sudo', False))
+        self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         self._start_in_folder = user_options.pop('start_in_folder', None)
         self._ssh_options = dict(_normalize_arguments(method.__name__, **user_options))
         self._result_template = _ExecutionResult(**self._ssh_options)
@@ -86,7 +85,10 @@ class SSHLibraryCommand:
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, **kwargs):
+        self._sudo_expected = is_truthy(kwargs.pop('sudo', False))
+        self._sudo_password_expected = is_truthy(kwargs.pop('sudo_password', False))
         super().__init__(data_handler, **kwargs)
+
         self._execution_counter = 0
         self._ssh = SSHLibrary()
 
@@ -121,6 +123,14 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     @property
     def type(self):
         return f"{self.__class__.__name__}"
+
+    @property
+    def sudo_expected(self):
+        return self._sudo_expected
+
+    @property
+    def sudo_password_expected(self):
+        return self._sudo_password_expected
 
     @property
     def interval(self):
@@ -201,8 +211,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         return True
 
     def __str__(self):
-        return "PlugIn {}: {} [Interval: {}; Persistent: {}]".format(self.type, self.thread_name,
-                                                                     self._interval, self.persistent)
+        return "PlugIn {}: {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
+            self.type, self.thread_name, self._interval, self.persistent, self.sudo_expected,
+            self.sudo_password_expected)
 
     def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
         total_output = ''
@@ -268,4 +279,3 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             f, li = get_error_info()
             Logger().error(msg=f"{e}; File: {f}:{li}")
             raise RunnerError(f"{e}; File: {f}:{li}")
-

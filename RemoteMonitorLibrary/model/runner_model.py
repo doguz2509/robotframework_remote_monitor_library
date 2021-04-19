@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from enum import Enum
 from typing import Iterable, Callable
 
@@ -90,6 +91,7 @@ class plugin_runner_abstract:
         self._name = kwargs.pop('name', self.__class__.__name__)
         self._iteration_counter = 0
         self._host_id = kwargs.pop('host_id', None)
+        self._user_options = kwargs
 
     def store_variable(self, variable_name):
         def _(value):
@@ -100,6 +102,10 @@ class plugin_runner_abstract:
     @property
     def name(self):
         return self._name
+
+    @property
+    def options(self):
+        return self._user_options
 
     @property
     def host_id(self):
@@ -148,9 +154,6 @@ class plugin_runner_abstract:
 
 class plugin_integration_abstract(object):
 
-    def __hash__(self):
-        return hash(f"{self.__class__.__name__}_{id(self)}")
-
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
         return []
@@ -165,3 +168,18 @@ class plugin_integration_abstract(object):
             'tables': [t.name for t in plugin_integration_abstract.affiliated_tables()],
             'charts': [{chart.__class__.__name__: chart.sections for chart in plugin_integration_abstract.affiliated_charts()}]
         }
+
+    def __hash__(self):
+        return f"{self.__class__.__name__}_{id(self)}"
+
+    def __str__(self):
+        _str = f"+----------------+----------------------+---------+\n"
+        _str += "| {:15s} |                    | PlugIn |\n".format(self.__class__.__name__)
+        _str += '\n'.join(['|                 | {:18s} | Table   |'.format(
+            t.name) for t in self.affiliated_tables()])
+        for c in self.affiliated_charts():
+            _str += f'|                 | {c:18s} | Chart   |\n'
+            for s in c.sections:
+                _str += f"|             | {s:28s} | Section |\n"
+        _str += f"+----------------+----------------------+---------+"
+        return _str

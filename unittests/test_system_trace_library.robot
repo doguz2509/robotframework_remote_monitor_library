@@ -22,7 +22,7 @@ ${PERSISTENT}  yes
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
+    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes  sudo_password=yes
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
     Start monitor plugin  Time  command=ls -l  interval=${INTERVAL}  name=HomeDirList
