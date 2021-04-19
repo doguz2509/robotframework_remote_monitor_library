@@ -221,7 +221,7 @@ class ConnectionKeywords(TraceListener):
         db.DataHandlerService().execute(insert_sql(db.TableSchemaService().tables.Points.name,
                                                    db.TableSchemaService().tables.Points.columns),
                                         module.host_id, period_name or module.alias,
-                                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                        datetime.now().strftime(DB_DATETIME_FORMAT),
                                         None)
 
     @keyword("Stop period")
