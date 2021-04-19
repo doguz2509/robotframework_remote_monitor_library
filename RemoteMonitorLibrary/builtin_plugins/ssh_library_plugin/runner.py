@@ -1,5 +1,7 @@
+
+from SSHLibrary import SSHLibrary as RSSHLibrary
 from RemoteMonitorLibrary.api import plugins, db
-from RemoteMonitorLibrary.model.errors import RunnerError
+from RemoteMonitorLibrary.utils import Logger
 
 
 class UserCommandParser(plugins.Parser):
@@ -46,7 +48,7 @@ class SSHLibraryCommandWithVerification(plugins.SSHLibraryCommand):
 class SSHLibrary(plugins.PlugInAPI):
     def __init__(self, parameters, data_handler, **user_options):
         plugins.PlugInAPI.__init__(self, parameters=parameters, data_handler=data_handler)
-        self._method = user_options.pop('method', None)
+        _method = user_options.pop('method', None)
         self._command = user_options.pop('command', None)
         self._user_options = user_options
         self._user_options.update({
@@ -55,7 +57,11 @@ class SSHLibrary(plugins.PlugInAPI):
             'return_stdout': True,
         })
         assert self._command is not None, "Command must be provided"
-        assert self._method is not None, "SSHLibrary method must be provided"
+        assert _method is not None, "SSHLibrary method must be provided"
+        assert hasattr(RSSHLibrary(), _method), "SSHLibrary method not exists"
+
+        self._method = getattr(RSSHLibrary(), _method)
+        Logger().info(f"Method '{self._method.__name__}' assigned")
 
     @property
     def periodic_commands(self):
