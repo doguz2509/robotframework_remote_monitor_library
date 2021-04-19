@@ -1,19 +1,34 @@
+from abc import ABCMeta
 from threading import Event, Thread
 from time import sleep
-from typing import List, AnyStr, Mapping
+from typing import List, AnyStr, Mapping, Iterable
 
-from robot.api import logger
 from robot.utils import DotDict
 
 from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query, DataUnit
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
-from .model import TimeReferencedTable
 from .plugins import SSHLibraryPlugInWrapper
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1
+
+
+class TimeReferencedTable(Table, metaclass=ABCMeta):
+    def __init__(self, name, fields: Iterable[Field], queries=None, foreign_keys=None):
+        fields, foreign_keys = self._add_timeline_reference(fields, foreign_keys)
+        Table.__init__(self, name, fields, queries, foreign_keys)
+
+    @staticmethod
+    def _add_timeline_reference(fields: Iterable[Field], foreign_keys=None):
+        fields = list(fields)
+        fields.insert(0, Field('HOST_REF', FieldType.Int))
+        fields.insert(1, Field('TL_REF', FieldType.Int))
+        foreign_keys = list(foreign_keys) if foreign_keys else []
+        foreign_keys.insert(0, ForeignKey('TL_REF', 'TimeLine', 'TL_ID'))
+        foreign_keys.insert(0, ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID'))
+        return fields, foreign_keys
 
 
 class TraceHost(Table):
@@ -47,11 +62,16 @@ class Points(Table):
                        WHERE HOST_REF = {} AND PointName = '{}'""")])
 
 
+class Marks(TimeReferencedTable):
+    def __init__(self):
+        TimeReferencedTable.__init__(self, name=None, fields=(Field('Type'), Field('MarkName')))
+
+
 @Singleton
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TraceHost(), TimeLine(), Points()):
+        for builtin_table in (TraceHost(), TimeLine(), Points(), Marks()):
             self.register_table(builtin_table)
 
     @property
@@ -65,10 +85,14 @@ class TableSchemaService:
 @Singleton
 class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
     def update(self, **plugin_modules):
+        _registered_plugins = ''
         for plugin in plugin_modules.values():
+            _registered_plugins += f'\t{plugin}\n'
             for table in plugin.affiliated_tables():
+                _registered_plugins += f'\t\t{table.name}\n'
                 TableSchemaService().register_table(table)
         super().update(**plugin_modules)
+        Logger().info(_registered_plugins)
 
 
 @Singleton
@@ -103,9 +127,9 @@ class DataHandlerService:
                     assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
                     self._db.execute(sql.create_table_sql(table.name, table.fields, table.foreign_keys))
                 except AssertionError as e:
-                    logger.warn(f"{e}")
+                    Logger().warn(f"{e}")
                 except Exception as e:
-                    logger.error(f"Cannot create table '{name}' -> Error: {e}")
+                    Logger().error(f"Cannot create table '{name}' -> Error: {e}")
                     raise
         self._event = event
 
@@ -120,9 +144,9 @@ class DataHandlerService:
             th = self._threads.pop(0)
             try:
                 th.join(timeout)
-                logger.debug(f"Thread '{th.name}' gracefully stopped")
+                Logger().debug(f"Thread '{th.name}' gracefully stopped")
             except Exception as e:
-                logger.error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
+                Logger().error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
 
     def execute(self, sql_text, *rows):
         return self._db.execute(sql_text, *rows)
@@ -162,8 +186,11 @@ class DataHandlerService:
 
 
 __all__ = [
+    'TimeReferencedTable',
     'DataHandlerService',
     'TableSchemaService',
     'PlugInService',
     'DB_DATETIME_FORMAT'
 ]
+
+
