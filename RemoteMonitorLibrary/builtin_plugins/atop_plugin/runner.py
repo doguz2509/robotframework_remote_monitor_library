@@ -1,6 +1,7 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
+from enum import Enum
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary
@@ -123,12 +124,35 @@ class aTopParser(plugins.Parser):
         return False
 
 
+class DateFormat(Enum):
+    ubuntu = '%H:%M'
+    centos = '%Y%m%d%H%M'
+
+
 class aTop(plugins.PlugInAPI):
     def __init__(self, parameters, data_handler, **user_options):
         plugins.PlugInAPI.__init__(self, parameters, data_handler, **user_options)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
+        self._os_name = None
+
+    @property
+    def os_name(self):
+        return self._os_name
+
+    @staticmethod
+    def _get_os_name(ssh_client: SSHLibrary):
+        out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID='|awk -F'=' '{print$2}'",
+                                                  return_rc=True, return_stderr=True)
+        assert rc == 0, "Cannot occur OS name"
+        out = out.replace(r'"', '')
+        return out
+
+    def __enter__(self):
+        _ssh = super().__enter__()
+        self._os_name = self.os_name or self._get_os_name(_ssh)
+        return _ssh
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
@@ -142,7 +166,7 @@ class aTop(plugins.PlugInAPI):
 
     @property
     def setup(self):
-        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),\
+        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True), \
                plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
                                          sudo_password=True), \
                plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}'), \
@@ -157,7 +181,7 @@ class aTop(plugins.PlugInAPI):
     @property
     def periodic_commands(self):
         return plugins.SSHLibraryCommand(
-            SSHLibrary.execute_command, f"atop -r {self.folder}/{self.file} -b `date +%Y%m%d%H%M`",
+            SSHLibrary.execute_command, f"atop -r {self.folder}/{self.file} -b `date +{DateFormat[self.os_name].value}`",
             sudo=True, sudo_password=True, return_rc=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
                               data_handler=self._data_handler, counter=self.iteration_counter,
