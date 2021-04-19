@@ -7,7 +7,6 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
-import RemoteMonitorLibrary.runner.ssh_runner
 from RemoteMonitorLibrary.api import plugins, model, tools
 from RemoteMonitorLibrary.utils import Size, get_error_info
 
@@ -103,10 +102,10 @@ class aTopParser(plugins.Parser):
         table_template = self.table.template
         try:
             stdout = output.get('stdout')
+            stderr = output.get('stderr')
             rc = output.get('rc')
-            assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}"
+            assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}\n{stderr}"
             for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
-                #  - MLP-INT-ManualVM-centos82-BuildMachine   2021/04/10  14:47:00   ----------------     1s elapsed
                 lines = atop_portion.splitlines()
                 f_line = lines.pop(0)
                 ts = '_'.join(re.split(r'\s+', f_line)[2:4])
@@ -147,6 +146,7 @@ class aTop(plugins.PlugInAPI):
                                                   return_rc=True, return_stderr=True)
         assert rc == 0, "Cannot occur OS name"
         out = out.replace(r'"', '')
+        tools.Logger().debug(f"OS resolved: {out}")
         return out
 
     def __enter__(self):
@@ -166,23 +166,26 @@ class aTop(plugins.PlugInAPI):
 
     @property
     def setup(self):
-        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True), \
+        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=self.sudo_expected,
+                                         sudo_password=self.sudo_password_expected), \
                plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
                                          sudo_password=True), \
-               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}'), \
+               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}', sudo=self.sudo_expected,
+                                         sudo_password=self.sudo_password_expected), \
                plugins.SSHLibraryCommand(SSHLibrary.start_command,
                                          "{nohup} atop -w {folder}/{file} {interval} &".format(
                                              nohup='' if self.persistent else 'nohup',
                                              folder=self.folder,
                                              file=self.file,
                                              interval=int(self.interval)),
-                                         sudo=True, sudo_password=True)
+                                         sudo=self.sudo_expected,
+                                         sudo_password=self.sudo_password_expected)
 
     @property
     def periodic_commands(self):
         return plugins.SSHLibraryCommand(
             SSHLibrary.execute_command, f"atop -r {self.folder}/{self.file} -b `date +{DateFormat[self.os_name].value}`",
-            sudo=True, sudo_password=True, return_rc=True,
+            sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
             parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
                               data_handler=self._data_handler, counter=self.iteration_counter,
                               interval=self.parameters.interval)),
