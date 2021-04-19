@@ -41,9 +41,12 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         {}
         
         {} 
+        
+        {}
         """.format(ConnectionKeywords.__doc__,
                    BIKeywords.__doc__,
                    builtin_plugins.atop_plugin.__doc__,
+                   builtin_plugins.ssh_library_plugin.__doc__,
                    builtin_plugins.time_plugin.__doc__)
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)

@@ -1,5 +1,5 @@
 
-from .runner import SSHLibraryPlugIn
+from .runner import SSHLibrary
 
 
 __doc__ = """== SSHLibrary plugin ===
@@ -19,5 +19,5 @@ Allow running repeatable ssh remote command within connection monitor
 
 __all__ = [
     '__doc__',
-    'SSHLibraryPlugIn'
+    'SSHLibrary'
 ]

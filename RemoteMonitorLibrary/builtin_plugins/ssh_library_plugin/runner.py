@@ -43,7 +43,7 @@ class SSHLibraryCommandWithVerification(plugins.SSHLibraryCommand):
         plugins.SSHLibraryCommand.__init__(self, method, command, **user_options)
 
 
-class SSHLibraryPlugIn(plugins.PlugInAPI):
+class SSHLibrary(plugins.PlugInAPI):
     def __init__(self, parameters, data_handler, **user_options):
         plugins.PlugInAPI.__init__(self, parameters=parameters, data_handler=data_handler)
         self._method = user_options.pop('method', None)
