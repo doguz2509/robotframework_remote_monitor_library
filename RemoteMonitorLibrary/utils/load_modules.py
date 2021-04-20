@@ -65,19 +65,22 @@ def load_modules(*modules, **options):
     return result_modules
 
 
-def print_plugins_table(plugins):
+def print_plugins_table(plugins, show_tables=True, show_charts=True, title='Loaded Plugins/Tables/Charts'):
     _str = ''
+    _title_line = "+--- {title:59s} ---+".format(title=title)
     _delimiter = "+------------------+---------------------------+--------------------+"
-    _template1 = "| {col1:16s} | {col2:25s} | {col3:18s} |"
-
+    _template = "| {col1:16s} | {col2:25s} | {col3:18s} |"
+    _str += f"{_title_line}\n"
     for name, plugin in plugins.items():
-        _str += f"{_delimiter}\n"
-        _str += _template1.format(col1=name, col2=' ', col3='PlugIn') + '\n'
-        _str += '\n'.join([_template1.format(col1=' ', col2=t.name, col3='Table') + '\n'
-                           for t in plugin.affiliated_tables()])
-        for c in plugin.affiliated_charts():
-            _str += _template1.format(col1=' ', col2=c.title, col3='Chart') + '\n'
-            for s in c.sections:
-                _str += _template1.format(col1=' ', col2='  ' + s.replace(c.title, ''), col3='Section') + '\n'
-    _str += _delimiter
-    logger.info(f"{_str}", also_console=True)
+        _str += _template.format(col1=name, col2=' ', col3='PlugIn') + '\n'
+        if show_tables:
+            _str += '\n'.join([_template.format(col1=' ', col2=t.name, col3='Table') + '\n'
+                               for t in plugin.affiliated_tables()])
+        if show_charts:
+            for c in plugin.affiliated_charts():
+                _str += _template.format(col1=' ', col2=c.title, col3='Chart') + '\n'
+                for s in c.sections:
+                    _str += _template.format(col1=' ', col2='  ' + s.replace(c.title, ''), col3='Section') + '\n'
+        _str += _delimiter + '\n'
+
+    logger.info(f"{_str.strip()}", also_console=True)
