@@ -1,10 +1,12 @@
 import os
-from inspect import isclass, ismodule, signature
+from inspect import isclass, ismodule
 from os.path import join as path_join
 from typing import Mapping, Any
 
 from robot.api import logger
 from robot.utils import Importer
+
+from RemoteMonitorLibrary.version import VERSION
 
 
 def get_class_from_module(module, filter_by_class=None, deep=1) -> Mapping[str, Any]:
@@ -65,9 +67,10 @@ def load_modules(*modules, **options):
     return result_modules
 
 
-def print_plugins_table(plugins, show_tables=True, show_charts=True, title='Loaded Plugins/Tables/Charts'):
+def print_plugins_table(plugins, show_tables=True, show_charts=True, title='Plugins/Tables/Charts'):
     _str = ''
-    _title_line = "+--- {title:59s} ---+".format(title=title)
+
+    _title_line = "+--- {title:59s} ---+".format(title=f"RemoteMonitorLibrary ({title}) Version: {VERSION}")
     _delimiter = "+------------------+---------------------------+--------------------+"
     _template = "| {col1:16s} | {col2:25s} | {col3:18s} |"
     _str += f"{_title_line}\n"
