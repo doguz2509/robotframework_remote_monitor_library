@@ -134,6 +134,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._thread.join(timeout)
 
     @property
+    def is_alive(self):
+        return self._thread.is_alive()
+
+    @property
     def type(self):
         return f"{self.__class__.__name__}"
 
