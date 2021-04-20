@@ -183,7 +183,7 @@ class ConnectionKeywords(TraceListener):
         self._modules.close_all()
 
     @keyword("Start monitor plugin")
-    def start_monitor_plugin(self, plugin_name, alias=None, **options):
+    def start_monitor_plugin(self, plugin_name, alias=None, *args, **options):
         """
         Start plugin by its name on host queried by options keys
 
@@ -199,7 +199,7 @@ class ConnectionKeywords(TraceListener):
             monitor: HostModule = self._modules.get_connection(alias)
             assert plugin_name in db.PlugInService().keys(), \
                 f"PlugIn '{plugin_name}' not registered"
-            monitor.plugin_start(plugin_name, **options)
+            monitor.plugin_start(plugin_name, *args, **options)
             logger.info(f"PlugIn '{plugin_name}' started on {monitor.alias}",
                         also_console=True)
         except Exception as e:

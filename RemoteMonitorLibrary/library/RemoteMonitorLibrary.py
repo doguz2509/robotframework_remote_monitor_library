@@ -25,7 +25,9 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         self.__doc__ = """
         
         Remote Monitor CPU (wirth aTop), & Process (with Time) or any other data on linux hosts with custom plugins
+        
         Allow periodical execution of commands set on one or more linux hosts with collecting data within SQL db following with some BI activity
+        
         For current phase only data presentation in charts available.
         
         == Keywords & Usage ==
@@ -46,7 +48,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         """.format(ConnectionKeywords.__doc__,
                    BIKeywords.__doc__,
                    builtin_plugins.atop_plugin.__doc__,
-                   builtin_plugins.ssh_library_plugin.__doc__,
+                   builtin_plugins.sshlibrary_plugin.__doc__,
                    builtin_plugins.time_plugin.__doc__)
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)

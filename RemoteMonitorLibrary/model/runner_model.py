@@ -84,13 +84,14 @@ class Parser:
 
 
 class plugin_runner_abstract:
-    def __init__(self, data_handler: Callable, **kwargs):
+    def __init__(self, data_handler: Callable, *args, **kwargs):
         self._stored_shell = {}
         self.variables = {}
         self._data_handler = data_handler
         self._name = kwargs.pop('name', self.__class__.__name__)
         self._iteration_counter = 0
         self._host_id = kwargs.pop('host_id', None)
+        self._user_args = args
         self._user_options = kwargs
 
     def store_variable(self, variable_name):
@@ -102,6 +103,10 @@ class plugin_runner_abstract:
     @property
     def name(self):
         return self._name
+
+    @property
+    def args(self):
+        return self._user_args
 
     @property
     def options(self):
@@ -170,7 +175,7 @@ class plugin_integration_abstract(object):
         }
 
     def __hash__(self):
-        return f"{self.__class__.__name__}_{id(self)}"
+        return hash(f"{self.__class__.__name__}_{id(self)}")
 
     def __str__(self):
         _str = f"+----------------+----------------------+---------+\n"

@@ -12,7 +12,6 @@ from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
 from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
 
-
 SSHLibraryArgsMapping = {
     SSHLibrary.execute_command.__name__: {'return_stdout': (is_truthy, True),
                                           'return_stderr': (is_truthy, False),
@@ -25,17 +24,29 @@ SSHLibraryArgsMapping = {
     SSHLibrary.start_command.__name__: {'sudo': (is_truthy, False),
                                         'sudo_password': (str, None),
                                         'invoke_subsystem': (is_truthy, False),
-                                        'forward_agent': (is_truthy, False)}
+                                        'forward_agent': (is_truthy, False)},
+    SSHLibrary.write.__name__: {'text': (str, None),
+                                'loglevel': (str, 'INFO')},
+    SSHLibrary.read_command_output.__name__: {'return_stdout': (is_truthy, True),
+                                              'return_stderr': (is_truthy, False),
+                                              'return_rc': (is_truthy, False), 'sudo': (is_truthy, False),
+                                              'timeout': (timestr_to_secs, None)}
 }
 
 
-def _normalize_arguments(ssh_library_method_name, **kwargs):
-    assert ssh_library_method_name in SSHLibraryArgsMapping.keys(), f"Method {ssh_library_method_name} not supported"
+def _normalize_method_arguments(method_name, **kwargs):
+    assert method_name in SSHLibraryArgsMapping.keys(), f"Method {method_name} not supported"
     for name, value in kwargs.items():
-        assert name in SSHLibraryArgsMapping.get(ssh_library_method_name, []).keys(), \
-            f"Argument '{name}' not supported for '{ssh_library_method_name}'"
-        arg_type, arg_default = SSHLibraryArgsMapping.get(ssh_library_method_name).get(name)
-        yield name, arg_type(value)
+        assert name in SSHLibraryArgsMapping.get(method_name, []).keys(), \
+            f"Argument '{name}' not supported for '{method_name}'"
+        arg_type, arg_default = SSHLibraryArgsMapping.get(method_name).get(name)
+        new_value = arg_type(value) if value else arg_default
+        yield name, new_value
+
+
+def extract_method_arguments(method_name, **kwargs):
+    assert method_name in SSHLibraryArgsMapping.keys(), f"Method {method_name} not supported"
+    return {name: value for name, value in kwargs.items() if name in SSHLibraryArgsMapping.get(method_name, []).keys()}
 
 
 class SSHLibraryCommand:
@@ -45,7 +56,7 @@ class SSHLibraryCommand:
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         self._start_in_folder = user_options.pop('start_in_folder', None)
-        self._ssh_options = dict(_normalize_arguments(method.__name__, **user_options))
+        self._ssh_options = dict(_normalize_method_arguments(method.__name__, **user_options))
         self._result_template = _ExecutionResult(**self._ssh_options)
         if self.parser:
             assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
@@ -70,10 +81,12 @@ class SSHLibraryCommand:
                f"{'; Parser: '.format(self.parser) if self.parser else ''}"
 
     def __call__(self, ssh_client: SSHLibrary, **runtime_options) -> Any:
-        command = self.command_template.format(**runtime_options)
-
         try:
-            output = self._method(ssh_client, command, **self._ssh_options)
+            if self._command is not None:
+                command = self.command_template.format(**runtime_options)
+                output = self._method(ssh_client, command, **self._ssh_options)
+            else:
+                output = self._method(ssh_client, **self._ssh_options)
             if self.parser:
                 return self.parser(dict(self._result_template(output)))
             return output
@@ -84,10 +97,10 @@ class SSHLibraryCommand:
 
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
-    def __init__(self, parameters: DotDict, data_handler, **kwargs):
-        self._sudo_expected = is_truthy(kwargs.pop('sudo', False))
-        self._sudo_password_expected = is_truthy(kwargs.pop('sudo_password', False))
-        super().__init__(data_handler, **kwargs)
+    def __init__(self, parameters: DotDict, data_handler, *user_args, **user_options):
+        self._sudo_expected = is_truthy(user_options.pop('sudo', False))
+        self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
+        super().__init__(data_handler, *user_args, **user_options)
 
         self._execution_counter = 0
         self._ssh = SSHLibrary()
@@ -99,7 +112,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._session_errors = []
 
         assert self._host_id, "Host ID cannot be empty"
-        self._persistent = is_truthy(kwargs.get('persistent', 'false'))
+        self._persistent = is_truthy(user_options.get('persistent', 'false'))
         self._set_worker()
 
     def _set_worker(self):

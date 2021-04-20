@@ -64,12 +64,12 @@ class HostModule:
         except AssertionError:
             logger.warn(f"Session '{self.alias}' not started yet")
 
-    def plugin_start(self, plugin_name, **options):
+    def plugin_start(self, plugin_name, *args, **options):
         plugin_conf = self.config.clone()
         tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, **tail)
+        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         plugin.start()
         logger.info(f"PlugIn '{plugin}' started")
         self._active_plugins[hash(plugin)] = plugin
