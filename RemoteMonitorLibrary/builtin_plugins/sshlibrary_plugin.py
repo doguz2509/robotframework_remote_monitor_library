@@ -99,6 +99,6 @@ class SSHLibrary(PlugInAPI):
     def periodic_commands(self):
         return SSHLibraryCommand(RSSHLibrary.execute_command, self._command,
                                  parser=UserCommandParser(host_id=self.host_id, data_handler=self.data_handler,
-                                                          **self.options),
+                                                          name=self.name, **self.options),
                                  **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
                                                                  **self.options))),
