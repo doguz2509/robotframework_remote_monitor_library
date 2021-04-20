@@ -107,7 +107,7 @@ class ConnectionKeywords(TraceListener):
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
-        if custom_kw is True:
+        if is_truthy(custom_kw) is True:
             return default_kw
         elif custom_kw is not None:
             return custom_kw
@@ -180,10 +180,12 @@ class ConnectionKeywords(TraceListener):
         """
         Stop all active hosts plugins
         """
+        for module in self._modules:
+            self._stop_period(module.alias)
         self._modules.close_all()
 
     @keyword("Start monitor plugin")
-    def start_monitor_plugin(self, plugin_name, alias=None, *args, **options):
+    def start_monitor_plugin(self, plugin_name, *args, alias=None, **options):
         """
         Start plugin by its name on host queried by options keys
 
