@@ -4,7 +4,7 @@ from RemoteMonitorLibrary.utils.bg_logger import Logger
 from RemoteMonitorLibrary.utils.size import Size
 from .time_utils import evaluate_duration
 from RemoteMonitorLibrary.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, \
-    load_modules, plugins_table
+    load_modules, print_plugins_table
 from RemoteMonitorLibrary.utils import sql_engine as sql
 
 
@@ -55,7 +55,7 @@ __all__ = [
     'get_class_from_module',
     'load_classes_from_module_by_name',
     'load_modules',
-    'plugins_table',
+    'print_plugins_table',
     'Counter',
     'evaluate_duration'
 ]

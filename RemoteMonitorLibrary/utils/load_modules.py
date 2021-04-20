@@ -65,59 +65,19 @@ def load_modules(*modules, **options):
     return result_modules
 
 
-def _plugin_walk(plugins, callback):
-    for k, v in plugins.items():
-        callback(name=v.__name__)
-        for t in v.affiliated_tables():
-            callback(addon=f"{t.name:42s} [Table]")
-        for t in v.affiliated_charts():
-            callback(addon=f"{t.title:15s}")
-            callback(name="\t\t\t: {:20s} [Chart]".format('\n'.join([s.replace(t.title, '') for s in t.sections])))
+def print_plugins_table(plugins):
+    _str = ''
+    _delimiter = "+------------------+---------------------------+--------------------+"
+    _template1 = "| {col1:16s} | {col2:25s} | {col3:18s} |"
 
-
-class max_lookup:
-    def __init__(self):
-        self._plugin_max = 0
-        self._addon_max = 0
-
-    def __call__(self, **words):
-        for n, v in words.items():
-            if n == 'name':
-                if len(v) > self._plugin_max:
-                    self._plugin_max = len(v)
-            elif n == 'addon':
-                if len(v) > self._addon_max:
-                    self._addon_max = len(v)
-
-    @property
-    def max(self):
-        return dict(name=self._plugin_max, addon=self._addon_max)
-
-
-class msg_append:
-    def __init__(self, *column_names, **width):
-        self._line_template = f"|{{name:{width.get('name')}s}}|{{addon:{width.get('addon')}s}}|\n"
-        self._table_line = '+{name_width}+{addon_width}+\n'.format(
-            name_width='-'.join(['' for _ in range(0, width.get('name') + 1)]),
-            addon_width='-'.join(['' for _ in range(0, width.get('addon') + 1)]))
-        self._msg = self._table_line + self._line_template.format(name=column_names[0], addon=column_names[1])
-
-    def __call__(self, **words):
-        if 'name' in words.keys():
-            words.update({'addon': ''})
-        elif 'addon' in words.keys():
-            words.update({'name': ''})
-        self._msg += self._line_template.format(**words)
-
-    def __str__(self):
-        return self._msg + self._table_line
-
-
-def plugins_table(plugins):
-    m_lookup = max_lookup()
-    _plugin_walk(plugins, m_lookup)
-    m_lookup(name='PlugIn Name', addon='Tables / Charts')
-    columns_width = m_lookup.max
-    msg = msg_append('PlugIn Name', 'Tables / Charts', **columns_width)
-    _plugin_walk(plugins, msg)
-    logger.info(f"{msg}", also_console=True)
+    for name, plugin in plugins.items():
+        _str += f"{_delimiter}\n"
+        _str += _template1.format(col1=name, col2=' ', col3='PlugIn') + '\n'
+        _str += '\n'.join([_template1.format(col1=' ', col2=t.name, col3='Table') + '\n'
+                           for t in plugin.affiliated_tables()])
+        for c in plugin.affiliated_charts():
+            _str += _template1.format(col1=' ', col2=c.title, col3='Chart') + '\n'
+            for s in c.sections:
+                _str += _template1.format(col1=' ', col2='  ' + s.replace(c.title, ''), col3='Section') + '\n'
+    _str += _delimiter
+    logger.info(f"{_str}", also_console=True)
