@@ -2,7 +2,7 @@
 Documentation    Suite description
 
 #Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
-Library  RemoteMonitorLibrary.RemoteMonitorLibrary
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes
 Library  SSHLibrary
 Library  BuiltIn
 
@@ -10,7 +10,7 @@ Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-#Suite Teardown  run keywords  Close host monitor
+Suite Teardown   close_all_host_monitors
 #...             AND  generate module statistics  plugin=aTop
 
 *** Variables ***
@@ -22,15 +22,16 @@ ${PERSISTENT}  yes
 
 Test demo attack
     [Tags]  demo
-    [Setup]  run keywords  open connection  ${HOST}
-    ...         AND  login  ${USER}  ${PASSWORD}
+#    [Setup]  run keywords  open connection  ${HOST}
+#    ...         AND  login  ${USER}  ${PASSWORD}
 
 #    start command  echo ""|/opt/morphisec/demo/mlp_attack_demo 2>&1
 #    ${out}  ${rc}=  read command output  return_rc=yes
 #    log  \nRC: ${rc}\nOutput:\n${out}  console=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=0
-
-    [Teardown]  close all connections
+    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=0  return_rc=yes
+    ...     interval=${INTERVAL}  persistent=${PERSISTENT}
+    sleep  ${DURATION}  make something here
+#    [Teardown]  close all connections
 
 Test Host monitor
     [Tags]  monitor

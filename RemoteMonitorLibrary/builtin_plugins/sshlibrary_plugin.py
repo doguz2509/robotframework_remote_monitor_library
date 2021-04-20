@@ -36,47 +36,60 @@ __doc__ = """
 
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
-        self.output_options = {
-            'return_rc': kwargs.pop('return_rc', False),
-            'return_stderr': kwargs.pop('return_stderr', False),
-            'return_stdout': kwargs.pop('return_stdout', True),
-        }
         super().__init__(table=db.TableSchemaService().tables.Marks, **kwargs)
 
     def __call__(self, output: dict) -> bool:
-        out = output.get('stdout')
-        err = output.get('stderr')
-        rc = output.get('rc')
-        exp_rc = self.options.get('rc', None)
+        out = output.get('stdout', None)
+        err = output.get('stderr', None)
+        rc = output.get('rc', None)
+
+        exp_rc = int(self.options.get('rc', None))
         expected = self.options.get('expected', None)
         prohibited = self.options.get('prohibited', None)
+
         name = self.options.get('name', self.__class__.__name__)
         errors = []
         if exp_rc:
+            assert rc is not None, \
+                "Expected args not match vs. Verify arguments ('rc' should accomplish with 'return_rc')"
             if rc != exp_rc:
-                errors.append(AssertionError(f"Rc [{rc}] not mutch expected - {exp_rc}"))
+                errors.append(AssertionError(f"Rc [{rc}] not match expected - {exp_rc}"))
         if expected:
-            if expected not in err + out:
+            assert any([i is not None for i in (err, out)]), \
+                "Expected args not match vs. Verify arguments ('return_stdout' & 'return_stderr' " \
+                "- at least one should be true)"
+            if expected not in out:
                 errors.append(
-                    AssertionError("Output not contain expected pattern [{}]\n{}".format(expected, err + out)))
+                    AssertionError("Output not contain expected pattern [{}]\n{}".format(expected, out)))
         if prohibited:
-            if prohibited in err + out:
-                errors.append(AssertionError("Output contain prohibited pattern [{}]\n{}".format(expected, err + out)))
+            assert any([i is not None for i in (err, out)]), \
+                "Expected args not match vs. Verify arguments ('return_stdout' & 'return_stderr' " \
+                "- at least one should be true)"
+            if prohibited in out:
+                errors.append(AssertionError("Output contain prohibited pattern [{}]\n{}".format(expected, out)))
 
         if len(errors) > 0:
             msg = "Command '{}' execution not match expected criteria [{}]\nRC: {}\nOutput:\n{}".format(
                 name,
                 (f'RC: {rc}; ' if exp_rc else '') + (f"Expected: {expected}; " if expected else '') +
                 (f"Prohibited: {prohibited}" if prohibited else ''),
-                rc, err + out)
-            self.data_handler(db.DataUnit(self.table, *(self.host_id, 'Error', msg)))
+                rc, out)
+            du = db.DataUnit(self.table, self.table.template(self.host_id, None, 'Error', msg))
             Logger().error(msg)
-            return False
-        return True
+            st = False
+        else:
+            msg = "Command '{}' execution match expected criteria [{}]\nRC: {}\nOutput:\n{}".format(
+                name,
+                (f'RC: {rc}; ' if exp_rc else '') + (f"Expected: {expected}; " if expected else '') +
+                (f"Prohibited: {prohibited}" if prohibited else ''),
+                rc, out)
+            du = db.DataUnit(self.table, self.table.template(self.host_id, None, 'Pass', msg))
+            st = True
+        self.data_handler(du)
+        return st
 
 
 class SSHLibrary(PlugInAPI):
-
     def __init__(self, parameters, data_handler, command, **user_options):
         PlugInAPI.__init__(self, parameters, data_handler, command, **user_options)
         self._command = ' '.join(self.args)
@@ -85,7 +98,7 @@ class SSHLibrary(PlugInAPI):
     @property
     def periodic_commands(self):
         return SSHLibraryCommand(RSSHLibrary.execute_command, self._command,
-                                 parser=UserCommandParser(host_id=self.host_id, datahandler=self.data_handler,
+                                 parser=UserCommandParser(host_id=self.host_id, data_handler=self.data_handler,
                                                           **self.options),
                                  **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
                                                                  **self.options))),
