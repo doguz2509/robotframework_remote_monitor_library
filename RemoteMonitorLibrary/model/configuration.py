@@ -30,13 +30,13 @@ class Configuration:
             try:
                 mandatory, _, _, _ = self.mandatory_fields.get(attr, (False, None, None, None))
                 if mandatory:
-                    assert attr in kwargs.keys()
+                    assert attr in kwargs.keys(), f"Mandatory parameter '{attr}' missing"
                 self._set_parameter(attr, kwargs.get(attr, None))
             except AssertionError as e:
                 err.append(f"{e}")
             except Exception as e:
                 f, l = get_error_info()
-                err.append(f"Field '{attr}' missing; File: {f}:{l} - Error: {e}")
+                err.append(f"Unexpected error occurred during handle parameter '{attr}'; File: {f}:{l} - Error: {e}")
 
         assert len(err) == 0, "Following fields errors occurred:\n\t{}".format('\n\t'.join(err))
 
