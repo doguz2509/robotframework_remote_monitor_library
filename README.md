@@ -1,13 +1,13 @@
-# Remote Monitor Library (Version 1.4.1)
+# Remote Monitor Library (Version 1.4.2)
 
 ## Overview
 RemoteMonitorLibrary allow collect system data of target linux host during any Robotframework 
 testing process being running
 
 ### Architecture
-Main keyword library executing background python threads for SqlLite db node, separate theads for system trace collecting 
+Main keyword library executing background python threads for SqlLite db node, separate threads for system trace collecting 
 plugins
-By default library contain 'aTopPlugIn'. 'atop' command being executing with predefined interval & its out put parsed as following:
+By default library contain 'aTop'. 'atop' command being executing with predefined interval & its out put parsed as following:
 #### aTop System Level
 System level portion of 'atop' being storing in database, and later can be shown as chart in special html page
 Link to it logged to robotframework regular log
@@ -23,7 +23,7 @@ Library provide special API for create custom plugins (SystemTraceLibrary.api.[p
 
 ## Usage
 
-LibDoc: [Library documentation](docs/RemoteMonitorLibrary.html)
+LibDoc: [Library documentation](RemoteMonitorLibrary.html)
 
 ### Test/Keywords within *.robot file
 
@@ -36,7 +36,7 @@ LibDoc: [Library documentation](docs/RemoteMonitorLibrary.html)
     
     Suite Setup  run keywords  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  [${PORT} (Default: 22)] 
     ...                 [alias=${SUITE_NAME} (Default: user@host)]
-    ...          AND  Start monitor plugin  aTopPlugIn  interval=1s
+    ...          AND  Start monitor plugin  aTop  interval=1s
     Test Setup   Start period  ${TEST_NAME}
     Test Teardown  run keywords  Stop period   ${TEST_NAME}
     ...             AND  generate module statistics  ${TEST_NAME}
@@ -61,74 +61,72 @@ SystemTraceLibrary allow creating extended plugins for trace customer purposes
 Main init project file for expose Plugin class
 
     __init__.py
-        from .runner import MyPlugInName
+        from .pluin_file import MyPlugInName
         
         __all__ = [MyPlugInName.__name__]
 
 ##### Runner definition
 
-    runner.py
-        from RemoteMonitorLibrary.api import plugins
-        from .tables import plugin_table
-        from .charts import plugin_chart
-        
-        class MyPlugInName(plugins.PlugInAPI):
-            # If constractor override required, keep following signature 
-            def __init__(self, parameters, data_handler, host_id, **kwargs):
-                plugins.PlugInAPI.__init__(self, parameters, data_handler, host_id=host_id, **kwargs)
-                self._my_own_var = ...
+     from RemoteMonitorLibrary.api import plugins
+     
+     class MyPlugInName(plugins.PlugInAPI):
+         # If constractor override required, keep following signature 
+         def __init__(self, parameters, data_handler, host_id, **kwargs):
+             plugins.PlugInAPI.__init__(self, parameters, data_handler, host_id=host_id, **kwargs)
+             self._my_own_var = ...
 
-            @staticmethod
-            def affiliated_tables() -> Iterable[model.Table]:
-                return my_plugin_table(),
-            
-            @staticmethod
-            def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
-                return MyPlugInChart(),
+         @staticmethod
+         def affiliated_tables() -> Iterable[model.Table]:
+             return my_plugin_table(),
+         
+         @staticmethod
+         def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
+             return MyPlugInChart(),
 
 
 ##### Tables definition
 
-    tables.py
-        from RemoteMonitorLibrary.api import model
+     from RemoteMonitorLibrary.api import model
 
-        class my_plugin_table(model.TimeReferencedTable / model.Table):
-            def __init__(self):
-                model.TimeReferencedTable.__init__(self, name='plugin_table',
-                                                   fields=[model.Field('field01'),
-                                                           model.Field('field02'),
-                                                           ...],
-                                                   queries=[model.Query('name', 'select * from table_name where field01 = {}')]
-                                                   )
-        
-        !!! PAY ATTENTION - TimeReferencedTable automatically add fields for reference table entries to time line 
-        mechanism 
-        In case it not requires, use model.Table base class
+     class my_plugin_table(model.TimeReferencedTable / model.Table):
+         def __init__(self):
+             model.TimeReferencedTable.__init__(self, name='plugin_table',
+                                                fields=[model.Field('field01'),
+                                                        model.Field('field02'),
+                                                        ...],
+                                                queries=[model.Query('name', 'select * from table_name where field01 = {}')]
+                                                )
+     
+     !!! PAY ATTENTION - TimeReferencedTable automatically add fields for reference table entries to time line 
+     mechanism 
+     In case it not requires, use model.Table base class
+
 ##### Parser definition
-   
-    parser.py
-         from RemoteMonitorLibrary.api import plugins, model
-         
-         class my_parser(plugins.Parser):
-            def __call__(*output) -> bool:
-                table_template = self.table.template
-                
-                Data treatment                
 
-                self.datahandler(model.DataUnit(self.table, your_data: [Iterable[Iterable]]
+    from RemoteMonitorLibrary.api import plugins, model
+   
+    class my_parser(plugins.Parser):
+         def __call__(*output) -> bool:
+            table_template = self.table.template
+          
+            your_data = []
+            for item in <data samples>:
+               yuor_data.append(table_template(*item))
+            
+            data_unit = model.DataUnit(self.table, *your_data)
+            self.datahandler(data_unit)
 
 ##### Chart definition
 
-    charts.py
-        from RemoteMonitorLibrary.api.plugins import ChartAbstract
-        
-        class MyPlugInChart(ChartAbstract):
-            pass
-        
-        Creating charts require familirisation with pandas & matplotlib
+     from RemoteMonitorLibrary.api.plugins import ChartAbstract
+     
+     class MyPlugInChart(ChartAbstract):
+         pass
+     
+     Creating charts require familirisation with pandas & matplotlib
 
 ## Prerequisites
-    Preinstalled: atop, time
+    Preinstalled: atop, time installed on remote host, ssh enabled
 
 ## Supported OS
     All linux based system where atop supported
