@@ -7,3 +7,7 @@ class RunnerError(RobotError):
 
 class PlugInError(RobotError):
     pass
+
+
+class EmptyCommandSet(Exception):
+    pass

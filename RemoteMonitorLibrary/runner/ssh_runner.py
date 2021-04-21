@@ -8,7 +8,7 @@ from typing import Callable, Any
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
-from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError
+from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError, EmptyCommandSet
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
 from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
 
@@ -120,7 +120,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
-        self._thread = Thread(name=self.thread_name, target=target, daemon=True)
+        self._thread = Thread(name=self.type, target=target, daemon=True)
 
     @property
     def thread_name(self):
@@ -184,7 +184,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             raise RunnerError(f"{err}; File: {f}:{li}")
         else:
             self._is_logged_in = True
-        Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.parameters.alias}' iteration started")
+        Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.type}' iteration started")
         return self._ssh
 
     def _close_ssh_library_connection_from_thread(self):
@@ -199,12 +199,12 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __exit__(self, type_, value, tb):
         if value:
             self._session_errors.append(value)
-            Logger().error("{name} {alias}; Error raised: {error} [{real} from {allowed}]\nTraceback: {tb}".format(
+            Logger().error("{name} {alias}; Error raised: {error} ({real} from {allowed})".format(
                 name=self.thread_name,
                 alias=self.parameters.alias,
                 real=len(self._session_errors),
                 allowed=self._fault_tolerance,
-                error=value, tb=tb
+                error=value
             ))
         else:
             self._session_errors.clear()
@@ -237,13 +237,14 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         try:
             ssh_client.switch_connection(self.thread_name)
             flow_values = getattr(self, flow.value)
-            assert len(flow_values) > 0
-            for cmd in flow_values:
+            if len(flow_values) == 0:
+                raise EmptyCommandSet()
+            for i, cmd in enumerate(flow_values):
                 run_status = cmd(ssh_client, **self.parameters)
-                total_output += "SSHLibraryCommand {} [Result: {}]\n".format(cmd, run_status)
+                total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
                 sleep(0.05)
-        except AssertionError:
-            Logger().warning(f"{flow.name} ignored")
+        except EmptyCommandSet:
+            Logger().warning(f"Command set '{flow.name}' ignored")
         except Exception as e:
             f, li = get_error_info()
             err = type(e)(f"{e}; File: {f}:{li}")
