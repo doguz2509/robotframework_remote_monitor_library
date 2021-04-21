@@ -1,7 +1,6 @@
-from abc import ABCMeta
 from threading import Event, Thread
 from time import sleep
-from typing import List, AnyStr, Mapping, Iterable
+from typing import List, AnyStr, Mapping
 
 from robot.utils import DotDict
 
@@ -9,31 +8,17 @@ from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, 
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
+from .model import TimeReferencedTable
 from .plugins import SSHLibraryPlugInWrapper
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1
 
 
-class TimeReferencedTable(Table, metaclass=ABCMeta):
-    def __init__(self, name, fields: Iterable[Field], queries=None, foreign_keys=None):
-        fields, foreign_keys = self._add_timeline_reference(fields, foreign_keys)
-        Table.__init__(self, name, fields, queries, foreign_keys)
-
-    @staticmethod
-    def _add_timeline_reference(fields: Iterable[Field], foreign_keys=None):
-        fields = list(fields)
-        fields.insert(0, Field('HOST_REF', FieldType.Int))
-        fields.insert(1, Field('TL_REF', FieldType.Int))
-        foreign_keys = list(foreign_keys) if foreign_keys else []
-        foreign_keys.insert(0, ForeignKey('TL_REF', 'TimeLine', 'TL_ID'))
-        foreign_keys.insert(0, ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID'))
-        return fields, foreign_keys
-
-
 class TraceHost(Table):
     def __init__(self):
-        super().__init__(name='TraceHost', fields=[Field('HOST_ID', FieldType.Int, PrimaryKeys(True)), Field('HostName')])
+        super().__init__(name='TraceHost',
+                         fields=[Field('HOST_ID', FieldType.Int, PrimaryKeys(True)), Field('HostName')])
 
 
 class TimeLine(Table):
@@ -62,16 +47,25 @@ class Points(Table):
                        WHERE HOST_REF = {} AND PointName = '{}'""")])
 
 
-class Marks(TimeReferencedTable):
+class LinesCacheMap(Table):
     def __init__(self):
-        TimeReferencedTable.__init__(self, name=None, fields=(Field('Type'), Field('MarkName')))
+        super().__init__(fields=[Field('OUTPUT_REF', FieldType.Int), Field('ORDER_ID', FieldType.Int),
+                                 Field('LINE_REF', FieldType.Int)],
+                         foreign_keys=[ForeignKey('OUTPUT_REF', 'TimeMeasurement', 'OUTPUT_ID'),
+                                       ForeignKey('LINE_REF', 'LinesCache', 'LINE_ID')],
+                         queries=[Query('last_output_id', 'select max(OUTPUT_REF) from LinesCacheMap')])
+
+
+class LinesCache(Table):
+    def __init__(self):
+        Table.__init__(self, fields=[Field('LINE_ID', FieldType.Int, PrimaryKeys(True)), Field('Line')])
 
 
 @Singleton
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TraceHost(), TimeLine(), Points(), Marks()):
+        for builtin_table in (TraceHost(), TimeLine(), Points(), LinesCache(), LinesCacheMap()):
             self.register_table(builtin_table)
 
     @property
@@ -93,6 +87,10 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
                 TableSchemaService().register_table(table)
         super().update(**plugin_modules)
         Logger().info(_registered_plugins)
+
+
+class _line_not_found(AssertionError):
+    pass
 
 
 @Singleton
@@ -161,8 +159,8 @@ class DataHandlerService:
             try:
                 data_enumerator = self._queue.get()
                 for item in flat_iterator(*data_enumerator):
-                    if type(item).__name__ == collections.Empty.__name__:
-                        raise collections.Empty()
+                    if isinstance(item, collections.Empty):
+                        continue
                     if isinstance(item.table, TimeReferencedTable):
                         last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
@@ -173,8 +171,8 @@ class DataHandlerService:
                     item.result = result
                     Logger().debug("\n\t{}\n\t{}".format(insert_sql_str,
                                                          '\n\t'.join([str(r) for r in (rows if rows else result)])))
-            except collections.Empty:
-                sleep(2)
+            # except collections.Empty:
+            #     sleep(2)
             except Exception as e:
                 f, l = get_error_info()
                 Logger().error(f"Unexpected error occurred: {e}; File: {f}:{l}")
@@ -184,13 +182,64 @@ class DataHandlerService:
 
         Logger().debug(f"Background task stopped invoked")
 
+    def _cache_lines(self, output):
+        output_ref = None
+        lines_cache = []
+        for line_id, line in enumerate(output.splitlines()):
+            try:
+                if output_ref:
+                    entry = self.execute(
+                        f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
+                                   FROM LinesCacheMap 
+                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                                   WHERE LinesCache.Line = '{line}' AND OUTPUT_REF = {output_ref}""")
+                else:
+                    entry = self.execute(
+                        f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
+                                   FROM LinesCacheMap 
+                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                                   WHERE LinesCache.Line = '{line}' """)
+                if len(entry) == 0:
+                    raise _line_not_found()
+                output_ref, order_id, line_ref = entry[0]
+            except _line_not_found:
+                DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
+                line_ref = self.get_last_row_id
+
+            lines_cache.append([line_id, line_ref])
+        return output_ref, lines_cache
+
+    def _compare_lines_set(self, output_ref, output) -> bool:
+        db_entries = {k: v for k, v in self.execute(
+            f"""SELECT ORDER_ID, Line
+                FROM LinesCacheMap 
+                JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                WHERE OUTPUT_REF = {output_ref}""")}
+        current_entries = {ord_id: line for ord_id, line in enumerate(output.splitlines())}
+
+        for o, line in current_entries.items():
+            try:
+                assert line == db_entries.get(o, None)
+            except AssertionError:
+                return False
+        return True
+
+    def cache_output(self, output: str):
+        output_ref, line_ref = self._cache_lines(output)
+
+        if output_ref is None or not self._compare_lines_set(output_ref, output):
+            output_data = DataHandlerService().execute(
+                            TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
+            output_ref = output_data[0][0] + 1 if output_data != [(None,)] else 0
+            self.execute(insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
+                         [[output_ref] + lr for lr in line_ref])
+
+        return output_ref
+
 
 __all__ = [
-    'TimeReferencedTable',
     'DataHandlerService',
     'TableSchemaService',
     'PlugInService',
     'DB_DATETIME_FORMAT'
 ]
-
-
