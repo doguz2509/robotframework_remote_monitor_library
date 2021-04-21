@@ -7,7 +7,7 @@ from robot.api import logger as robot_logger
 
 from .singleton import Singleton
 
-LINE_TEMPLATE = "RemoteMonitorLibrary [Thread: {thread:15s}] -> {msg}"
+LINE_TEMPLATE = " {thread:15s} -> {msg}"
 
 
 @Singleton
@@ -15,7 +15,7 @@ class Logger:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         handler = logging.StreamHandler()
-        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-5.7s] %(message)s")
+        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] %(message)s")
         handler.setFormatter(self._formatter)
         self._logger.addHandler(logging.StreamHandler())
 
