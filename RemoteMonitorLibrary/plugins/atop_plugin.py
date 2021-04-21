@@ -1,12 +1,10 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
-from enum import Enum
 from typing import Iterable, Tuple, List, Any
 
 from SSHLibrary import SSHLibrary
 from robot.api import logger
-from robot.utils import DotDict
 from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api import plugins, model, tools
@@ -137,7 +135,8 @@ class aTopParser(plugins.Parser):
                 pattern = OrderedDict()
                 if type_ in ('PRC', 'PAG'):
                     pattern.update(
-                        **{k: aTopParser.try_time_string_to_secs(v) for k, v in [re.split(r'\s+', s.strip(), 2) for s in data_]})
+                        **{k: aTopParser.try_time_string_to_secs(v) for k, v in
+                           [re.split(r'\s+', s.strip(), 2) for s in data_]})
                 elif type_ in ['CPU', 'cpu']:
                     pattern.update(
                         **{k: v.replace('%', '') for k, v in [re.split(r'\s+', s.strip(), 1) for s in data_]})
@@ -209,7 +208,6 @@ class aTopParser(plugins.Parser):
 
 
 class aTop(plugins.PlugInAPI):
-
     OS_DATE_FORMAT = {
         'ubuntu': '%H:%M',
         'centos': '%Y%m%d%H%M'

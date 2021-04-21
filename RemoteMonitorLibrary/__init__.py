@@ -3,7 +3,7 @@ import os
 from RemoteMonitorLibrary.library import RemoteMonitorLibrary
 from RemoteMonitorLibrary import utils
 from RemoteMonitorLibrary import api
-from RemoteMonitorLibrary import builtin_plugins
+from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.version import VERSION
 
 __author__ = 'Dmitry Oguz'

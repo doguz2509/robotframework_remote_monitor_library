@@ -18,9 +18,9 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import DotDict
 
+import RemoteMonitorLibrary.api.model
 from RemoteMonitorLibrary.api import plugins, model, db
 from RemoteMonitorLibrary.api.tools import Logger
-
 
 __doc__ = """
 == Time plugin overview ==
@@ -58,7 +58,6 @@ from RemoteMonitorLibrary.utils import get_error_info
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
 
-
 CMD_TIME_FORMAT = DotDict(
     TimeReal="e",
     TimeKernel="S",
@@ -86,35 +85,17 @@ CMD_TIME_FORMAT = DotDict(
 )
 
 
-class TimeMeasurement(model.TimeReferencedTable):
+class TimeMeasurement(model.TimeReferencedTable, model.OutputCacheTable):
     def __init__(self):
         model.TimeReferencedTable.__init__(self,
                                            name='TimeMeasurement',
                                            fields=[model.Field(f, model.FieldType.Int)
-                                                   for f in CMD_TIME_FORMAT.keys()])
-        # +
-        # [model.Field('OUTPUT_ID')])
+                                                   for f in CMD_TIME_FORMAT.keys() if f != 'Command'] +
+                                                  [model.Field('Command')])
 
-
-class LinesCacheMap(model.Table):
-    def __init__(self):
-        model.Table.__init__(self, name=None,
-                             fields=[
-                                 model.Field('OUTPUT_REF', model.FieldType.Int),
-                                 model.Field('ORDER_ID', model.FieldType.Int),
-                                 model.Field('LINE_REF', model.FieldType.Int)],
-                             foreign_keys=[model.ForeignKey('OUTPUT_REF', 'TimeMeasurement', 'OUTPUT_ID'),
-                                           model.ForeignKey('LINE_REF', 'LinesCache', 'LINE_ID')],
-                             queries=[model.Query('last_output_id', 'select max(OUTPUT_REF) from LinesCacheMap')])
-
-
-class LinesCache(model.Table):
-    def __init__(self):
-        model.Table.__init__(self, name=None,
-                             fields=[model.Field('LINE_ID',
-                                                 model.FieldType.Int,
-                                                 model.PrimaryKeys(True)),
-                                     model.Field('Line')])
+        model.OutputCacheTable.__init__(self, self.name, fields=self.fields,
+                                        queries=self.queries,
+                                        foreign_keys=self.foreign_keys)
 
 
 class TimeChart(plugins.ChartAbstract):
@@ -181,6 +162,8 @@ class TimeParser(plugins.Parser):
             if self.options.get('Command', None):
                 row_dict.update({'Command': self.options.get('Command')})
 
+            row_dict.update({'OUTPUT_REF': db.DataHandlerService().cache_output(command_out)})
+
             row = self.table.template(self.host_id, None, *row_dict.values())
             du = model.DataUnit(self.table, row)
             self.data_handler(du)
@@ -194,7 +177,7 @@ class TimeSSHCommand(plugins.SSHLibraryCommand):
     def __init__(self, method, command, **user_options):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
-        super().__init__(method, command=f'{self._time_cmd} -f "{self._format}" {command} > /dev/null', **user_options)
+        super().__init__(method, command=f'{self._time_cmd} -f "{self._format}" {command}', **user_options)
 
 
 class Time(plugins.PlugInAPI):
@@ -229,45 +212,8 @@ class Time(plugins.PlugInAPI):
 
     def start(self):
         super().start()
-        logger.info(f"PlugIn {self.__class__.__name__} start command '{self._command}' as [{self.name}]",
-                    also_console=True)
-
-
-def cache_output(output: str):
-    effective_output_ref = None
-    new_reference_set_required = False
-    lines_ref = []
-    for line_id, line in enumerate(output.splitlines()):
-        try:
-            effective_output_ref, line_ref = db.DataHandlerService().execute(
-                f"""SELECT OUTPUT_REF, LINE_REF
-                    FROM LinesCacheMap 
-                    JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                    WHERE LinesCache.Line = '{line}' """)[0]
-            Logger().debug(f"Line '{line}' already exists; refer to OUTPUT_REF = {effective_output_ref}")
-        except IndexError:
-            try:
-                if not new_reference_set_required:
-                    output_ref = db.DataHandlerService().execute(
-                        db.TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
-                    effective_output_ref = output_ref[0][0] + 1 if output_ref != [(None,)] else 0
-                    Logger().debug(
-                        f"Line '{line}' is new; refer to new OUTPUT_REF = {effective_output_ref}\n\tInsert line '{line}' ")
-                db.DataHandlerService().execute(db.insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
-                line_ref = db.DataHandlerService().get_last_row_id
-                new_reference_set_required = True
-            except Exception as e:
-                f, li = get_error_info()
-                raise type(e)(f"{e}; File: {f}:{li}")
-
-        if new_reference_set_required:
-            lines_ref.append((effective_output_ref, line_id, line_ref))
-
-    if new_reference_set_required:
-        db.DataHandlerService().execute(db.insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
-                                        lines_ref)
-
-    return effective_output_ref
+        Logger().info(f"PlugIn {self.type} start command '{self._command}' as [{self.name}]",
+                      console=True)
 
 
 __all__ = [
