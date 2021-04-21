@@ -179,9 +179,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 self._ssh.login(username, password)
         except Exception as err:
             f, li = get_error_info()
-            self.stop()
-            Logger().error(f"{err}; File: {f}:{li}")
-            raise RunnerError(f"{err}; File: {f}:{li}")
+            self._internal_event.set()
+            raise RuntimeError(f"Error '{err}' occurred on connection attempt; current thread stop invoked File: {f}:{li}")
         else:
             self._is_logged_in = True
         Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.type}' iteration started")
@@ -254,9 +253,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"{flow.name}: execution completed\n{total_output}")
 
     def _persistent_worker(self):
-        try:
-            Logger().info(f"Start persistent session for '{self.thread_name}'")
-            while self.is_continue_expected:
+
+        Logger().info(f"Start persistent session for '{self.thread_name}'")
+        while self.is_continue_expected:
+            try:
                 with self as ssh:
                     self._run_command(ssh, self.flow_type.Setup)
                     while self.is_continue_expected:
@@ -269,11 +269,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                                 break
                             sleep(0.5)
                     self._run_command(ssh, self.flow_type.Teardown)
-            Logger().info(f"End persistent session for '{self}'")
-        except Exception as e:
-            f, li = get_error_info()
-            Logger().error(f"{e}; File: {f}:{li}")
-            raise RunnerError(f"{e}; File: {f}:{li}")
+            except Exception as e:
+                f, li = get_error_info()
+                Logger().error(f"{e}; File: {f}:{li}")
+        Logger().info(f"Persistent session for '{self}' ended")
 
     def _interrupt_worker(self):
         try:
