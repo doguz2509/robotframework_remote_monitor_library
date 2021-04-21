@@ -1,3 +1,4 @@
+import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
@@ -16,11 +17,12 @@ __doc__ = """
     - user_options: regular SSHLibrary keyword arguments (See in [http://robotframework.org/SSHLibrary/SSHLibrary.html#library-documentation-top|RF SSHLibrary help])
 
     Plus optional three extra arguments allowed:
-    - rc: int [last command should return]
-    - expected: str    [output should exist]
-    - prohibited: str  [output should not exists]
-
-    command output will be evaluated for match If provided 
+    - rc:           str; Last command should return [*]
+    - expected:     str; Output should exist        [**]
+    - prohibited:   str; Output should not exists   [**]
+    
+    *   Support several values separated by '|'
+    **  Support several values separated by '|' or '&' for OR and AND accordingly
 
     === Example ===
     | Keyword  |  Arguments  |  Comments  |  
@@ -62,14 +64,15 @@ class UserCommandParser(Parser):
 
         errors = []
         if exp_rc:
-            exp_rc = int(exp_rc)
-            if rc != exp_rc:
+            if not any([int(_rc) == rc for _rc in re.split(r'\s*\|\s*', exp_rc)]):
                 errors.append(f"Rc [{rc}] not match expected - {exp_rc}")
         if expected:
-            if expected not in total_output:
+            if not any([pattern in total_output for pattern in re.split(r'\s*\|\s*', expected)]) or \
+                    not all([pattern in total_output for pattern in re.split(r'\s*\&\s*', expected)]):
                 errors.append("Output not contain expected pattern [{}]".format(expected))
         if prohibited:
-            if prohibited in total_output:
+            if any([pattern in total_output for pattern in re.split(r'\s*\|\s*', prohibited)]) or \
+                    not all([pattern not in total_output for pattern in re.split(r'\s*\&\s*', prohibited)]):
                 errors.append("Output contain prohibited pattern [{}]".format(prohibited))
         st = True
         if len(errors) > 0:
