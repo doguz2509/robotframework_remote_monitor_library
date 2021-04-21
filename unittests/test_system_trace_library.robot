@@ -28,24 +28,28 @@ Test demo attack
 #    start command  echo ""|/opt/morphisec/demo/mlp_attack_demo 2>&1
 #    ${out}  ${rc}=  read command output  return_rc=yes
 #    log  \nRC: ${rc}\nOutput:\n${out}  console=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=0  return_rc=yes
-    ...     interval=${INTERVAL}  persistent=${PERSISTENT}
+    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137  return_rc=yes
+    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
     sleep  ${DURATION}  make something here
 #    [Teardown]  close all connections
 
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes  sudo_password=yes
+#    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes  sudo_password=yes
+#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137  return_rc=yes
+#    ...     interval=${INTERVAL}  persistent=${PERSISTENT}
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=ls -l  interval=${INTERVAL}  name=HomeDirList
+    Start monitor plugin  Time  command=ls -l  interval=5s  name=HomeDirList
+
     sleep  ${DURATION}  make something here
 #    Stop monitor plugin  Time  name=Complilation
 #    stop monitor plugin  atop
 #    generate module statistics  plugin=Time  name=Compilation
     generate module statistics  plugin=Time  name=HomeDirList
-    generate module statistics  plugin=aTop
+#    generate module statistics  plugin=aTop
+#    generate module statistics  plugin=aTop
 
     [Teardown]  close_all_host_monitors
 
