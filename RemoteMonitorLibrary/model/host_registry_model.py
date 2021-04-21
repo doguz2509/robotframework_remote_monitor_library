@@ -1,6 +1,5 @@
 from collections import Callable
-from threading import Event, Thread
-from time import sleep
+from threading import Event
 
 from robot.api import logger
 from robot.utils.connectioncache import NoConnection, ConnectionCache
@@ -23,16 +22,6 @@ class HostModule:
         self._data_handler = data_handler
         self._active_plugins = {}
         self._host_id = -1
-
-        # self._interval = 120
-        # self._control_th: Thread = None
-
-    # def _control_worker(self):
-    #     while not self._configuration.parameters.event.isSet():
-    #         _msg = ''
-    #         print_plugins_table({p.thread_name: p for n, p in self._active_plugins.items() if p.is_alive}, False, False,
-    #                             "Active PlugIn's")
-    #         sleep(self._interval)
 
     @property
     def host_id(self):
@@ -63,8 +52,6 @@ class HostModule:
                                                 TableSchemaService().tables.TraceHost.columns), None, self.alias)
 
         self._host_id = DataHandlerService().get_last_row_id
-        # self._control_th = Thread(name=f"{self} [ID: {self.host_id}]", target=self._control_worker, daemon=True)
-        # self._control_th.start()
 
     def stop(self):
         try:
