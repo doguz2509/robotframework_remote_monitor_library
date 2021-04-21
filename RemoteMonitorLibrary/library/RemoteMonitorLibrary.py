@@ -5,7 +5,7 @@ from robot.api import logger
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from RemoteMonitorLibrary import builtin_plugins
+from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
@@ -47,9 +47,9 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         {}
         """.format(ConnectionKeywords.__doc__,
                    BIKeywords.__doc__,
-                   builtin_plugins.atop_plugin.__doc__,
-                   builtin_plugins.sshlibrary_plugin.__doc__,
-                   builtin_plugins.time_plugin.__doc__)
+                   plugins.atop_plugin.__doc__,
+                   plugins.sshlibrary_plugin.__doc__,
+                   plugins.time_plugin.__doc__)
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)
         BIKeywords.__init__(self, location)
@@ -59,7 +59,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
             current_dir = ''
 
         self._start_suite_name = ''
-        plugin_modules = load_modules(builtin_plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
+        plugin_modules = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=SSHLibraryPlugInWrapper)
         db.PlugInService().update(**plugin_modules)
         print_plugins_table(db.PlugInService())
