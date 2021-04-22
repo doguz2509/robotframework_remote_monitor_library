@@ -71,6 +71,4 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
     def get_keyword_names(self):
         return ConnectionKeywords.get_keyword_names(self) + BIKeywords.get_keyword_names(self)
 
-    def __del__(self):
-        db.DataHandlerService().stop()
 
