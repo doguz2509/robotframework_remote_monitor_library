@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from datetime import datetime, timedelta
 from enum import Enum
-from threading import Event, Thread
+from threading import Event, Thread, Timer
 from time import sleep
 from typing import Callable, Any
 
@@ -11,6 +11,7 @@ from robot.utils import DotDict, is_truthy, timestr_to_secs
 from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError, EmptyCommandSet
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
 from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
+
 
 SSHLibraryArgsMapping = {
     SSHLibrary.execute_command.__name__: {'return_stdout': (is_truthy, True),
@@ -163,26 +164,33 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         username = self.parameters.username
         password = self.parameters.password
         certificate = self.parameters.certificate
-        try:
-            if len(self._session_errors) == self._fault_tolerance:
-                raise PlugInError(
-                    f"Stop plugin '{self.thread_name}' errors count arrived to limit ({self._fault_tolerance})")
-            if len(self._session_errors) == 0:
-                Logger().info(f"Connection establishing")
-            else:
-                Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
-            self._ssh.open_connection(host, self.thread_name, port)
-            if certificate:
-                self._ssh.login_with_public_key(username, certificate, password)
-            else:
-                self._ssh.login(username, password)
-        except Exception as err:
-            f, li = get_error_info()
-            self._internal_event.set()
-            raise RuntimeError(f"Error '{err}' occurred on connection attempt; current thread stop invoked File: {f}:{li}")
+        if len(self._session_errors) == self._fault_tolerance:
+            raise PlugInError(
+                f"Stop plugin '{self.thread_name}' errors count arrived to limit ({self._fault_tolerance})")
+        if len(self._session_errors) == 0:
+            Logger().info(f"Connection establishing")
         else:
-            self._is_logged_in = True
+            Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
+
+        self._ssh.open_connection(host, self.thread_name, port)
+
+        start_ts = datetime.now()
+        while True:
+            try:
+                if certificate:
+                    self._ssh.login_with_public_key(username, certificate, password)
+                else:
+                    self._ssh.login(username, password)
+            except Exception as err:
+                Logger().warning(f"Connection fail; Reason: {err}")
+            else:
+                self._is_logged_in = True
+                break
+            finally:
+                duration = (datetime.now() - start_ts).total_seconds()
+                if duration >= self.parameters.timeout:
+                    raise TimeoutError(f"Cannot connect to host {self.parameters.host} during {self.parameters.timeout}s")
         Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.type}' iteration started")
         return self._ssh
 
@@ -253,7 +261,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"{flow.name}: execution completed\n{total_output}")
 
     def _persistent_worker(self):
-
         Logger().info(f"Start persistent session for '{self.thread_name}'")
         while self.is_continue_expected:
             try:
@@ -269,9 +276,12 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                                 break
                             sleep(0.5)
                     self._run_command(ssh, self.flow_type.Teardown)
+            except TimeoutError as e:
+                self._internal_event.set()
+                Logger().critical(f"{e}")
             except Exception as e:
-                f, li = get_error_info()
-                Logger().error(f"{e}; File: {f}:{li}")
+                Logger().warning(f"Connection error; Reason: {e}")
+                sleep(2)
         Logger().info(f"Persistent session for '{self}' ended")
 
     def _interrupt_worker(self):

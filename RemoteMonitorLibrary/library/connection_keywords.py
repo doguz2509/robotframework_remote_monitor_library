@@ -126,7 +126,7 @@ class ConnectionKeywords(TraceListener):
         ]
 
     @keyword("Create host monitor")
-    def create_host_monitor(self, host, username, password, port=22, alias=None):
+    def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None, timeout=None):
         """
         Create basic host connection module used for trace host
         Last created connection handled as 'current'
@@ -157,7 +157,7 @@ class ConnectionKeywords(TraceListener):
                 logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
             db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
             db.DataHandlerService().start()
-        module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias)
+        module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias, certificate, timeout)
         module.start()
         logger.info(f"Connection {module.alias} ready to be monitored")
         _alias = self._modules.register(module, module.alias)

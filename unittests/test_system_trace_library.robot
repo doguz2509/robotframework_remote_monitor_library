@@ -6,7 +6,7 @@ Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  timeout=10s
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
@@ -49,7 +49,7 @@ Test Host monitor
     generate module statistics  plugin=Time  name=Compilation
 #    generate module statistics  plugin=Time  name=HomeDirList
     generate module statistics  plugin=aTop
-
+    execute command
 
     [Teardown]  close_all_host_monitors
 
