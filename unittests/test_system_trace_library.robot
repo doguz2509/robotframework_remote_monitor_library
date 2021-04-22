@@ -40,7 +40,7 @@ Test Host monitor
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137|128  return_rc=yes
 #    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
     Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
-    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  store_output=yes
 #    Start monitor plugin  Time  command=ls -l  interval=5s  name=HomeDirList
 
     sleep  ${DURATION}  make something here
@@ -49,7 +49,6 @@ Test Host monitor
     generate module statistics  plugin=Time  name=Compilation
 #    generate module statistics  plugin=Time  name=HomeDirList
     generate module statistics  plugin=aTop
-    execute command
 
     [Teardown]  close_all_host_monitors
 
