@@ -49,6 +49,7 @@ class SQL_DB:
             file_name = f"{name}.db"
             self._db_path = os.path.join(location, file_name)
             if not cumulative:
+                self._conn = None
                 if self._clear_db(self._db_path):
                     self.is_new = True
 
@@ -103,6 +104,7 @@ class SQL_DB:
     def close(self):
         self._conn.commit()
         self._conn.close()
+        self._conn = None
 
 
 def create_table_sql(name, columns: List, foreign_keys: List):

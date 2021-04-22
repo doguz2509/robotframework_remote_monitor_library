@@ -1,3 +1,4 @@
+from concurrent.futures.thread import ThreadPoolExecutor
 from threading import Event, Thread, RLock
 from time import sleep
 from typing import List, AnyStr, Mapping
@@ -10,7 +11,6 @@ from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 from .model import TimeReferencedTable
 from .plugins import SSHLibraryPlugInWrapper
-
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1
@@ -181,63 +181,14 @@ class DataHandlerService:
 
         Logger().debug(f"Background task stopped invoked")
 
-    def _cache_lines(self, output):
-        output_ref = None
-        lines_cache = []
-        for line_id, line in enumerate(output.splitlines()):
-            try:
-                if output_ref:
-                    entry = self.execute(
-                        f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
-                                   FROM LinesCacheMap 
-                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                                   WHERE LinesCache.Line = '{line}' AND OUTPUT_REF = {output_ref}""")
-                else:
-                    entry = self.execute(
-                        f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
-                                   FROM LinesCacheMap 
-                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                                   WHERE LinesCache.Line = '{line}' """)
-                if len(entry) == 0:
-                    raise _line_not_found()
-                output_ref, order_id, line_ref = entry[0]
-            except _line_not_found:
-                DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
-                line_ref = self.get_last_row_id
-
-            lines_cache.append([line_id, line_ref])
-        return output_ref, lines_cache
-
-    def _compare_lines_set(self, output_ref, output) -> bool:
-        db_entries = {k: v for k, v in self.execute(
-            f"""SELECT ORDER_ID, Line
-                FROM LinesCacheMap 
-                JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                WHERE OUTPUT_REF = {output_ref}""")}
-        current_entries = {ord_id: line for ord_id, line in enumerate(output.splitlines())}
-
-        for o, line in current_entries.items():
-            try:
-                assert line == db_entries.get(o, None)
-            except AssertionError:
-                return False
-        return True
-
-    def cache_output(self, output: str):
-        output_ref, line_ref = self._cache_lines(output)
-
-        if output_ref is None or not self._compare_lines_set(output_ref, output):
-            output_data = DataHandlerService().execute(
-                            TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
-            output_ref = output_data[0][0] + 1 if output_data != [(None,)] else 0
-            self.execute(insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
-                         [[output_ref] + lr for lr in line_ref])
-
-        return output_ref
+    @staticmethod
+    def cache_output(output: str):
+        return CacheLines().upload(output)
 
 
 class CacheLines:
-    def __init__(self):
+    def __init__(self, max_workers=5):
+        self._max_workers = max_workers
         self._output_ref = None
         self._lock = RLock()
 
@@ -257,12 +208,13 @@ class CacheLines:
                                       JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
                                       WHERE LinesCache.Line = '{line}' AND OUTPUT_REF = {self.output_ref}"""
         else:
-            f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
+            return f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
                                                   FROM LinesCacheMap 
                                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
                                                   WHERE LinesCache.Line = '{line}' """
 
-    def cache_line(self, line):
+    def cache_line(self, line_data):
+        line_id, line = line_data
         try:
             entry = DataHandlerService().execute(self.get_sql(line))
             if len(entry) == 0:
@@ -271,14 +223,40 @@ class CacheLines:
         except _line_not_found:
             DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
             line_ref = DataHandlerService().get_last_row_id
-        return line_ref
+        except Exception as e:
+            f, li = get_error_info()
+            raise type(e)(f"Unexpected error: {e}; File: {f}:{li}")
+        return line_id, line_ref
 
-    def _cache_lines(self, output):
+    @staticmethod
+    def _compare_lines_set(output_ref, output) -> bool:
+        db_entries = {k: v for k, v in DataHandlerService().execute(
+            f"""SELECT ORDER_ID, Line
+                FROM LinesCacheMap 
+                JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                WHERE OUTPUT_REF = {output_ref}""")}
+        current_entries = {ord_id: line for ord_id, line in enumerate(output.splitlines())}
+
+        for o, line in current_entries.items():
+            try:
+                assert line == db_entries.get(o, None)
+            except AssertionError:
+                return False
+        return True
+
+    def upload(self, output):
         lines_cache = []
-        for line_id, line in enumerate(output.splitlines()):
-            line_ref = self.cache_line(line)
+        with ThreadPoolExecutor(max_workers=self._max_workers) as e:
+            lines_cache = [[i, ref]
+                           for i, ref in e.map(self.cache_line, [(_id, line)
+                                                                 for _id, line in enumerate(output.splitlines())])]
 
-            lines_cache.append([line_id, line_ref])
+        if self.output_ref is None or not self._compare_lines_set(self.output_ref, output):
+            output_data = DataHandlerService().execute(
+                TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
+            self.output_ref = output_data[0][0] + 1 if output_data != [(None,)] else 0
+            DataHandlerService().execute(insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
+                                         [[self.output_ref] + lr for lr in lines_cache])
         return self.output_ref, lines_cache
 
 
@@ -286,5 +264,6 @@ __all__ = [
     'DataHandlerService',
     'TableSchemaService',
     'PlugInService',
-    'DB_DATETIME_FORMAT'
+    'DB_DATETIME_FORMAT',
+    'CacheLines'
 ]
