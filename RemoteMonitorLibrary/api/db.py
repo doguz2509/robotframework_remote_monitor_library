@@ -1,4 +1,4 @@
-from threading import Event, Thread
+from threading import Event, Thread, RLock
 from time import sleep
 from typing import List, AnyStr, Mapping
 
@@ -10,6 +10,7 @@ from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 from .model import TimeReferencedTable
 from .plugins import SSHLibraryPlugInWrapper
+
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 TICKER_INTERVAL = 1
@@ -171,14 +172,12 @@ class DataHandlerService:
                     item.result = result
                     Logger().debug("\n\t{}\n\t{}".format(insert_sql_str,
                                                          '\n\t'.join([str(r) for r in (rows if rows else result)])))
-            # except collections.Empty:
-            #     sleep(2)
             except Exception as e:
                 f, l = get_error_info()
                 Logger().error(f"Unexpected error occurred: {e}; File: {f}:{l}")
             else:
-                Logger().debug(f"Item handling completed")
-                sleep(0.5)
+                # Logger().debug(f"Item handling completed")
+                sleep(1)
 
         Logger().debug(f"Background task stopped invoked")
 
@@ -235,6 +234,52 @@ class DataHandlerService:
                          [[output_ref] + lr for lr in line_ref])
 
         return output_ref
+
+
+class CacheLines:
+    def __init__(self):
+        self._output_ref = None
+        self._lock = RLock()
+
+    @property
+    def output_ref(self):
+        return self._output_ref
+
+    @output_ref.setter
+    def output_ref(self, value):
+        with self._lock:
+            self._output_ref = value
+
+    def get_sql(self, line):
+        if self.output_ref:
+            return f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
+                                      FROM LinesCacheMap 
+                                      JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                                      WHERE LinesCache.Line = '{line}' AND OUTPUT_REF = {self.output_ref}"""
+        else:
+            f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
+                                                  FROM LinesCacheMap 
+                                                  JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
+                                                  WHERE LinesCache.Line = '{line}' """
+
+    def cache_line(self, line):
+        try:
+            entry = DataHandlerService().execute(self.get_sql(line))
+            if len(entry) == 0:
+                raise _line_not_found()
+            self.output_ref, order_id, line_ref = entry[0]
+        except _line_not_found:
+            DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
+            line_ref = DataHandlerService().get_last_row_id
+        return line_ref
+
+    def _cache_lines(self, output):
+        lines_cache = []
+        for line_id, line in enumerate(output.splitlines()):
+            line_ref = self.cache_line(line)
+
+            lines_cache.append([line_id, line_ref])
+        return self.output_ref, lines_cache
 
 
 __all__ = [
