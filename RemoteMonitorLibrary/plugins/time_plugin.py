@@ -183,7 +183,7 @@ class TimeSSHCommand(plugins.SSHLibraryCommand):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         command = f'{self._time_cmd} -f "{self._format}" {command}'
-        if not user_options.get('store_output', False):
+        if not user_options.pop('store_output', False):
             command += ' > /dev/null'
         super().__init__(method, command=command, **user_options)
 
