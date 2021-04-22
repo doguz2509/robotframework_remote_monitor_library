@@ -230,8 +230,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         if self._internal_event.isSet():
             Logger().info(f"Stop requested internally")
             return False
-
-        Logger().debug(f'{self.thread_name} - Continue')
         return True
 
     def __str__(self):
