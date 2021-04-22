@@ -15,10 +15,8 @@ and you'll know something is happening when you start to see real compilation ha
 from typing import Iterable, Any, Tuple
 
 from SSHLibrary import SSHLibrary
-from robot.api import logger
-from robot.utils import DotDict
+from robot.utils import DotDict, is_truthy
 
-import RemoteMonitorLibrary.api.model
 from RemoteMonitorLibrary.api import plugins, model, db
 from RemoteMonitorLibrary.api.tools import Logger
 
@@ -34,29 +32,33 @@ __doc__ = """
 
     Time plugin arguments:
 
-    - command: command to be executed and measured by time (Mandatory)
-
-    | /usr/bin/time -f "%... all time format fields (see man)" 'command' > /dev/null
-
-      Note: Pay attention not to redirect command stderr to stdout (avoid '2>&1'); Time write to stderr by itself and it send to parser
+    - command: str -> command to be executed and measured by time (Mandatory)
+    
+    | Note: Pay attention not to redirect command stderr to stdout (avoid '2>&1'); 
+    | Time write to stderr by itself and it send to parser
 
     - name: User friendly alias for command (Optional)
     - start_in_folder: path to executable binary/script if execution by path not relevant (Optional)
-
-      If provided command will be executed as following:
-
-    | cd 'start_in_folder' ; /usr/bin/time -f "" 'command' > /dev/null
-
+    - store_output: bool -> if true output store to cache in DB
     - sudo: True if sudo required, False if omitted (Optional)
     - sudo_password: True if password required for sudo, False if omitted (Optional)
 
       On plugin start sudo and sudo_password will be replace with sudo password provided for connection module
-
+    
+    Examples:
+    |       Flags |  Command executed |
+    | <command> | /usr/bin/time -f "..." 'command' > /dev/null |
+    | <command> start_in_folder=<folder> | cd <folder> ; /usr/bin/time -f "..." command > /dev/null |
+    | <command> start_in_folder=<folder> store_output=yes |  cd <folder> ;/usr/bin/time -f "..." command |
+    | <command> start_in_folder=<folder> store_output=yes sudo=yes |  cd <folder> ;sudo /usr/bin/time -f "..." command |
+    
 """
 
 from RemoteMonitorLibrary.utils import get_error_info
 
+
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
+
 
 CMD_TIME_FORMAT = DotDict(
     TimeReal="e",
@@ -162,7 +164,10 @@ class TimeParser(plugins.Parser):
             if self.options.get('Command', None):
                 row_dict.update({'Command': self.options.get('Command')})
 
-            row_dict.update({'OUTPUT_REF': db.DataHandlerService().cache_output(command_out)})
+            if self.options.get('store_output', False):
+                row_dict.update({'OUTPUT_REF': db.DataHandlerService().cache_output(command_out)})
+            else:
+                row_dict.update({'OUTPUT_REF': -1})
 
             row = self.table.template(self.host_id, None, *row_dict.values())
             du = model.DataUnit(self.table, row)
@@ -177,7 +182,10 @@ class TimeSSHCommand(plugins.SSHLibraryCommand):
     def __init__(self, method, command, **user_options):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
-        super().__init__(method, command=f'{self._time_cmd} -f "{self._format}" {command}', **user_options)
+        command = f'{self._time_cmd} -f "{self._format}" {command}'
+        if not user_options.get('store_output', False):
+            command += ' > /dev/null'
+        super().__init__(method, command=command, **user_options)
 
 
 class Time(plugins.PlugInAPI):
@@ -189,6 +197,7 @@ class Time(plugins.PlugInAPI):
         self._command = options.get('command', None)
         self._command_name = options.get('name', None)
         self._start_in_folder = options.get('start_in_folder', None)
+        self._store_output = is_truthy(options.get('store_output', False))
         assert self._command, "SSHLibraryCommand not provided"
 
     @staticmethod
@@ -207,8 +216,10 @@ class Time(plugins.PlugInAPI):
         return TimeSSHCommand(SSHLibrary.execute_command, self._command,
                               parser=TimeParser(host_id=self.host_id,
                                                 table=self.affiliated_tables()[0],
-                                                data_handler=self.data_handler, Command=self.name),
-                              return_stderr=True, return_rc=True, start_in_folder=self._start_in_folder),
+                                                data_handler=self.data_handler, Command=self.name,
+                                                store_output=self._store_output),
+                              return_stderr=True, return_rc=True, start_in_folder=self._start_in_folder,
+                              store_output=self._store_output),
 
     def start(self):
         super().start()

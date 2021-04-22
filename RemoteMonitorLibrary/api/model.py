@@ -44,7 +44,9 @@ __all__ = [
     'ForeignKey',
     'PrimaryKeys',
     'Query',
-    'DataUnit'
+    'DataUnit',
+    'TimeReferencedTable',
+    'OutputCacheTable'
 ]
 
 
