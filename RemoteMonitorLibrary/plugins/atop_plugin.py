@@ -211,8 +211,8 @@ class aTopParser(plugins.Parser):
 
 class aTop(plugins.PlugInAPI):
     OS_DATE_FORMAT = {
-        'ubuntu': '%H:%M',
-        'centos': '%Y%m%d%H%M'
+        'debian': '%H:%M',
+        'fedora': '%Y%m%d%H%M'
     }
 
     def __init__(self, parameters, data_handler, *args, **user_options):
@@ -226,12 +226,17 @@ class aTop(plugins.PlugInAPI):
     def os_name(self):
         return self._os_name
 
-    @staticmethod
-    def _get_os_name(ssh_client: SSHLibrary):
-        out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID='|awk -F'=' '{print$2}'",
+    def _get_os_name(self, ssh_client: SSHLibrary):
+        out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID_LIKE='|awk -F'=' '{print$2}'",
                                                   return_rc=True, return_stderr=True)
         assert rc == 0, "Cannot occur OS name"
         out = out.replace(r'"', '')
+
+        for _os in self.OS_DATE_FORMAT.keys():
+            if _os in out:
+                out = _os
+                break
+
         tools.Logger().debug(f"OS resolved: {out}")
         return out
 

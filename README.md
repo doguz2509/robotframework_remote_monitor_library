@@ -1,4 +1,4 @@
-# Remote Monitor Library (Version 1.4.7)
+# Remote Monitor Library (Version 1.4.8)
 
 ## Overview
 RemoteMonitorLibrary allow collect system data of target linux host during any Robotframework 
