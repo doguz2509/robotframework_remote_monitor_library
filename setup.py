@@ -11,6 +11,16 @@ from RemoteMonitorLibrary.utils.string_utils import to_title
 
 current_dir = dirname(abspath(__file__))
 
+
+def read_file(file_name):
+    """Read the given file.
+    :param file_name: Name of the file to be read
+    :return:      Output of the given file
+    """
+    with open(os.path.join(os.path.dirname(__file__), file_name)) as sr:
+        return sr.read()
+
+
 with open(join(current_dir, "RemoteMonitorLibrary", "version.py"), encoding="utf-8") as f:
     VERSION = re.search(r"""VERSION = ('|")(.*)('|")""", f.read()).group(2)
 
@@ -46,15 +56,10 @@ setup(
     license='MIT',
     author=__author__,
     author_email=__author_email__,
-    description='RobotFramework extended keyword library; Allow background system tracing; aTop+',
+    description='RobotFramework extended keyword library; Allow background system monitoring; aTop, Time, SSHLibrary',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    install_requires=[
-        'robotframework~=3.2.2',
-        'robotframework-sshlibrary',
-        'matplotlib~=3.4.0',
-        'pandas',
-    ],
+    install_requires=read_file('requirements.txt'),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Framework :: Robot Framework",
