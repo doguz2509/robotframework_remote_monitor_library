@@ -2,28 +2,25 @@ import os
 
 from RemoteMonitorLibrary.utils import Logger
 
-__doc__ = """ === agent-PortalRobotframework === 
-
-    Add to CLI
+__doc__ = """= Integrations =
     
-     --listener
-     robotframework_reportportal.listener
-     --variable
-     RP_UUID:077ee5d9-b6ad-47c7-9a5c-9f29a6826a25
-     --variable
-     RP_ENDPOINT:http://192.168.25.5:8080
-     --variable
-     RP_LAUNCH:RemoteMonitor
-     --variable
-     RP_PROJECT:dmitry_oguz_personal
-     --variable
-     ENV:TIRAMISU
-     --variable
-     PLATFORM:CUSTOM_REMOTE_CHROME
-     --variable
-     x_api_version:1.4.0
+    == Report Portal integration ==
+    
+    Allow reporting into central portal
+    
+    For enable add listener to robot command line:
+    | --listener robotframework_reportportal.listener
+    | --variable RP_UUID:<user token>
+    | --variable RP_ENDPOINT:http://<your portal URI>:8080
+    | --variable RP_LAUNCH:<Lunch name>
+    | --variable RP_PROJECT:<Portal project name in lower case>
+    | --variable ENV:TIRAMISU
+    | --variable PLATFORM:CUSTOM_REMOTE_CHROME
+    | --variable x_api_version:1.4.0
      
-     """
+     For further information look in [https://github.com/reportportal/agent-Python-RobotFramework|ReportPortal]
+    
+    """
 
 try:
     from robotframework_reportportal import logger as portal_logger

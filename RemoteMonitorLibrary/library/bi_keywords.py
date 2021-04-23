@@ -29,7 +29,8 @@ class BIKeywords:
     __doc__ = """=== Statistics, measurement, analise keywords ===
     `Generate Module Statistics`
     
-    `Evaluate statistic trend` - TBD"""
+    Evaluate statistic trend - TBD
+    """
 
     def __init__(self, rel_log_path, images='images'):
         try:

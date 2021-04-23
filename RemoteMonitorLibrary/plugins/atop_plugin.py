@@ -7,7 +7,6 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import timestr_to_secs
 
-import RemoteMonitorLibrary.api.db
 from RemoteMonitorLibrary.api import plugins, model, tools
 from RemoteMonitorLibrary.api.plugins import ChartAbstract
 from RemoteMonitorLibrary.utils import Size, get_error_info

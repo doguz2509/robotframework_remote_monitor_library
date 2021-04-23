@@ -9,6 +9,7 @@ from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
+from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
 from RemoteMonitorLibrary.utils import load_modules, print_plugins_table
 from RemoteMonitorLibrary.version import VERSION
@@ -45,11 +46,15 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         {} 
         
         {}
+        
+        {}
         """.format(ConnectionKeywords.__doc__,
                    BIKeywords.__doc__,
                    plugins.atop_plugin.__doc__,
                    plugins.sshlibrary_plugin.__doc__,
-                   plugins.time_plugin.__doc__)
+                   plugins.time_plugin.__doc__,
+                   robotframework_portal_addon.__doc__
+                   )
 
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)
         BIKeywords.__init__(self, location)
