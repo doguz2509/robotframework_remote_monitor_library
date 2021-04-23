@@ -17,7 +17,8 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict, is_truthy
 
-from RemoteMonitorLibrary.api import plugins, model, db
+from RemoteMonitorLibrary.api import plugins, model
+from RemoteMonitorLibrary.api.model import DataRowUnitWithOutput
 from RemoteMonitorLibrary.api.tools import Logger
 
 __doc__ = """
@@ -56,9 +57,7 @@ __doc__ = """
 
 from RemoteMonitorLibrary.utils import get_error_info
 
-
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
-
 
 CMD_TIME_FORMAT = DotDict(
     TimeReal="e",
@@ -87,17 +86,14 @@ CMD_TIME_FORMAT = DotDict(
 )
 
 
-class TimeMeasurement(model.TimeReferencedTable, model.OutputCacheTable):
+class TimeMeasurement(model.PlugInTable):
     def __init__(self):
-        model.TimeReferencedTable.__init__(self,
-                                           name='TimeMeasurement',
-                                           fields=[model.Field(f, model.FieldType.Int)
-                                                   for f in CMD_TIME_FORMAT.keys() if f != 'Command'] +
-                                                  [model.Field('Command')])
-
-        model.OutputCacheTable.__init__(self, self.name, fields=self.fields,
-                                        queries=self.queries,
-                                        foreign_keys=self.foreign_keys)
+        super().__init__('TimeMeasurement')
+        self.add_time_reference()
+        for f in [model.Field(f, model.FieldType.Int) for f in CMD_TIME_FORMAT.keys() if f != 'Command'] + \
+                 [model.Field('Command')]:
+            self.add_field(f)
+        self.add_output_cache_reference()
 
 
 class TimeChart(plugins.ChartAbstract):
@@ -154,24 +150,17 @@ class TimeParser(plugins.Parser):
         time_output = outputs.get('stderr')
         rc = outputs.get('rc')
         try:
-
             assert rc == 0, f"Result return rc {rc}"
             data = time_output.split(',')
             row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
             Logger().info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
             Logger().debug(f"Command: {row_dict.get('Command')} output:\n{command_out}")
 
-            if self.options.get('Command', None):
-                row_dict.update({'Command': self.options.get('Command')})
-
-            if self.options.get('store_output', False):
-                row_dict.update({'OUTPUT_REF': db.DataHandlerService().cache_output(command_out)})
-            else:
-                row_dict.update({'OUTPUT_REF': -1})
-
-            row = self.table.template(self.host_id, None, *row_dict.values())
-            du = model.DataUnit(self.table, row)
+            row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
+            du = DataRowUnitWithOutput(self.table, row, output=command_out) \
+                if self.options.get('Command', None) else model.DataUnit(self.table, row)
             self.data_handler(du)
+            Logger().debug(f"Item enqueued - {du}")
             return True
         except Exception as e:
             f, li = get_error_info()
@@ -220,6 +209,9 @@ class Time(plugins.PlugInAPI):
                                                 store_output=self._store_output),
                               return_stderr=True, return_rc=True, start_in_folder=self._start_in_folder,
                               store_output=self._store_output),
+
+    def __str__(self):
+        return f"{super().host_alias} {self.type} {self._command}"
 
     def start(self):
         super().start()
