@@ -68,7 +68,7 @@ def load_modules(*modules, **options):
 
 def print_plugins_table(plugins, show_tables=True, show_charts=True, title='Plugins/Tables/Charts'):
     _str = ''
-    _title_line = "+ {title:59s} --+".format(title=f"[ RemoteMonitorLibrary ] ({title}) Version: {VERSION}")
+    _title_line = "+- {title:59s} -----+".format(title=f"RemoteMonitorLibrary ({title}) Version: {VERSION}")
     _delimiter = "+------------------+---------------------------+--------------------+"
     _template = "| {col1:16s} | {col2:25s} | {col3:18s} |"
     _str += f"{_title_line}\n"

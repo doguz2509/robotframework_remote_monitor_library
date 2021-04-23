@@ -67,13 +67,13 @@ class BIKeywords:
         chart_plugins = module.get_plugin(plugin, **options)
         chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
         marks = _get_period_marks(period, module.host_id) if period else {}
-        # body = ''
+
         body_data = []
         for plugin in chart_plugins:
             for chart in plugin.affiliated_charts():
                 try:
-                    sql_query = chart.compose_sql_query(host_name=plugin.thread_name, **marks)
-                    logger.debug(f"{plugin.type}{f'_{period}' if period else ''}_{marks}\n{sql_query}")
+                    sql_query = chart.compose_sql_query(host_name=plugin.host_alias, **marks)
+                    logger.debug(f"{plugin.type}{f'_{period}' if period is not None else ''}_{marks}\n{sql_query}")
                     sql_data = db.DataHandlerService().execute(sql_query)
                     for picture_name, file_path in generate_charts(chart, sql_data, self._image_path, prefix=chart_title):
                         relative_image_path = os.path.relpath(file_path, os.path.normpath(

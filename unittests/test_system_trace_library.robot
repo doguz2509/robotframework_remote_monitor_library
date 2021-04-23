@@ -36,12 +36,12 @@ Test demo attack
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-#    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes  sudo_password=yes
-#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137|128  return_rc=yes
-#    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
-    Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
+    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes  sudo_password=yes
+    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137|128  return_rc=yes
+    ...     persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
+    Start monitor plugin  Time  command=make -j 20 clean all  persistent=${PERSISTENT}
     ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  store_output=yes
-#    Start monitor plugin  Time  command=ls -l  interval=5s  name=HomeDirList
+#    Start monitor plugin  Time  command=ls -l  name=HomeDirList  store_output=yes  interval=1s
 
     sleep  ${DURATION}  make something here
 #    Stop monitor plugin  Time  name=Complilation

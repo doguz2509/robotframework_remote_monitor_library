@@ -7,6 +7,7 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import timestr_to_secs
 
+import RemoteMonitorLibrary.api.db
 from RemoteMonitorLibrary.api import plugins, model, tools
 from RemoteMonitorLibrary.api.plugins import ChartAbstract
 from RemoteMonitorLibrary.utils import Size, get_error_info
@@ -36,17 +37,18 @@ Note: Support robot time format string (1s, 05m, etc.)
 """
 
 
-class atop_system_level_table(model.TimeReferencedTable):
+class atop_system_level(model.PlugInTable):
     def __init__(self):
-        model.TimeReferencedTable.__init__(self, name='atop_system_level',
-                                           fields=[model.Field('Type'),
-                                                   model.Field('DataMap'),
-                                                   model.Field('Col1', model.FieldType.Real),
-                                                   model.Field('Col2', model.FieldType.Real),
-                                                   model.Field('Col3', model.FieldType.Real),
-                                                   model.Field('Col4', model.FieldType.Real),
-                                                   model.Field('Col5', model.FieldType.Real),
-                                                   model.Field('SUB_ID')])
+        super().__init__(name='atop_system_level')
+        self.add_time_reference()
+        self.add_field(model.Field('Type'))
+        self.add_field(model.Field('DataMap'))
+        self.add_field(model.Field('Col1', model.FieldType.Real))
+        self.add_field(model.Field('Col2', model.FieldType.Real))
+        self.add_field(model.Field('Col3', model.FieldType.Real))
+        self.add_field(model.Field('Col4', model.FieldType.Real))
+        self.add_field(model.Field('Col5', model.FieldType.Real))
+        self.add_field(model.Field('SUB_ID'))
 
 
 class aTopSystemLevelChart(ChartAbstract):
@@ -240,7 +242,7 @@ class aTop(plugins.PlugInAPI):
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return atop_system_level_table(),
+        return atop_system_level(),
 
     @staticmethod
     def affiliated_charts() -> Iterable[plugins.ChartAbstract]:

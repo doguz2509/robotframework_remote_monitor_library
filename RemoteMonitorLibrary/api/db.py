@@ -1,19 +1,19 @@
+from collections import namedtuple
 from concurrent.futures.thread import ThreadPoolExecutor
-from threading import Event, Thread, RLock
+from datetime import datetime
+from threading import Event, Thread, RLock, Timer
 from time import sleep
-from typing import List, AnyStr, Mapping
+from typing import List, AnyStr, Mapping, Tuple, Iterable
 
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query, DataUnit
+from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query
 from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
-from .model import TimeReferencedTable
 from .plugins import SSHLibraryPlugInWrapper
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
-TICKER_INTERVAL = 1
 
 
 class TraceHost(Table):
@@ -32,7 +32,7 @@ class TimeLine(Table):
     def cache_timestamp(self, sql_engine, timestamp):
         last_tl_id = sql_engine.execute(self.queries.select_last.sql.format(timestamp=timestamp))
         if len(last_tl_id) == 0:
-            DataHandlerService().execute(insert_sql(self.name, [f.name for f in self.fields]), *(None, timestamp))
+            DataHandlerService().execute(insert_sql(self.name, self.columns), *(None, timestamp))
             last_tl_id = sql_engine.get_last_row_id
         else:
             last_tl_id = last_tl_id[0][0]
@@ -60,6 +60,93 @@ class LinesCacheMap(Table):
 class LinesCache(Table):
     def __init__(self):
         Table.__init__(self, fields=[Field('LINE_ID', FieldType.Int, PrimaryKeys(True)), Field('Line')])
+
+
+class PlugInTable(Table):
+    def add_time_reference(self):
+        self.add_field(Field('HOST_REF', FieldType.Int))
+        self.add_field(Field('TL_REF', FieldType.Int))
+        self.add_foreign_key(ForeignKey('TL_REF', 'TimeLine', 'TL_ID'))
+        self.add_foreign_key(ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID'))
+
+    def add_output_cache_reference(self):
+        self.add_field(Field('OUTPUT_REF', FieldType.Int))
+        self.add_foreign_key(ForeignKey('OUTPUT_REF', 'LinesCacheMap', 'OUTPUT_REF'))
+
+
+class DataUnit:
+    def __init__(self, table: Table, *data, **kwargs):
+        self._table = table
+        self._ts = kwargs.get('datetime', None) or datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
+        self._timeout = kwargs.get('timeout', None)
+        self._timer: Timer = None
+        self._data = list(data)
+        self._result = None
+        self._result_ready = False
+
+    @property
+    def table(self):
+        return self._table
+
+    @property
+    def timestamp(self):
+        return self._ts
+
+    @staticmethod
+    def _update_foreign_fields(table, **updates):
+        return {fk.own_field: updates.get(fk.foreign_field) for fk in table.foreign_keys
+                if updates.get(fk.foreign_field)}
+
+    @staticmethod
+    def _update_data(table, data, **updates):
+        _update_fields = DataUnit._update_foreign_fields(table, **updates)
+        if len(updates) > 0:
+            for i in range(0, len(data)):
+                _temp = data[i]._asdict()
+                _temp.update(**_update_fields)
+                data[i] = table.template(**_temp)
+        return data
+
+    def get_insert_data(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        data = self._update_data(self._table, self._data, **updates)
+        return str(self), [tuple(r) for r in data]
+
+    def __str__(self):
+        return insert_sql(self._table.name, self._table.columns)
+
+    @staticmethod
+    def _raise_timeout(msg):
+        def _():
+            raise TimeoutError(msg)
+
+        return _
+
+    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        if self._timeout:
+            self._timer = Timer(self._timeout, self._raise_timeout(f"Timeout expired on query {self}"))
+            self._timer.start()
+        return self.get_insert_data(**updates)
+
+    @property
+    def result(self):
+        while not self.result_ready:
+            sleep(0.05)
+        return self._result
+
+    @result.setter
+    def result(self, value):
+        self._result = value
+        self._result_ready = True
+        if self._timer:
+            self._timer.cancel()
+
+    @property
+    def result_ready(self):
+        return self._result_ready
+
+    def __del__(self):
+        if self._timer is not None:
+            self._timer.cancel()
 
 
 @Singleton
@@ -148,7 +235,11 @@ class DataHandlerService:
                 Logger().error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
 
     def execute(self, sql_text, *rows):
-        return self._db.execute(sql_text, *rows)
+        try:
+            return self._db.execute(sql_text, *rows)
+        except Exception as e:
+            Logger().critical(f"DB execute error: {e}")
+            raise
 
     @property
     def get_last_row_id(self):
@@ -162,7 +253,7 @@ class DataHandlerService:
                 for item in flat_iterator(*data_enumerator):
                     if isinstance(item, collections.Empty):
                         continue
-                    if isinstance(item.table, TimeReferencedTable):
+                    if isinstance(item.table, PlugInTable):
                         last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
                     else:
@@ -181,14 +272,12 @@ class DataHandlerService:
 
         Logger().debug(f"Background task stopped invoked")
 
-    @staticmethod
-    def cache_output(output: str):
-        return CacheLines().upload(output)
 
-
+@Singleton
 class CacheLines:
-    def __init__(self, max_workers=5):
-        self._max_workers = max_workers
+    DEFAULT_MAX_WORKERS = 5
+
+    def __init__(self):
         self._output_ref = None
         self._lock = RLock()
 
@@ -244,9 +333,8 @@ class CacheLines:
                 return False
         return True
 
-    def upload(self, output):
-        lines_cache = []
-        with ThreadPoolExecutor(max_workers=self._max_workers) as e:
+    def upload(self, output, max_workers=DEFAULT_MAX_WORKERS):
+        with ThreadPoolExecutor(max_workers=max_workers) as e:
             lines_cache = [[i, ref]
                            for i, ref in e.map(self.cache_line, [(_id, line)
                                                                  for _id, line in enumerate(output.splitlines())])]
@@ -257,7 +345,7 @@ class CacheLines:
             self.output_ref = output_data[0][0] + 1 if output_data != [(None,)] else 0
             DataHandlerService().execute(insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
                                          [[self.output_ref] + lr for lr in lines_cache])
-        return self.output_ref, lines_cache
+        return self.output_ref
 
 
 __all__ = [
@@ -265,5 +353,7 @@ __all__ = [
     'TableSchemaService',
     'PlugInService',
     'DB_DATETIME_FORMAT',
-    'CacheLines'
+    'CacheLines',
+    'PlugInTable',
+    'DataUnit'
 ]

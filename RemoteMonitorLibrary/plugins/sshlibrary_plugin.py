@@ -4,6 +4,7 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary as RSSHLibrary
 from robot.utils import is_truthy
 
+import RemoteMonitorLibrary.api.db
 from RemoteMonitorLibrary.api import db, model
 from RemoteMonitorLibrary.api.plugins import SSHLibraryCommand, PlugInAPI, Parser, extract_method_arguments
 from RemoteMonitorLibrary.utils import Logger
@@ -40,14 +41,19 @@ __doc__ = """
     """
 
 
-class sshlibrary_errors(model.TimeReferencedTable):
+class sshlibrary_monitor(model.PlugInTable):
     def __init__(self):
-        model.TimeReferencedTable.__init__(self, fields=[model.Field('Command'), model.Field('Output')])
+        super().__init__('sshlibrary_monitor')
+        self.add_time_reference()
+        self.add_field(model.Field('Command'))
+        self.add_field(model.Field('Rc', model.FieldType.Int))
+        self.add_field(model.Field('Status'))
+        self.add_output_cache_reference()
 
 
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
-        super().__init__(table=db.TableSchemaService().tables.sshlibrary_errors, **kwargs)
+        super().__init__(table=db.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
 
     def __call__(self, output: dict) -> bool:
         out = output.get('stdout', None)
@@ -56,7 +62,7 @@ class UserCommandParser(Parser):
         total_output = f'{out}' if out else ''
         total_output += ('\n' if len(total_output) > 0 else '') + (f'{err}' if err else '')
 
-        rc = output.get('rc', None)
+        rc = output.get('rc', -1)
 
         exp_rc = self.options.get('rc', None)
         expected = self.options.get('expected', None)
@@ -74,16 +80,22 @@ class UserCommandParser(Parser):
             if any([pattern in total_output for pattern in re.split(r'\s*\|\s*', prohibited)]) or \
                     not all([pattern not in total_output for pattern in re.split(r'\s*\&\s*', prohibited)]):
                 errors.append("Output contain prohibited pattern [{}]".format(prohibited))
-        st = True
+
         if len(errors) > 0:
-            st = False
+            st = 'False'
             msg = "\nErrors:\n\t{}\n\tRC: {}\nOutput:\n\t{}".format('\n\t'.join(errors),
                                                                     rc,
                                                                     '\n\t'.join(total_output.splitlines()))
-            du = db.DataUnit(self.table, self.table.template(self.host_id, None, self.options.get('command'), msg))
-            self.data_handler(du)
             Logger().error(msg)
-        return st
+        else:
+            st = 'Pass'
+            msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))
+        output_ref = db.CacheLines().upload(msg)
+        du = model.DataUnit(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
+                                                                                  output_ref))
+        self.data_handler(du)
+
+        return True if st == 'Pass' else False
 
 
 class SSHLibrary(PlugInAPI):
@@ -101,7 +113,7 @@ class SSHLibrary(PlugInAPI):
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return sshlibrary_errors(),
+        return sshlibrary_monitor(),
 
     @staticmethod
     def _normalise_arguments(**kwargs):
@@ -118,3 +130,11 @@ class SSHLibrary(PlugInAPI):
                                                           name=self.name, command=self._command, **self.options),
                                  **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
                                                                  **self.options))),
+
+    def __str__(self):
+        return f"{super().host_alias}: {self._command}"
+
+
+if __name__ == '__main__':
+    t = sshlibrary_monitor()
+    print(f"{t}")

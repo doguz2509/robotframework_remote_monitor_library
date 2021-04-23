@@ -12,7 +12,6 @@ from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError, EmptyCom
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
 from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
 
-
 SSHLibraryArgsMapping = {
     SSHLibrary.execute_command.__name__: {'return_stdout': (is_truthy, True),
                                           'return_stderr': (is_truthy, False),
@@ -124,8 +123,17 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._thread = Thread(name=self.type, target=target, daemon=True)
 
     @property
-    def thread_name(self):
+    def host_alias(self):
         return self.parameters.alias
+
+    @property
+    def type(self):
+        return f"{self.__class__.__name__}"
+
+    def __str__(self):
+        return "PlugIn {}: {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
+            self.type, self.host_alias, self._interval, self.persistent, self.sudo_expected,
+            self.sudo_password_expected)
 
     def start(self):
         self._thread.start()
@@ -137,10 +145,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     @property
     def is_alive(self):
         return self._thread.is_alive()
-
-    @property
-    def type(self):
-        return f"{self.__class__.__name__}"
 
     @property
     def sudo_expected(self):
@@ -167,13 +171,13 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
         if len(self._session_errors) == self._fault_tolerance:
             raise PlugInError(
-                f"Stop plugin '{self.thread_name}' errors count arrived to limit ({self._fault_tolerance})")
+                f"Stop plugin '{self.host_alias}' errors count arrived to limit ({self._fault_tolerance})")
         if len(self._session_errors) == 0:
             Logger().info(f"Connection establishing")
         else:
             Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
-        self._ssh.open_connection(host, self.thread_name, port)
+        self._ssh.open_connection(host, self.host_alias, port)
 
         start_ts = datetime.now()
         while True:
@@ -190,8 +194,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             finally:
                 duration = (datetime.now() - start_ts).total_seconds()
                 if duration >= self.parameters.timeout:
-                    raise TimeoutError(f"Cannot connect to host {self.parameters.host} during {self.parameters.timeout}s")
-        Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.type}' iteration started")
+                    raise TimeoutError(
+                        f"Cannot connect to host {self.parameters.host} during {self.parameters.timeout}s")
+        Logger().info(f"SSHLibraryCommand '{self.host_alias} {self.type}' iteration started")
         return self._ssh
 
     def _close_ssh_library_connection_from_thread(self):
@@ -207,7 +212,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         if value:
             self._session_errors.append(value)
             Logger().error("{name} {alias}; Error raised: {error} ({real} from {allowed})".format(
-                name=self.thread_name,
+                name=self.host_alias,
                 alias=self.parameters.alias,
                 real=len(self._session_errors),
                 allowed=self._fault_tolerance,
@@ -217,10 +222,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             self._session_errors.clear()
 
         if self._is_logged_in:
-            self._ssh.switch_connection(self.thread_name)
+            self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
-        Logger().info(f"SSHLibraryCommand '{self.thread_name} {self.parameters.alias}' iteration ended")
+        Logger().info(f"SSHLibraryCommand '{self.host_alias} {self.parameters.alias}' iteration ended")
 
     @property
     def is_continue_expected(self):
@@ -232,15 +237,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             return False
         return True
 
-    def __str__(self):
-        return "PlugIn {}: {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
-            self.type, self.thread_name, self._interval, self.persistent, self.sudo_expected,
-            self.sudo_password_expected)
-
     def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
         total_output = ''
         try:
-            ssh_client.switch_connection(self.thread_name)
+            ssh_client.switch_connection(self.host_alias)
             flow_values = getattr(self, flow.value)
             if len(flow_values) == 0:
                 raise EmptyCommandSet()
@@ -259,16 +259,19 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"{flow.name}: execution completed\n{total_output}")
 
     def _persistent_worker(self):
-        Logger().info(f"Start persistent session for '{self.thread_name}'")
+        Logger().info(f"Start persistent session for '{self.host_alias}'")
         while self.is_continue_expected:
             try:
                 with self as ssh:
                     self._run_command(ssh, self.flow_type.Setup)
                     while self.is_continue_expected:
                         start_ts = datetime.now()
-                        next_ts = start_ts + timedelta(seconds=self.parameters.interval)
+                        _timedelta = timedelta(seconds=self.parameters.interval) \
+                            if self.parameters.interval is not None else timedelta(seconds=0)
+                        next_ts = start_ts + _timedelta
                         self._run_command(ssh, self.flow_type.Command)
-                        evaluate_duration(start_ts, next_ts, self.thread_name)
+                        if self.parameters.interval is not None:
+                            evaluate_duration(start_ts, next_ts, self.host_alias)
                         while datetime.now() < next_ts:
                             if not self.is_continue_expected:
                                 break
@@ -284,15 +287,18 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def _interrupt_worker(self):
         try:
-            Logger().info(f"Start interrupt-session for '{self.thread_name}'")
+            Logger().info(f"Start interrupt-session for '{self.host_alias}'")
             with self as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
             while self.is_continue_expected:
                 with self as ssh:
                     start_ts = datetime.now()
-                    next_ts = start_ts + timedelta(seconds=self.parameters.interval)
+                    _timedelta = timedelta(seconds=self.parameters.interval) \
+                        if self.parameters.interval is not None else timedelta(seconds=0)
+                    next_ts = start_ts + _timedelta
                     self._run_command(ssh, self.flow_type.Command)
-                    evaluate_duration(start_ts, next_ts, self.thread_name)
+                    if self.parameters.interval is not None:
+                        evaluate_duration(start_ts, next_ts, self.host_alias)
                 while datetime.now() < next_ts:
                     if not self.is_continue_expected:
                         break

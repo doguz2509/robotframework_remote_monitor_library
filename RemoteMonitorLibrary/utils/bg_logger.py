@@ -41,7 +41,7 @@ class Logger:
     def _write(self, msg, level='INFO', console=False):
         thread_name = currentThread().name
         if thread_name == 'MainThread':
-            robot_logger.write(msg, level)
+            robot_logger.write(msg, 'ERROR' if level == 'CRITICAL' else level)
         if console:
             robot_logger.console(msg)
         if level == 'INFO':

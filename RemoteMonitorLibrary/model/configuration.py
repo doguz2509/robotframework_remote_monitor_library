@@ -1,11 +1,11 @@
 from threading import Event
 
-from robot.utils import DotDict, is_truthy
+from robot.utils import DotDict
 from robot.utils.robottime import timestr_to_secs
 
 from RemoteMonitorLibrary.utils.sys_utils import get_error_info
 
-DEFAULT_INTERVAL = '0.5s'
+DEFAULT_INTERVAL = None
 DEFAULT_CONNECTION_INTERVAL = 60
 DEFAULT_FAULT_TOLERANCE = 10
 

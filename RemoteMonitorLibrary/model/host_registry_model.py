@@ -50,7 +50,7 @@ class HostModule:
     def start(self):
         self._configuration.update({'event': Event()})
         DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.name,
-                                                TableSchemaService().tables.TraceHost.columns), None, self.alias)
+                                                TableSchemaService().tables.TraceHost.columns), *(None, self.alias))
 
         self._host_id = DataHandlerService().get_last_row_id
 
