@@ -61,6 +61,8 @@ class BIKeywords:
         - alias:
         - options:
         :Return - html link to chart file
+
+        Note: In case report portal used chart files will be uploaded into lunch report (See in `Report Portal integration`)
         """
         if not os.path.exists(self._image_path):
             os.makedirs(self._image_path, exist_ok=True)

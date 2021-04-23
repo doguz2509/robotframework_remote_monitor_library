@@ -18,7 +18,7 @@ __doc__ = """= Integrations =
     | --variable PLATFORM:CUSTOM_REMOTE_CHROME
     | --variable x_api_version:1.4.0
      
-     For further information look in [https://github.com/reportportal/agent-Python-RobotFramework|ReportPortal]
+     For portal installation and further information look in [https://github.com/reportportal/agent-Python-RobotFramework|ReportPortal]
     
     """
 

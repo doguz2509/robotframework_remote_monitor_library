@@ -68,29 +68,27 @@ class ConnectionKeywords(TraceListener):
     """
 
     def __init__(self, rel_location, file_name, **options):
-        """
-        Initialise System Trace Library instance
-
-        Arguments:
-        - rel_location: relative log location
-        - file_name: name for db & log files
-
-        Optional parameters:
-            - cumulative: delete existed db file if True, (Default: False)
-
-        Auto keywords:
-            - start_suite:
-            - end_suite:
-            - start_test:
-            - end_test
-
-        Keywords (start_period, stop_period will be assigned) will be assigned if True
-        Provided keyword will be provided if defined
-
-        Default - Nothing
-
-        Note: working with current alias only
-        """
+        # __doc__ = """
+        # === Initialise System Trace Library instance ===
+        #
+        # Arguments:
+        # - rel_location: relative log location
+        # - file_name: name for db & log files
+        #
+        # Optional parameters:
+        #     - cumulative: existed db file will be reused if True otherwise deleted and recreate [Default: False]
+        #
+        # Auto start/end period will be invoked for:
+        #     - start_test:
+        #     - end_test
+        #
+        # Keywords (start_period, stop_period will be assigned) will be assigned if True
+        # Provided keyword will be provided if defined
+        #
+        # Default - Nothing
+        #
+        # Note: working with current alias only
+        # """
         self._start_suite_name = ''
         self._modules = HostRegistryCache()
         self.location, self.file_name, self.cumulative = \
@@ -144,6 +142,19 @@ class ConnectionKeywords(TraceListener):
         |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |                   | Custom port; No alias |
         |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name}       | Custom port; Alias    |
         |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name} | Default port; Alias    |
+        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  certificate=key_file.pem | Certificate file will be assigned  |
+
+        === Auto start/stop periods ===
+        By default keyword `Start period`, `Stop period` assigned for start/end test accordingly following by test name
+
+        Can be overwritten by key value pairs
+        | listener method=keyword name
+
+        Where listener are one of:
+        | start_suite
+        | end_suite
+        | start_test
+        | end_test
 
         """
         if not db.DataHandlerService().is_active:
