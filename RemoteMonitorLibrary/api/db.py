@@ -139,10 +139,10 @@ class DataUnit:
 
     @result.setter
     def result(self, value):
-        self._result = value
-        self._result_ready = True
         if self._timer:
             self._timer.cancel()
+        self._result = value
+        self._result_ready = True
 
     @property
     def result_ready(self):

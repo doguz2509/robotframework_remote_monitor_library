@@ -1,6 +1,8 @@
 from threading import RLock
 from typing import Any
 
+from RemoteMonitorLibrary.utils import Logger
+
 
 class Empty(Exception):
     pass
@@ -15,6 +17,7 @@ class tsQueue:
     def put(self, item):
         with self._lock:
             self._queue.append(item)
+            Logger().debug(f"Item '{item}' enqueued")
 
     def get(self) -> Any:
         with self._lock:

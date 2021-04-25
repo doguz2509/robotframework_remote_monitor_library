@@ -99,11 +99,10 @@ class aTopSystemLevelChart(ChartAbstract):
 
 
 class aTopDataUnit(db.DataUnit):
-    def __init__(self, table, host_id, lines, **kwargs):
+    def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
         self._host_id = host_id
-        self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
 
     @staticmethod
     def _generate_atop_system_level(input_text, columns_template, *defaults):
@@ -165,14 +164,7 @@ class aTopDataUnit(db.DataUnit):
         return res
 
     def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
-        for atop_portion in [e.strip() for e in self._lines.split('ATOP') if e.strip() != '']:
-            lines = atop_portion.splitlines()
-            f_line = lines.pop(0)
-            ts = '_'.join(re.split(r'\s+', f_line)[2:4])
-            if ts not in self._ts_cache:
-                self._ts_cache.append(ts)
-                for entry in self._generate_atop_system_level('\n'.join(lines), self.table.template, self._host_id, None):
-                    self._data.append(entry)
+        self._data = self._generate_atop_system_level('\n'.join(self._lines), self.table.template, self._host_id, None)
         return super().__call__(**updates)
 
 
@@ -209,7 +201,13 @@ class aTopParser(plugins.Parser):
             stderr = output.get('stderr')
             rc = output.get('rc')
             assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}\n{stderr}"
-            self.data_handler(aTopDataUnit(self.table, self.host_id, stdout))
+            for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
+                lines = atop_portion.splitlines()
+                f_line = lines.pop(0)
+                ts = '_'.join(re.split(r'\s+', f_line)[2:4])
+                if ts not in self._ts_cache:
+                    self._ts_cache.append(ts)
+                    self.data_handler(aTopDataUnit(self.table, self.host_id, *lines))
 
         except Exception as e:
             f, li = get_error_info()
