@@ -146,19 +146,21 @@ class TimeChart(plugins.ChartAbstract):
 
 class TimeParser(plugins.Parser):
     def __call__(self, outputs) -> bool:
-        command_out = outputs.get('stdout')
-        time_output = outputs.get('stderr')
+        command_out = outputs.get('stdout', None)
+        time_output = outputs.get('stderr', None)
         rc = outputs.get('rc')
         try:
             assert rc == 0, f"Result return rc {rc}"
             data = time_output.split(',')
             row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
             Logger().info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
-            Logger().debug(f"Command: {row_dict.get('Command')} output:\n{command_out}")
 
             row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
-            du = DataRowUnitWithOutput(self.table, row, output=command_out) \
-                if self.options.get('Command', None) else model.DataUnit(self.table, row)
+            if command_out:
+                du = DataRowUnitWithOutput(self.table, row, output=command_out)
+                Logger().debug("Command: {} output stored to cache\n{}".format(row_dict.get('Command'), command_out))
+            else:
+                du = model.DataUnit(self.table, row)
             self.data_handler(du)
             Logger().debug(f"Item enqueued - {du}")
             return True
@@ -174,6 +176,10 @@ class TimeSSHCommand(plugins.SSHLibraryCommand):
         command = f'{self._time_cmd} -f "{self._format}" {command}'
         if not user_options.pop('store_output', False):
             command += ' > /dev/null'
+            user_options.update({'return_stdout': True})
+        else:
+            user_options.update({'return_stdout': False})
+        user_options.update({'return_stderr': True, 'return_rc': True})
         super().__init__(method, command=command, **user_options)
 
 
