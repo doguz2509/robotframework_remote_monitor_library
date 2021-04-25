@@ -187,7 +187,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 else:
                     self._ssh.login(username, password)
             except Exception as err:
-                Logger().warning(f"Connection fail; Reason: {err}")
+                Logger().warning(f"Connection to {self.host_alias} failed; Reason: {err}")
             else:
                 self._is_logged_in = True
                 break
@@ -195,8 +195,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 duration = (datetime.now() - start_ts).total_seconds()
                 if duration >= self.parameters.timeout:
                     raise TimeoutError(
-                        f"Cannot connect to host {self.parameters.host} during {self.parameters.timeout}s")
-        Logger().info(f"SSHLibraryCommand '{self.host_alias} {self.type}' iteration started")
+                        f"Connection to {self.host_alias} didn't succeed during {self.parameters.timeout}s")
+        Logger().info(f"Connection established to {self.host_alias}")
         return self._ssh
 
     def _close_ssh_library_connection_from_thread(self):
@@ -211,12 +211,11 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __exit__(self, type_, value, tb):
         if value:
             self._session_errors.append(value)
-            Logger().error("{name} {alias}; Error raised: {error} ({real} from {allowed})".format(
+            Logger().error("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
-                alias=self.parameters.alias,
+                error=value,
                 real=len(self._session_errors),
                 allowed=self._fault_tolerance,
-                error=value
             ))
         else:
             self._session_errors.clear()
@@ -225,7 +224,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
-        Logger().info(f"SSHLibraryCommand '{self.host_alias} {self.parameters.alias}' iteration ended")
+        Logger().info(f"Connection to {self.host_alias} closed")
 
     @property
     def is_continue_expected(self):
@@ -244,19 +243,20 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             flow_values = getattr(self, flow.value)
             if len(flow_values) == 0:
                 raise EmptyCommandSet()
+            Logger().debug(f"Iteration {flow.name} started")
             for i, cmd in enumerate(flow_values):
                 run_status = cmd(ssh_client, **self.parameters)
                 total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
                 sleep(0.05)
         except EmptyCommandSet:
-            Logger().warning(f"Command set '{flow.name}' ignored")
+            Logger().warning(f"Iteration '{flow.name}' ignored")
         except Exception as e:
             f, li = get_error_info()
             err = type(e)(f"{e}; File: {f}:{li}")
-            Logger().critical(f"Unexpected error occurred: {err}")
+            Logger().critical(f"Iteration '{flow.name}' -> Unexpected error occurred: {err}")
             raise err
         else:
-            Logger().info(f"{flow.name}: execution completed\n{total_output}")
+            Logger().info(f"Iteration '{flow.name}' completed\n{total_output}")
 
     def _persistent_worker(self):
         Logger().info(f"Start persistent session for '{self.host_alias}'")
@@ -281,7 +281,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 self._internal_event.set()
                 Logger().critical(f"{e}")
             except Exception as e:
-                Logger().warning(f"Connection error; Reason: {e}")
+                Logger().error(f"Connection error; Reason: {e}")
                 sleep(2)
         Logger().info(f"Persistent session for '{self}' ended")
 
