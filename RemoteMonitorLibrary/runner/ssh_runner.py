@@ -259,7 +259,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"Iteration '{flow.name}' completed\n{total_output}")
 
     def _persistent_worker(self):
-        Logger().info(f"Start persistent session for '{self.host_alias}'")
+        Logger().info(f"PlugIn '{self}' started", console=True)
         while self.is_continue_expected:
             try:
                 with self as ssh:
@@ -283,11 +283,11 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             except Exception as e:
                 Logger().error(f"Connection error; Reason: {e}")
                 sleep(2)
-        Logger().info(f"Persistent session for '{self}' ended")
+        Logger().info(f"PlugIn '{self}' stopped", console=True)
 
     def _interrupt_worker(self):
         try:
-            Logger().info(f"Start interrupt-session for '{self.host_alias}'")
+            Logger().info(f"PlugIn '{self}' started", console=True)
             with self as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
             while self.is_continue_expected:
@@ -310,3 +310,4 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             f, li = get_error_info()
             Logger().error(msg=f"{e}; File: {f}:{li}")
             raise RunnerError(f"{e}; File: {f}:{li}")
+        Logger().info(f"PlugIn '{self}' stopped", console=True)

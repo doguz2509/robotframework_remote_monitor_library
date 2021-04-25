@@ -1,6 +1,7 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
+from datetime import datetime
 from typing import Iterable, Tuple, List, Any
 
 from SSHLibrary import SSHLibrary
@@ -204,7 +205,7 @@ class aTopParser(plugins.Parser):
             for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
                 lines = atop_portion.splitlines()
                 f_line = lines.pop(0)
-                ts = '_'.join(re.split(r'\s+', f_line)[2:4])
+                ts = '_'.join(re.split(r'\s+', f_line)[2:4]) + f".{datetime.now().strftime('%S')}"
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
                     self.data_handler(aTopDataUnit(self.table, self.host_id, *lines))
