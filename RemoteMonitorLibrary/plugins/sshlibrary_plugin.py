@@ -132,7 +132,7 @@ class SSHLibrary(PlugInAPI):
                                                                  **self.options))),
 
     def __str__(self):
-        return f"{super().host_alias}: {self._command}"
+        return f"{self.type} on {super().host_alias}: {self._command}"
 
 
 if __name__ == '__main__':

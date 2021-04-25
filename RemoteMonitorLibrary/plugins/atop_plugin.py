@@ -171,8 +171,8 @@ class aTopDataUnit(db.DataUnit):
             ts = '_'.join(re.split(r'\s+', f_line)[2:4])
             if ts not in self._ts_cache:
                 self._ts_cache.append(ts)
-                self._data.append(self._generate_atop_system_level('\n'.join(self._lines),
-                                                                   self.table.table_template, self._host_id, None))
+                for entry in self._generate_atop_system_level('\n'.join(lines), self.table.template, self._host_id, None):
+                    self._data.append(entry)
         return super().__call__(**updates)
 
 
