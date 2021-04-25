@@ -131,7 +131,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         return f"{self.__class__.__name__}"
 
     def __str__(self):
-        return "PlugIn {}: {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
+        return "{} on {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
             self.type, self.host_alias, self._interval, self.persistent, self.sudo_expected,
             self.sudo_password_expected)
 

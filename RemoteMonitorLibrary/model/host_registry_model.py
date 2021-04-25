@@ -74,9 +74,8 @@ class HostModule:
         assert plugin, f"Plugin '{plugin_name}' not registered"
         plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         plugin.start()
-        logger.info(f"PlugIn '{plugin}' started")
         self._active_plugins[hash(plugin)] = plugin
-        logger.info(f"PlugIn '{plugin_name}' started")
+        logger.info(f"PlugIn '{plugin}' started", also_console=True)
 
     def get_plugin(self, plugin_name=None, **options):
         res = []

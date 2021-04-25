@@ -97,7 +97,6 @@ class plugin_runner_abstract:
     def store_variable(self, variable_name):
         def _(value):
             self.variables[variable_name] = value
-
         return _
 
     @property
