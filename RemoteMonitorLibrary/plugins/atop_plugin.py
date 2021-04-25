@@ -7,7 +7,7 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import timestr_to_secs
 
-from RemoteMonitorLibrary.api import plugins, model, tools
+from RemoteMonitorLibrary.api import plugins, model, tools, db
 from RemoteMonitorLibrary.api.plugins import ChartAbstract
 from RemoteMonitorLibrary.utils import Size, get_error_info
 
@@ -98,31 +98,12 @@ class aTopSystemLevelChart(ChartAbstract):
         return result
 
 
-class aTopParser(plugins.Parser):
-    def __init__(self, **kwargs):
-        plugins.Parser.__init__(self, **kwargs)
+class aTopDataUnit(db.DataUnit):
+    def __init__(self, table, host_id, lines, **kwargs):
+        super().__init__(table, **kwargs)
+        self._lines = lines
+        self._host_id = host_id
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
-
-    @staticmethod
-    def try_time_string_to_secs(time_str):
-        try:
-            return timestr_to_secs(time_str)
-        except Exception:
-            return -1
-
-    @staticmethod
-    def _normalize_line(*cells):
-        try:
-            result_tuple = [s.strip().replace('#', '') for s in cells if len(s.strip()) > 0]
-            type_, col1, col2, col3, col4, col5 = result_tuple
-        except ValueError:
-            type_, col1, col2, col4, col5 = result_tuple
-            col3 = 'swcac   0'
-        except Exception as e:
-            raise
-        finally:
-            data_ = col1, col2, col3, col4, col5
-        return type_, data_
 
     @staticmethod
     def _generate_atop_system_level(input_text, columns_template, *defaults):
@@ -183,21 +164,52 @@ class aTopParser(plugins.Parser):
                 raise
         return res
 
+    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        for atop_portion in [e.strip() for e in self._lines.split('ATOP') if e.strip() != '']:
+            lines = atop_portion.splitlines()
+            f_line = lines.pop(0)
+            ts = '_'.join(re.split(r'\s+', f_line)[2:4])
+            if ts not in self._ts_cache:
+                self._ts_cache.append(ts)
+                self._data.append(self._generate_atop_system_level('\n'.join(self._lines),
+                                                                   self.table.table_template, self._host_id, None))
+        return super().__call__(**updates)
+
+
+class aTopParser(plugins.Parser):
+    def __init__(self, **kwargs):
+        plugins.Parser.__init__(self, **kwargs)
+        self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
+
+    @staticmethod
+    def try_time_string_to_secs(time_str):
+        try:
+            return timestr_to_secs(time_str)
+        except Exception:
+            return -1
+
+    @staticmethod
+    def _normalize_line(*cells):
+        try:
+            result_tuple = [s.strip().replace('#', '') for s in cells if len(s.strip()) > 0]
+            type_, col1, col2, col3, col4, col5 = result_tuple
+        except ValueError:
+            type_, col1, col2, col4, col5 = result_tuple
+            col3 = 'swcac   0'
+        except Exception as e:
+            raise
+        finally:
+            data_ = col1, col2, col3, col4, col5
+        return type_, data_
+
     def __call__(self, output) -> bool:
-        table_template = self.table.template
+        # table_template = self.table.template
         try:
             stdout = output.get('stdout')
             stderr = output.get('stderr')
             rc = output.get('rc')
             assert rc == 0, f"Last {self.__class__.__name__} ended with rc: {rc}\n{stderr}"
-            for atop_portion in [e.strip() for e in stdout.split('ATOP') if e.strip() != '']:
-                lines = atop_portion.splitlines()
-                f_line = lines.pop(0)
-                ts = '_'.join(re.split(r'\s+', f_line)[2:4])
-                if ts not in self._ts_cache:
-                    data = self._generate_atop_system_level('\n'.join(lines), table_template, self.host_id, None)
-                    self._ts_cache.append(ts)
-                    self.data_handler(model.DataUnit(self.table, *data))
+            self.data_handler(aTopDataUnit(self.table, self.host_id, stdout))
 
         except Exception as e:
             f, li = get_error_info()
