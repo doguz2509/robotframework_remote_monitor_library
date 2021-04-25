@@ -91,8 +91,8 @@ class UserCommandParser(Parser):
             st = 'Pass'
             msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))
         output_ref = db.CacheLines().upload(msg)
-        du = model.DataUnit(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
-                                                                                  output_ref))
+        du = model.data_factory(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
+                                                                output_ref))
         self.data_handler(du)
 
         return True if st == 'Pass' else False

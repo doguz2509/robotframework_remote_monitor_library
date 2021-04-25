@@ -18,7 +18,7 @@ from SSHLibrary import SSHLibrary
 from robot.utils import DotDict, is_truthy
 
 from RemoteMonitorLibrary.api import plugins, model
-from RemoteMonitorLibrary.api.model import DataRowUnitWithOutput
+from RemoteMonitorLibrary.api.db import DataRowUnitWithOutput
 from RemoteMonitorLibrary.api.tools import Logger
 
 __doc__ = """
@@ -153,14 +153,15 @@ class TimeParser(plugins.Parser):
             assert rc == 0, f"Result return rc {rc}"
             data = time_output.split(',')
             row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
+            for k in row_dict.keys():
+                if k == 'Command':
+                    continue
+                row_dict.update({k: float(row_dict[k])})
             Logger().info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
 
             row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
-            if command_out:
-                du = DataRowUnitWithOutput(self.table, row, output=command_out)
-                Logger().debug("Command: {} output stored to cache\n{}".format(row_dict.get('Command'), command_out))
-            else:
-                du = model.DataUnit(self.table, row)
+            du = model.data_factory(self.table, row, output=command_out)
+
             self.data_handler(du)
             Logger().debug(f"Item enqueued - {du}")
             return True

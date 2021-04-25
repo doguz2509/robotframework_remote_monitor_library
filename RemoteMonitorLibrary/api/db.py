@@ -153,6 +153,29 @@ class DataUnit:
             self._timer.cancel()
 
 
+class DataRowUnitWithOutput(DataUnit):
+    def __init__(self, table, *data, **kwargs):
+        super().__init__(table, *data)
+        self._output = kwargs.get('output', None)
+        assert self._output, "Output not provided"
+
+    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        output_ref = CacheLines().upload(self._output)
+        for i in range(0, len(self._data)):
+            _template = DotDict(self._data[i]._asdict())
+            _template.update({'OUTPUT_REF': output_ref})
+            self._data[i] = self.table.template(*list(_template.values()))
+        return super().__call__(**updates)
+
+
+def data_factory(table, *data, **kwargs) -> DataUnit:
+    _output = kwargs.get('output', None)
+    if _output:
+        return DataRowUnitWithOutput(table, *data, **kwargs)
+    else:
+        return DataUnit(table, *data, **kwargs)
+
+
 @Singleton
 class TableSchemaService:
     def __init__(self):
@@ -257,17 +280,21 @@ class DataHandlerService:
                 try:
                     if isinstance(item, collections.Empty):
                         continue
+
+                    Logger().debug(f"Dequeue item: {item}")
                     if isinstance(item.table, PlugInTable):
                         last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
+                        Logger().debug(f"Update item: {item}:\n{rows}")
                     else:
                         insert_sql_str, rows = item()
+                        Logger().debug(f"Read item: {item}:\n{rows}")
 
+                    result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
+                    item.result = result
                     Logger().debug("{}\n\t{}\n\t{}".format(type(item).__name__,
                                                            insert_sql_str,
                                                            '\n\t'.join([str(r) for r in rows])))
-                    result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
-                    item.result = result
                 except Exception as e:
                     f, l = get_error_info()
                     Logger().error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
@@ -365,5 +392,6 @@ __all__ = [
     'DB_DATETIME_FORMAT',
     'CacheLines',
     'PlugInTable',
-    'DataUnit'
+    'data_factory'
 ]
+

@@ -112,7 +112,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._session_errors = []
 
         assert self._host_id, "Host ID cannot be empty"
-        self._persistent = is_truthy(user_options.get('persistent', 'false'))
+        self._persistent = is_truthy(user_options.get('persistent', 'yes'))
         self._set_worker()
 
     def _set_worker(self):
