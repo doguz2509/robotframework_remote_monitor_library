@@ -1,3 +1,4 @@
+import hashlib
 from collections import namedtuple
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
@@ -59,7 +60,10 @@ class LinesCacheMap(Table):
 
 class LinesCache(Table):
     def __init__(self):
-        Table.__init__(self, fields=[Field('LINE_ID', FieldType.Int, PrimaryKeys(True)), Field('Line')])
+        Table.__init__(self, fields=[
+            Field('LINE_ID', FieldType.Int, PrimaryKeys(True)),
+            Field('HashTag', unique=True),
+            Field('Line')])
 
 
 class PlugInTable(Table):
@@ -177,10 +181,6 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
         Logger().info(_registered_plugins)
 
 
-class _line_not_found(AssertionError):
-    pass
-
-
 @Singleton
 class DataHandlerService:
     def __init__(self):
@@ -192,6 +192,10 @@ class DataHandlerService:
     @property
     def is_active(self):
         return len(self._threads) == 1
+
+    @property
+    def db_file(self):
+        return self._db.db_file
 
     @property
     def queue(self):
@@ -248,9 +252,9 @@ class DataHandlerService:
     def _data_handler(self):
         Logger().debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
         while not self._event.isSet() or not self._queue.empty():
-            try:
-                data_enumerator = self._queue.get()
-                for item in flat_iterator(*data_enumerator):
+            data_enumerator = self._queue.get()
+            for item in flat_iterator(*data_enumerator):
+                try:
                     if isinstance(item, collections.Empty):
                         continue
                     if isinstance(item.table, PlugInTable):
@@ -259,23 +263,24 @@ class DataHandlerService:
                     else:
                         insert_sql_str, rows = item()
 
+                    Logger().debug("{}\n\t{}\n\t{}".format(type(item).__name__,
+                                                           insert_sql_str,
+                                                           '\n\t'.join([str(r) for r in rows])))
                     result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
                     item.result = result
-                    Logger().debug("\n\t{}\n\t{}".format(insert_sql_str,
-                                                         '\n\t'.join([str(r) for r in (rows if rows else result)])))
-            except Exception as e:
-                f, l = get_error_info()
-                Logger().error(f"Unexpected error occurred: {e}; File: {f}:{l}")
-            else:
-                # Logger().debug(f"Item handling completed")
-                sleep(1)
+                except Exception as e:
+                    f, l = get_error_info()
+                    Logger().error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
+                else:
+                    Logger().debug(f"Item {type(item).__name__} successfully handled")
+            sleep(1)
 
         Logger().debug(f"Background task stopped invoked")
 
 
 @Singleton
 class CacheLines:
-    DEFAULT_MAX_WORKERS = 5
+    DEFAULT_MAX_WORKERS = 4
 
     def __init__(self):
         self._output_ref = None
@@ -290,61 +295,66 @@ class CacheLines:
         with self._lock:
             self._output_ref = value
 
-    def get_sql(self, line):
+    def get_sql(self, tag):
         if self.output_ref:
             return f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
                                       FROM LinesCacheMap 
                                       JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                                      WHERE LinesCache.Line = '{line}' AND OUTPUT_REF = {self.output_ref}"""
+                                      WHERE LinesCache.HashTag = '{tag}' AND OUTPUT_REF = {self.output_ref}"""
         else:
             return f"""SELECT OUTPUT_REF, ORDER_ID, LINE_REF
                                                   FROM LinesCacheMap 
                                                   JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                                                  WHERE LinesCache.Line = '{line}' """
+                                                  WHERE LinesCache.HashTag = '{tag}' """
 
-    def cache_line(self, line_data):
-        line_id, line = line_data
+    @staticmethod
+    def cache_line(line_data):
+        order_id, line = line_data
+        output_ref = None
+        is_output_required = True
         try:
-            entry = DataHandlerService().execute(self.get_sql(line))
+            hash_tag = hashlib.md5(line.encode('utf-8')).hexdigest()
+            entry = DataHandlerService().execute(f"SELECT LINE_ID FROM LinesCache WHERE HashTag == '{hash_tag}'")
             if len(entry) == 0:
-                raise _line_not_found()
-            self.output_ref, order_id, line_ref = entry[0]
-        except _line_not_found:
-            DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'Line']), *(None, line))
-            line_ref = DataHandlerService().get_last_row_id
+                DataHandlerService().execute(insert_sql('LinesCache', ['LINE_ID', 'HashTag', 'Line']),
+                                             *(None, hash_tag, line))
+                line_ref = DataHandlerService().get_last_row_id
+            else:
+                line_ref = entry[0][0]
+
+            if is_output_required:
+                entry1 = DataHandlerService().execute(f"SELECT ORDER_ID FROM LinesCacheMap WHERE LINE_REF == {line_ref}")
+                if len(entry1) != 0:
+                    output_ref = entry1[0][0]
+                    if output_ref != order_id:
+                        is_output_required = False
+
         except Exception as e:
             f, li = get_error_info()
             raise type(e)(f"Unexpected error: {e}; File: {f}:{li}")
-        return line_id, line_ref
+        return output_ref, order_id, line_ref
 
-    @staticmethod
-    def _compare_lines_set(output_ref, output) -> bool:
-        db_entries = {k: v for k, v in DataHandlerService().execute(
-            f"""SELECT ORDER_ID, Line
-                FROM LinesCacheMap 
-                JOIN LinesCache ON LinesCache.LINE_ID = LinesCacheMap.LINE_REF
-                WHERE OUTPUT_REF = {output_ref}""")}
-        current_entries = {ord_id: line for ord_id, line in enumerate(output.splitlines())}
+    def sequence_line_cache(self, output):
+        for data_item in [(_id, line) for _id, line in enumerate(output.splitlines())]:
+            yield list(self.cache_line(data_item))
 
-        for o, line in current_entries.items():
-            try:
-                assert line == db_entries.get(o, None)
-            except AssertionError:
-                return False
-        return True
-
-    def upload(self, output, max_workers=DEFAULT_MAX_WORKERS):
+    def concurrent_lines_cache(self, output, max_workers):
         with ThreadPoolExecutor(max_workers=max_workers) as e:
-            lines_cache = [[i, ref]
-                           for i, ref in e.map(self.cache_line, [(_id, line)
-                                                                 for _id, line in enumerate(output.splitlines())])]
+            for output_ref, order_id, line_ref in e.map(self.cache_line,
+                                                        [(_id, line) for _id, line in enumerate(output.splitlines())]):
+                yield [output_ref, order_id, line_ref]
 
-        if self.output_ref is None or not self._compare_lines_set(self.output_ref, output):
+    def upload(self, output, max_workers: int = DEFAULT_MAX_WORKERS):
+        Logger().debug(f"Cache invoked {'concurrently' if max_workers > 1 else 'as sequence'}")
+        lines_cache = list(self.concurrent_lines_cache(output, max_workers)
+                           if max_workers > 1 else self.sequence_line_cache(output))
+
+        if any([_ref[0] is None for _ref in lines_cache]):
             output_data = DataHandlerService().execute(
                 TableSchemaService().tables.LinesCacheMap.queries.last_output_id.sql)
             self.output_ref = output_data[0][0] + 1 if output_data != [(None,)] else 0
             DataHandlerService().execute(insert_sql('LinesCacheMap', ['OUTPUT_REF', 'ORDER_ID', 'LINE_REF']),
-                                         [[self.output_ref] + lr for lr in lines_cache])
+                                         [[self.output_ref] + lr[1:] for lr in lines_cache])
         return self.output_ref
 
 

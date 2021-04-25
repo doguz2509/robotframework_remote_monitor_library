@@ -1,5 +1,5 @@
 from unittest import TestCase
-from RemoteMonitorLibrary.plugins.time_plugin.runner import TimeParser, TimeMeasurement
+from RemoteMonitorLibrary.plugins.time_plugin import TimeParser, TimeMeasurement
 from RemoteMonitorLibrary.api.db import DataHandlerService
 
 
