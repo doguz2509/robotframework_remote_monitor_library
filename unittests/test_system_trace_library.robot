@@ -39,10 +39,10 @@ Test Host monitor
 #    Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}  sudo=yes
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137|128  return_rc=yes
 #    ...     persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
-#    Start monitor plugin  Time  command=make -j 20 clean all  persistent=${PERSISTENT}
-#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=1s
-    ...     start_in_folder=~/bm_noise/linux-5.11.10
+    Start monitor plugin  Time  command=make -j 20 clean all  persistent=${PERSISTENT}
+    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+#    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=1s
+#    ...     start_in_folder=~/bm_noise/linux-5.11.10
 
     sleep  ${DURATION}  make something here
 #    Stop monitor plugin  Time  name=Complilation
