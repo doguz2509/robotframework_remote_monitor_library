@@ -15,7 +15,7 @@ __package_name__ = os.path.split(os.path.split(__file__)[0])[1]
 
 __all__ = [
     'api',
-    'builtin_plugins',
+    'plugins',
     'RemoteMonitorLibrary',
     '__author_email__',
     '__author__',
