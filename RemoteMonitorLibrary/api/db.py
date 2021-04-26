@@ -1,8 +1,7 @@
 import hashlib
-from collections import namedtuple
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
-from threading import Event, Thread, RLock, Timer
+from threading import Event, Thread, RLock, Timer, currentThread
 from time import sleep
 from typing import List, AnyStr, Mapping, Tuple, Iterable
 

@@ -1,8 +1,8 @@
 from abc import ABC
 
+from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.model.configuration import Configuration
 from RemoteMonitorLibrary.model.runner_model import Parser, plugin_integration_abstract
-from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.runner.ssh_runner import SSHLibraryPlugInWrapper, SSHLibraryCommand, extract_method_arguments
 
 

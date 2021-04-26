@@ -170,18 +170,26 @@ class TimeParser(plugins.Parser):
             raise type(e)(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
 
 
-class TimeSSHCommand(plugins.SSHLibraryCommand):
-    def __init__(self, method, command, **user_options):
+class TimeStartCommand(plugins.SSHLibraryCommand):
+    def __init__(self, command, **user_options):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         command = f'{self._time_cmd} -f "{self._format}" {command}'
-        if not user_options.pop('store_output', False):
+        start_in_folder = user_options.pop('start_in_folder', None)
+        if start_in_folder:
+            command = f"cd {start_in_folder}; {command}"
+        if not user_options.get('return_stdout', False):
             command += ' > /dev/null'
-            user_options.update({'return_stdout': True})
-        else:
-            user_options.update({'return_stdout': False})
+        super().__init__(SSHLibrary.start_command, command,
+                         **plugins.extract_method_arguments(SSHLibrary.start_command.__name__, **user_options))
+
+
+class TimeReadOutput(plugins.SSHLibraryCommand):
+    def __init__(self, **user_options):
+        self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         user_options.update({'return_stderr': True, 'return_rc': True})
-        super().__init__(method, command=command, **user_options)
+        super().__init__(SSHLibrary.read_command_output, parser=user_options.pop('parser', None),
+                         **plugins.extract_method_arguments(SSHLibrary.read_command_output.__name__, **user_options))
 
 
 class Time(plugins.PlugInAPI):
@@ -192,16 +200,18 @@ class Time(plugins.PlugInAPI):
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
         self._command = options.get('command', None)
         self._command_name = options.get('name', None)
-        self._store_output = is_truthy(options.get('store_output', False))
-        self._timeout = options.get('timeout', None)
-        self._timeout = timestr_to_secs(self._timeout) if self._timeout else None
 
         self._start_in_folder = options.get('start_in_folder', None)
         if self._start_in_folder:
-            with self as ssh:
-                ssh.directory_should_exist(self._start_in_folder)
-
+            self._verify_folder_exist(self._start_in_folder)
         assert self._command, "SSHLibraryCommand not provided"
+
+    def _verify_folder_exist(self, _path):
+        with self as ssh:
+            if self._start_in_folder.startswith('~'):
+                user_home = ssh.execute_command('echo $HOME').strip()
+                _path = _path.replace('~', user_home)
+            ssh.directory_should_exist(os.path.expanduser(_path))
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
@@ -214,16 +224,25 @@ class Time(plugins.PlugInAPI):
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
 
+    # @property
+    # def periodic_commands(self):
+    #     return TimeSSHCommand(SSHLibrary.execute_command, self._command,
+    #                           parser=TimeParser(host_id=self.host_id,
+    #                                             table=self.affiliated_tables()[0],
+    #                                             data_handler=self.data_handler, Command=self.name,
+    #                                             store_output=self._store_output),
+    #                           return_stderr=True, return_rc=True, timeout=self._timeout,
+    #                           start_in_folder=self._start_in_folder,
+    #                           store_output=self._store_output),
+
     @property
     def periodic_commands(self):
-        return TimeSSHCommand(SSHLibrary.execute_command, self._command,
-                              parser=TimeParser(host_id=self.host_id,
-                                                table=self.affiliated_tables()[0],
-                                                data_handler=self.data_handler, Command=self.name,
-                                                store_output=self._store_output),
-                              return_stderr=True, return_rc=True, timeout=self._timeout,
-                              start_in_folder=self._start_in_folder,
-                              store_output=self._store_output),
+        return (TimeStartCommand(**self.options),
+                TimeReadOutput(parser=TimeParser(host_id=self.host_id,
+                                                 table=self.affiliated_tables()[0],
+                                                 data_handler=self.data_handler, Command=self.name),
+                               **self.options)
+                )
 
     def __str__(self):
         return f"{self.type} [on {self.host_alias}] start command '{self._command}'  [name={self.name}]"

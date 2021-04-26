@@ -30,6 +30,9 @@ class tsQueue:
     def __len__(self):
         return len(self._queue)
 
+    def __iter__(self):
+        return self._queue
+
     qsize = __len__
 
     def empty(self):

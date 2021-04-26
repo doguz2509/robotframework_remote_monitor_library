@@ -1,16 +1,41 @@
 from collections import Callable
-from threading import Event
+from threading import Event, Thread, RLock
+from time import sleep
 
 from robot.api import logger
-from robot.utils.connectioncache import NoConnection, ConnectionCache
+from robot.utils.connectioncache import ConnectionCache
 
 from RemoteMonitorLibrary.api.db import TableSchemaService, DataHandlerService
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.utils import Singleton, print_plugins_table
+from RemoteMonitorLibrary.utils import Singleton
+from RemoteMonitorLibrary.utils.collections import tsQueue
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 
-# TODO: add active plugin monitor logging
+class _keep_alive(Thread):
+    def __init__(self, name, err_list: tsQueue, event=Event()):
+        self.event = event
+        self.lock = RLock()
+        self.err_list = err_list
+        super().__init__(name=name, daemon=True)
+
+    def run(self):
+        DbLogger().info('Keep alive started')
+        while not self.event.isSet():
+            if len(self.err_list) > 0:
+                self.event.set()
+                assert len(self.err_list) == 0, \
+                    "Following errors cause {} termination:\n\t{}".format(
+                        self.name,
+                        '\n\t'.join(self.err_list))
+            sleep(1)
+        DbLogger().info('Keep alive stop invoked')
+
+    def join(self, timeout=None):
+        if self.event:
+            self.event.set()
+        DbLogger().info('Keep alive stopped')
+
 
 class HostModule:
     def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
@@ -23,6 +48,8 @@ class HostModule:
         self._data_handler = data_handler
         self._active_plugins = {}
         self._host_id = -1
+        self._keep_alive = _keep_alive(self.alias, self.event)
+        self._errors = tsQueue()
 
     @property
     def host_id(self):
@@ -53,11 +80,14 @@ class HostModule:
                                                 TableSchemaService().tables.TraceHost.columns), *(None, self.alias))
 
         self._host_id = DataHandlerService().get_last_row_id
+        self._keep_alive = _keep_alive(self.alias, self._errors, self.event)
+        self._keep_alive.start()
 
     def stop(self):
         try:
             assert self.event
             self.event.set()
+            self._keep_alive.join()
             self._configuration.update({'event': None})
             active_plugins = list(self._active_plugins.keys())
             while len(active_plugins) > 0:
@@ -72,7 +102,8 @@ class HostModule:
         tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
         assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
+        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args,
+                        error_handler=self._errors.put, **tail)
         plugin.start()
         self._active_plugins[hash(plugin)] = plugin
         logger.info(f"PlugIn '{plugin}' started", also_console=True)

@@ -6,11 +6,25 @@ from time import sleep
 from typing import Callable, Any
 
 from SSHLibrary import SSHLibrary
+from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError, EmptyCommandSet
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
-from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
+from RemoteMonitorLibrary.utils import get_error_info, evaluate_duration
+
+
+#
+# Solution for handling OSSocket error
+#
+def __shell_init__(self, client, term_type, term_width, term_height):
+    self._shell = client.invoke_shell(term_type, term_width, term_height)
+    # add use to solve socket.error: Socket is closed
+    self._shell.keep_this = client
+
+
+Shell.__init__ = __shell_init__
+
 
 SSHLibraryArgsMapping = {
     SSHLibrary.execute_command.__name__: {'return_stdout': (is_truthy, True),
@@ -52,7 +66,7 @@ def extract_method_arguments(method_name, **kwargs):
 
 
 class SSHLibraryCommand:
-    def __init__(self, method: Callable, command, **user_options):
+    def __init__(self, method: Callable, command=None, **user_options):
         self.variable_cb = user_options.pop('variable_cb', None)
         self.parser: Parser = user_options.pop('parser', None)
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
@@ -112,9 +126,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._internal_event = Event()
         self._fault_tolerance = self.parameters.fault_tolerance
         self._session_errors = []
-
+        self._error_handler = user_options.get('error_handler')
         assert self._host_id, "Host ID cannot be empty"
         self._persistent = is_truthy(user_options.get('persistent', 'yes'))
+        self._thread: Thread
         self._set_worker()
 
     def _set_worker(self):
@@ -172,12 +187,13 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
 
         if len(self._session_errors) == self._fault_tolerance:
+            self.parameters.event.set()
             raise PlugInError(
                 f"Stop plugin '{self.host_alias}' errors count arrived to limit ({self._fault_tolerance})")
         if len(self._session_errors) == 0:
-            Logger().info(f"Connection establishing")
+            DbLogger().info(f"Connection establishing")
         else:
-            Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
+            DbLogger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, self.host_alias, port)
 
@@ -279,13 +295,13 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                                 break
                             sleep(0.5)
                     self._run_command(ssh, self.flow_type.Teardown)
-            except TimeoutError as e:
-                self._internal_event.set()
-                Logger().critical(f"{e}")
-            except Exception as e:
-                Logger().error(f"Connection error; Reason: {e}")
-                sleep(2)
-        Logger().info(f"PlugIn '{self}' stopped", console=True)
+        except Exception as e:
+            f, li = get_error_info()
+            self._internal_event.set()
+            self._error_handler(type(e)(f"{e}; File: {f}:{li}"))
+            Logger().critical(f"Plugin {self} interrupted; Reason: {e}; File: {f}:{li}")
+        else:
+            Logger().info(f"PlugIn '{self}' stopped", console=True)
 
     def _interrupt_worker(self):
         try:
@@ -310,6 +326,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"End interrupt-session for '{self}'")
         except Exception as e:
             f, li = get_error_info()
-            Logger().error(msg=f"{e}; File: {f}:{li}")
-            raise RunnerError(f"{e}; File: {f}:{li}")
-        Logger().info(f"PlugIn '{self}' stopped", console=True)
+            self._internal_event.set()
+            self._error_handler(type(e)(f"{e}; File: {f}:{li}"))
+            Logger().critical(f"Plugin {self} interrupted; Reason: {e}; File: {f}:{li}")
+        else:
+            Logger().info(f"PlugIn '{self}' stopped", console=True)
