@@ -7,7 +7,7 @@ from robot.utils.connectioncache import ConnectionCache
 
 from RemoteMonitorLibrary.api.db import TableSchemaService, DataHandlerService
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.utils import Singleton
+from RemoteMonitorLibrary.utils import Singleton, Logger
 from RemoteMonitorLibrary.utils.collections import tsQueue
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
@@ -15,12 +15,11 @@ from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 class _keep_alive(Thread):
     def __init__(self, name, err_list: tsQueue, event=Event()):
         self.event = event
-        self.lock = RLock()
         self.err_list = err_list
         super().__init__(name=name, daemon=True)
 
     def run(self):
-        DbLogger().info('Keep alive started')
+        Logger().info('Keep alive started')
         while not self.event.isSet():
             if len(self.err_list) > 0:
                 self.event.set()
@@ -29,12 +28,12 @@ class _keep_alive(Thread):
                         self.name,
                         '\n\t'.join(self.err_list))
             sleep(1)
-        DbLogger().info('Keep alive stop invoked')
+        Logger().info('Keep alive stop invoked')
 
     def join(self, timeout=None):
         if self.event:
             self.event.set()
-        DbLogger().info('Keep alive stopped')
+        Logger().info('Keep alive stopped')
 
 
 class HostModule:
@@ -48,7 +47,7 @@ class HostModule:
         self._data_handler = data_handler
         self._active_plugins = {}
         self._host_id = -1
-        self._keep_alive = _keep_alive(self.alias, self.event)
+        self._keep_alive: _keep_alive = None
         self._errors = tsQueue()
 
     @property
