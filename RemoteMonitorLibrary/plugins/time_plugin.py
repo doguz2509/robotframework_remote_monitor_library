@@ -12,11 +12,11 @@ and you'll know something is happening when you start to see real compilation ha
 2021-03-25T18:58:43+02:00:	679.22 real,	1082.81 user,	160.85 sys,	248824 max_mem_kb,	4 page_faults,	120697 involuntarily_ctx_swtc,	98104 file_inputs,	1492752 file_outputs,	0 socket_recieved,	0 socket_sent
 #BTW the above was without mlp ... so let's make sure we run at least 10 samples without mlp and 10 samples after - to conclude on avg, max and min for without mlp and then for with mlp """
 
+import os
 from typing import Iterable, Any, Tuple
 
 from SSHLibrary import SSHLibrary
-from robot.utils import DotDict, is_truthy
-from robot.utils.robottime import timestr_to_secs
+from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import plugins, model
 from RemoteMonitorLibrary.api.tools import Logger
@@ -223,17 +223,6 @@ class Time(plugins.PlugInAPI):
         base_table = TimeMeasurement()
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
-
-    # @property
-    # def periodic_commands(self):
-    #     return TimeSSHCommand(SSHLibrary.execute_command, self._command,
-    #                           parser=TimeParser(host_id=self.host_id,
-    #                                             table=self.affiliated_tables()[0],
-    #                                             data_handler=self.data_handler, Command=self.name,
-    #                                             store_output=self._store_output),
-    #                           return_stderr=True, return_rc=True, timeout=self._timeout,
-    #                           start_in_folder=self._start_in_folder,
-    #                           store_output=self._store_output),
 
     @property
     def periodic_commands(self):
