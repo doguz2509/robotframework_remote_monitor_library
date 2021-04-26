@@ -42,7 +42,6 @@ HTML = """
 
 HTML_IMAGE_REF = """
             <div class="column">
-                <h3>{picture_title}</h3>
                 <img src="{relative_path}" style="width:100%">
             </div>
 """
@@ -53,7 +52,7 @@ def create_html(report_abs_path, report_rel_path, file_name: str, *body_data) ->
     html_full_path = os.path.normpath(os.path.join(report_abs_path, report_rel_path, html_file_name))
     html_link_path = '/'.join([report_rel_path, html_file_name])
 
-    body = ''.join([HTML_IMAGE_REF.format(relative_path=file_path, picture_title=picture_name)
+    body = ''.join([HTML_IMAGE_REF.format(relative_path=file_path)
                     for picture_name, file_path in body_data])
 
     with open(html_full_path, 'w') as sw:

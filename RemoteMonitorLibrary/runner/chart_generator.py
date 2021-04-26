@@ -33,6 +33,7 @@ def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None,
                     label.set_x(10)
                 plt.ylim(0, y_limit * 1.3)
                 plt.xlabel('Time')
+                plt.title(title)
                 # TODO: Add vertical mark line on chart
                 # if len(marks) > 0:
                 #     fig, ax = plt.subplots()
