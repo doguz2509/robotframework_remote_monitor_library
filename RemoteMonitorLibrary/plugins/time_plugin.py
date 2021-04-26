@@ -16,9 +16,9 @@ from typing import Iterable, Any, Tuple
 
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict, is_truthy
+from robot.utils.robottime import timestr_to_secs
 
 from RemoteMonitorLibrary.api import plugins, model
-from RemoteMonitorLibrary.api.db import DataRowUnitWithOutput
 from RemoteMonitorLibrary.api.tools import Logger
 
 __doc__ = """
@@ -194,6 +194,8 @@ class Time(plugins.PlugInAPI):
         self._command_name = options.get('name', None)
         self._start_in_folder = options.get('start_in_folder', None)
         self._store_output = is_truthy(options.get('store_output', False))
+        self._timeout = options.get('timeout', None)
+        self._timeout = timestr_to_secs(self._timeout) if self._timeout else None
         assert self._command, "SSHLibraryCommand not provided"
 
     @staticmethod
@@ -214,16 +216,12 @@ class Time(plugins.PlugInAPI):
                                                 table=self.affiliated_tables()[0],
                                                 data_handler=self.data_handler, Command=self.name,
                                                 store_output=self._store_output),
-                              return_stderr=True, return_rc=True, start_in_folder=self._start_in_folder,
+                              return_stderr=True, return_rc=True, timeout=self._timeout,
+                              start_in_folder=self._start_in_folder,
                               store_output=self._store_output),
 
     def __str__(self):
-        return f"{super().host_alias} {self.type} {self._command}"
-
-    def start(self):
-        super().start()
-        Logger().info(f"PlugIn {self.type} start command '{self._command}' as [{self.name}]",
-                      console=True)
+        return f"{self.type} [on {self.host_alias}] start command '{self._command}'  [name={self.name}]"
 
 
 __all__ = [
