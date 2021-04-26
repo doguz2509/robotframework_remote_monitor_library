@@ -4,7 +4,6 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary as RSSHLibrary
 from robot.utils import is_truthy
 
-import RemoteMonitorLibrary.api.db
 from RemoteMonitorLibrary.api import db, model
 from RemoteMonitorLibrary.api.plugins import SSHLibraryCommand, PlugInAPI, Parser, extract_method_arguments
 from RemoteMonitorLibrary.utils import Logger
@@ -100,7 +99,7 @@ class UserCommandParser(Parser):
 
 class SSHLibrary(PlugInAPI):
     def __init__(self, parameters, data_handler, command, **user_options):
-        PlugInAPI.__init__(self, parameters, data_handler, command, **user_options)
+        super().__init__(parameters, data_handler, command, **user_options)
         self._command = ' '.join(self.args)
         assert self._command, "Commands not provided"
         user_options = self._normalise_arguments(**user_options)

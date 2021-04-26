@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from datetime import datetime, timedelta
 from enum import Enum
-from threading import Event, Thread, Timer
+from threading import Event, Thread
 from time import sleep
 from typing import Callable, Any
 
@@ -9,9 +9,9 @@ from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
-from RemoteMonitorLibrary.model.errors import PlugInError, RunnerError, EmptyCommandSet
+from RemoteMonitorLibrary.model.errors import PlugInError, EmptyCommandSet
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
-from RemoteMonitorLibrary.utils import get_error_info, evaluate_duration
+from RemoteMonitorLibrary.utils import get_error_info, evaluate_duration, Logger
 
 
 #
@@ -191,9 +191,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             raise PlugInError(
                 f"Stop plugin '{self.host_alias}' errors count arrived to limit ({self._fault_tolerance})")
         if len(self._session_errors) == 0:
-            DbLogger().info(f"Connection establishing")
+            Logger().info(f"Connection establishing")
         else:
-            DbLogger().warning(f"Connection restoring at {len(self._session_errors)} time")
+            Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, self.host_alias, port)
 
@@ -278,8 +278,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def _persistent_worker(self):
         Logger().info(f"PlugIn '{self}' started", console=True)
-        while self.is_continue_expected:
-            try:
+        try:
+            while self.is_continue_expected:
                 with self as ssh:
                     self._run_command(ssh, self.flow_type.Setup)
                     while self.is_continue_expected:
