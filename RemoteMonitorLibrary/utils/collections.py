@@ -17,11 +17,12 @@ class tsQueue:
     def put(self, item):
         with self._lock:
             self._queue.append(item)
-            Logger().debug(f"Item '{item}' enqueued")
+            Logger().debug(f"Item '{id(item)}' enqueued")
 
     def get(self) -> Any:
         with self._lock:
             try:
+                Logger().debug(f"Item '{id(self._queue[0])}' dequeued")
                 yield self._queue.pop(0)
             except IndexError:
                 yield Empty()
