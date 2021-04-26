@@ -15,8 +15,10 @@ from RemoteMonitorLibrary.utils import Logger, get_error_info, evaluate_duration
 SSHLibraryArgsMapping = {
     SSHLibrary.execute_command.__name__: {'return_stdout': (is_truthy, True),
                                           'return_stderr': (is_truthy, False),
-                                          'return_rc': (is_truthy, False), 'sudo': (is_truthy, False),
-                                          'sudo_password': (str, None), 'timeout': (timestr_to_secs, None),
+                                          'return_rc': (is_truthy, False),
+                                          'sudo': (is_truthy, False),
+                                          'sudo_password': (str, None),
+                                          'timeout': (timestr_to_secs, None),
                                           'output_during_execution': (is_truthy, False),
                                           'output_if_timeout': (is_truthy, False),
                                           'invoke_subsystem': (is_truthy, False),
@@ -249,14 +251,14 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
                 sleep(0.05)
         except EmptyCommandSet:
-            Logger().warning(f"Iteration '{flow.name}' ignored")
+            Logger().warning(f"Iteration {flow.name} ignored")
         except Exception as e:
             f, li = get_error_info()
             err = type(e)(f"{e}; File: {f}:{li}")
-            Logger().critical(f"Iteration '{flow.name}' -> Unexpected error occurred: {err}")
+            Logger().critical(f"Iteration {flow.name} -> Unexpected error occurred: {err}")
             raise err
         else:
-            Logger().info(f"Iteration '{flow.name}' completed\n{total_output}")
+            Logger().info(f"Iteration {flow.name} completed\n{total_output}")
 
     def _persistent_worker(self):
         Logger().info(f"PlugIn '{self}' started", console=True)
