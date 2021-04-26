@@ -192,10 +192,15 @@ class Time(plugins.PlugInAPI):
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
         self._command = options.get('command', None)
         self._command_name = options.get('name', None)
-        self._start_in_folder = options.get('start_in_folder', None)
         self._store_output = is_truthy(options.get('store_output', False))
         self._timeout = options.get('timeout', None)
         self._timeout = timestr_to_secs(self._timeout) if self._timeout else None
+
+        self._start_in_folder = options.get('start_in_folder', None)
+        if self._start_in_folder:
+            with self as ssh:
+                ssh.directory_should_exist(self._start_in_folder)
+
         assert self._command, "SSHLibraryCommand not provided"
 
     @staticmethod
