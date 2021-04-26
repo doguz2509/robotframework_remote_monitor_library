@@ -6,6 +6,7 @@ from .time_utils import evaluate_duration
 from RemoteMonitorLibrary.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, \
     load_modules, print_plugins_table
 from RemoteMonitorLibrary.utils import sql_engine as sql
+from .logging_sql_handler import SQLiteHandler
 
 
 def flat_iterator(*data):
@@ -57,7 +58,8 @@ __all__ = [
     'load_modules',
     'print_plugins_table',
     'Counter',
-    'evaluate_duration'
+    'evaluate_duration',
+    'SQLiteHandler'
 ]
 
 

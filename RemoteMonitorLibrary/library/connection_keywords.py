@@ -11,7 +11,7 @@ from RemoteMonitorLibrary.api.tools import Logger
 
 from RemoteMonitorLibrary.library.listener import TraceListener
 from RemoteMonitorLibrary.model.host_registry_model import HostRegistryCache, HostModule
-from RemoteMonitorLibrary.utils import get_error_info
+from RemoteMonitorLibrary.utils import get_error_info, SQLiteHandler
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
@@ -101,7 +101,6 @@ class ConnectionKeywords(TraceListener):
 
         TraceListener.__init__(self, start_suite=suite_start_kw, end_suite=suite_end_kw,
                                start_test=test_start_kw, end_test=test_end_kw)
-        # TraceListener.__init__(self)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
@@ -124,7 +123,8 @@ class ConnectionKeywords(TraceListener):
         ]
 
     @keyword("Create host monitor")
-    def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None, timeout=None):
+    def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None,
+                            timeout=None, log_to_db=None):
         """
         Create basic host connection module used for trace host
         Last created connection handled as 'current'
@@ -158,16 +158,19 @@ class ConnectionKeywords(TraceListener):
 
         """
         if not db.DataHandlerService().is_active:
+            output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
+            db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
+            db.DataHandlerService().start()
             with Logger() as log:
                 level = BuiltIn().get_variable_value('${LOG LEVEL}')
                 log.set_level('DEBUG' if level == 'TRACE' else level)
-                output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
                 rel_log_file_path = os.path.join(self.location, self.file_name)
                 abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
                 log.set_log_destination(abs_log_file_path)
+                if is_truthy(log_to_db):
+                    log.add_handler(SQLiteHandler(db.DataHandlerService().execute))
                 logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
-            db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
-            db.DataHandlerService().start()
+
         module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias, certificate, timeout)
         module.start()
         logger.info(f"Connection {module.alias} ready to be monitored")
