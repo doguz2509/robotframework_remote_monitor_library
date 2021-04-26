@@ -1,3 +1,4 @@
+
 import logging
 import logging.handlers
 import os
@@ -13,7 +14,7 @@ LINE_TEMPLATE = " {thread:15s} -> {msg}"
 @Singleton
 class Logger:
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger('RemoteMonitorLibrary')
         handler = logging.StreamHandler()
         self._formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] %(message)s")
         handler.setFormatter(self._formatter)
@@ -39,7 +40,7 @@ class Logger:
         self._logger.setLevel(level)
 
     def _write(self, msg, level='INFO', console=False):
-        thread_name = currentThread().name
+        thread_name = currentThread().getName()
         if thread_name == 'MainThread':
             robot_logger.write(msg, 'ERROR' if level == 'CRITICAL' else level)
         if console:
