@@ -250,8 +250,8 @@ class aTop(plugins.PlugInAPI):
         tools.Logger().debug(f"OS resolved: {out}")
         return out
 
-    def __enter__(self):
-        _ssh = super().__enter__()
+    def inside_host(self):
+        _ssh = super().inside_host()
         self._os_name = self.os_name or self._get_os_name(_ssh)
         return _ssh
 
