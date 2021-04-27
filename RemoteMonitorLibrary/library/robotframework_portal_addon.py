@@ -28,7 +28,7 @@ try:
     PORTAL = True
     Logger().info(f"RobotFramework portal available")
 except (ImportError, ValueError):
-    Logger().warning(f"RobotFramework portal not available")
+    # Logger().warning(f"RobotFramework portal not available")
     PORTAL = False
 
 
