@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from datetime import datetime, timedelta
 from enum import Enum
-from threading import Event, Thread
+from threading import Event, Thread, RLock
 from time import sleep
 from typing import Callable, Any
 from contextlib import contextmanager
@@ -117,7 +117,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
         self._execution_counter = 0
         self._ssh = SSHLibrary()
-
+        self._lock = RLock()
         self._is_logged_in = False
         self.parameters = parameters
         self._interval = self.parameters.interval
@@ -182,7 +182,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def _close_ssh_library_connection_from_thread(self):
         try:
-            self._ssh.close_connection()
+            with self._lock:
+                self._ssh.close_connection()
         except RuntimeError:
             pass
         except Exception as e:
@@ -236,7 +237,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def exit(self):
         if self._is_logged_in:
-            self._ssh.switch_connection(self.host_alias)
+            # self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
             Logger().info(f"Connection to {self.host_alias} closed")
@@ -247,7 +248,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def inside_host(self):
         try:
             self.login()
-            yield self._ssh
+            with self._lock:
+                yield self._ssh
         except Exception as e:
             Logger().critical("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
