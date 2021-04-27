@@ -106,10 +106,19 @@ class HostModule:
         plugin_conf = self.config.clone()
         tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
-        assert plugin, f"Plugin '{plugin_name}' not registered"
-        plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
-        plugin.start()
-        self._active_plugins[hash(plugin)] = plugin
+        try:
+            assert plugin, f"Plugin '{plugin_name}' not registered"
+            plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
+        except Exception as e:
+            assert "Cannot create plugin instance '{}, args={}, parameters={}, options={}'".format(
+                plugin_name,
+                ', '.join([f"{a}" for a in args]),
+                ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
+                ', '.join([f"{k}={v}" for k, v in tail.items()])
+            )
+        else:
+            plugin.start()
+            self._active_plugins[hash(plugin)] = plugin
 
     def get_plugin(self, plugin_name=None, **options):
         res = []

@@ -218,7 +218,7 @@ class Time(PlugInAPI):
                           )
 
     def _verify_folder_exist(self, _path):
-        with self as ssh:
+        with self.inside_host() as ssh:
             if self._start_in_folder.startswith('~'):
                 user_home = ssh.execute_command('echo $HOME').strip()
                 _path = _path.replace('~', user_home)

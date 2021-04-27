@@ -227,8 +227,6 @@ class ConnectionKeywords:
         try:
             monitor: HostModule = self._modules.get_connection(alias)
             monitor.plugin_start(plugin_name, *args, **options)
-            # logger.info(f"PlugIn '{plugin_name}' started on {monitor.alias}",
-            #             also_console=True)
         except Exception as e:
             f, li = get_error_info()
             raise type(e)(f"{e}; File: {f}:{li}")
