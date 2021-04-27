@@ -179,6 +179,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def _close_ssh_library_connection_from_thread(self):
         try:
             self._ssh.close_connection()
+        except RuntimeError:
+            pass
         except Exception as e:
             if 'Logging background messages is only allowed from the main thread' in str(e):
                 Logger().warning(f"Ignore SSHLibrary error: '{e}'")
