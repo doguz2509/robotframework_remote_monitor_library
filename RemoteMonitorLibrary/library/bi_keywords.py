@@ -15,11 +15,12 @@ from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
 def _get_period_marks(period, module_id):
+    points = db.TableSchemaService().tables.Points
     start = db.DataHandlerService().execute(
-        db.Points.queries.select_state('Start', module_id, period))
+        points.queries.select_state('Start', module_id, period))
     start = None if start == [] else start[0][0]
     end = db.DataHandlerService().execute(
-        db.Points.queries.select_state('End', module_id, period))
+        points.queries.select_state('End', module_id, period))
     end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
     return dict(start_mark=start, end_mark=end)
 
