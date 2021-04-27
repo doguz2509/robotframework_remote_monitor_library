@@ -27,13 +27,15 @@ class ConnectionKeywords:
     
     `Stop monitor plugin`
     
-    === Mark points ===
+    === Flow control ===
     
     `Start period`
     
     `Stop period`
     
-    `Set mark`
+    `Wait`
+    
+    `Set mark` - TBD
     
     === Examples ===
     

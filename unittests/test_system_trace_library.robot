@@ -15,7 +15,7 @@ Suite Teardown   run keywords  close_all_host_monitors
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
-${PASSWORD}            ${EMPTY}
+${PASSWORD}     ${EMPTY}
 ${DURATION}  10s
 ${INTERVAL}  0.5s
 ${PERSISTENT}  yes
