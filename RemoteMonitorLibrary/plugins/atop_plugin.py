@@ -1,6 +1,7 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterable, Tuple, List, Any
 
@@ -231,6 +232,8 @@ class aTop(plugins.PlugInAPI):
         self.folder = '~/atop_temp'
         self._time_delta = None
         self._os_name = None
+        with self.inside_host() as ssh:
+            self._os_name = self._get_os_name(ssh)
 
     @property
     def os_name(self):
@@ -249,11 +252,6 @@ class aTop(plugins.PlugInAPI):
 
         tools.Logger().debug(f"OS resolved: {out}")
         return out
-
-    def inside_host(self):
-        _ssh = super().inside_host()
-        self._os_name = self.os_name or self._get_os_name(_ssh)
-        return _ssh
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

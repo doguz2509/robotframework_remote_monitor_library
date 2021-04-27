@@ -55,6 +55,8 @@ __doc__ = """
     
 """
 
+from RemoteMonitorLibrary.model.errors import RunnerError
+
 from RemoteMonitorLibrary.utils import get_error_info
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
@@ -167,7 +169,7 @@ class TimeParser(plugins.Parser):
             return True
         except Exception as e:
             f, li = get_error_info()
-            raise type(e)(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
+            raise RunnerError(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
 
 
 class TimeStartCommand(plugins.SSHLibraryCommand):
