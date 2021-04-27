@@ -6,6 +6,7 @@ from .time_utils import evaluate_duration
 from RemoteMonitorLibrary.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, \
     load_modules, print_plugins_table
 from RemoteMonitorLibrary.utils import sql_engine as sql
+from . import logger_extension
 
 
 def flat_iterator(*data):
@@ -47,6 +48,7 @@ class Counter:
 
 __all__ = [
     'Singleton',
+    'logger_extension',
     'Logger',
     'Size',
     'sql',

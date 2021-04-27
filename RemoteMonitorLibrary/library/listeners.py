@@ -4,8 +4,10 @@ from robot.libraries.BuiltIn import BuiltIn
 from robot.model import TestCase
 from robot.running import TestSuite
 
+from RemoteMonitorLibrary.api.tools import GlobalErrors
 
-class TraceListener:
+
+class AutoSignPeriodsListener:
     ROBOT_LISTENER_API_VERSION = 3
 
     def __init__(self, **kwargs):
@@ -41,3 +43,17 @@ class TraceListener:
         if self._end_test_kw:
             BuiltIn().run_keyword(self._end_test_kw, test.name)
             self._last_test_name = None
+
+
+class StopOnGlobalErrorListener:
+    ROBOT_LISTENER_API_VERSION = 3
+
+    def __init__(self):
+        self.ROBOT_LIBRARY_LISTENER = self
+
+    @staticmethod
+    def end_test(data, test):
+        if len(GlobalErrors()) > 0:
+            test.status = 'FAIL'
+            test.message = "{}\n{}".format(test.message, '\n\t'.join([f"{e}" for e in GlobalErrors()]))
+            BuiltIn().fatal_error(test.message)

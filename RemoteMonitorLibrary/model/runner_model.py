@@ -148,10 +148,13 @@ class plugin_runner_abstract:
     def teardown(self):
         return ()
 
-    def __enter__(self):
+    def inside_host(self):
         raise NotImplementedError()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def login(self):
+        raise NotImplementedError()
+
+    def exit(self):
         raise NotImplementedError()
 
 

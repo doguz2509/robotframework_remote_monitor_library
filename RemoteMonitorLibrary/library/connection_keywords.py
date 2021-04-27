@@ -1,22 +1,19 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from time import sleep
 
-from robot.api import logger
 from robot.api.deco import keyword
-from robot.libraries.BuiltIn import BuiltIn
-from robot.utils import is_truthy
+from robot.utils import is_truthy, timestr_to_secs
 
-import RemoteMonitorLibrary.api.db.services
-import RemoteMonitorLibrary.api.db.tables
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import Logger
-from RemoteMonitorLibrary.library.listener import TraceListener
+from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.model.host_registry_model import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
-class ConnectionKeywords(TraceListener):
+class ConnectionKeywords:
     __doc__ = """=== Connections keywords ===
     `Create host monitor`
     
@@ -100,8 +97,8 @@ class ConnectionKeywords(TraceListener):
         test_start_kw = self._normalise_auto_mark(options.get('start_test', None), 'start_period')
         test_end_kw = self._normalise_auto_mark(options.get('end_test', None), 'stop_period')
 
-        TraceListener.__init__(self, start_suite=suite_start_kw, end_suite=suite_end_kw,
-                               start_test=test_start_kw, end_test=test_end_kw)
+        self.ROBOT_LIBRARY_LISTENER = AutoSignPeriodsListener(start_suite=suite_start_kw, end_suite=suite_end_kw,
+                                                              start_test=test_start_kw, end_test=test_end_kw)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
@@ -120,7 +117,8 @@ class ConnectionKeywords(TraceListener):
             self.stop_monitor_plugin.__name__,
             self.start_period.__name__,
             self.stop_period.__name__,
-            self.set_mark.__name__
+            self.set_mark.__name__,
+            self.wait.__name__
         ]
 
     @keyword("Create host monitor")
@@ -179,7 +177,8 @@ class ConnectionKeywords(TraceListener):
                 db.DataHandlerService().start()
                 logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias,
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
+                                alias,
                                 certificate, timeout)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
@@ -262,6 +261,26 @@ class ConnectionKeywords(TraceListener):
         db.DataHandlerService().execute(update_sql(table.name, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
+
+    @keyword("Wait")
+    def wait(self, timeout, reason=None):
+        """
+        Wait are native replacement for keyword 'sleep' from BuiltIn library
+        Difference: wait exit in case Any global errors occurred within active Plugins
+
+        Arguments:
+        - timeout: String in robot format (20, 1s, 1h, etc.)
+        - reason:  Any string to indicate exit if no errors occurred
+        """
+        timeout_sec = timestr_to_secs(timeout)
+        end_time = datetime.now() + timedelta(seconds=timeout_sec)
+
+        while datetime.now() <= end_time:
+            if len(GlobalErrors()) > 0:
+                BuiltIn().fail("Global error occurred: {}".format('\n\t'.join([f"{e}" for e in GlobalErrors()])))
+            sleep(1)
+        if reason:
+            BuiltIn().log(reason)
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
