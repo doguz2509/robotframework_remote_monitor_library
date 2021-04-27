@@ -82,6 +82,12 @@ class Parser:
         return self.__class__.__name__
 
 
+class FlowCommands(Enum):
+    Setup = 'setup'
+    Command = 'periodic_commands'
+    Teardown = 'teardown'
+
+
 class plugin_runner_abstract:
     def __init__(self, data_handler: Callable, *args, **kwargs):
         self._stored_shell = {}
@@ -92,6 +98,10 @@ class plugin_runner_abstract:
         self._host_id = kwargs.pop('host_id', None)
         self._user_args = args
         self._user_options = kwargs
+        self._commands = {}
+
+    def set_commands(self, type_: FlowCommands, *commands):
+        self._commands.setdefault(type_, []).extend(commands)
 
     def store_variable(self, variable_name):
         def _(value):
@@ -129,24 +139,19 @@ class plugin_runner_abstract:
 
     @property
     def flow_type(self):
-        class FlowCommands(Enum):
-            Setup = 'setup'
-            Command = 'periodic_commands'
-            Teardown = 'teardown'
-
         return FlowCommands
 
     @property
     def setup(self):
-        return ()
+        return self._commands.get(FlowCommands.Setup, ())
 
     @property
     def periodic_commands(self):
-        return ()
+        return self._commands.get(FlowCommands.Command, ())
 
     @property
     def teardown(self):
-        return ()
+        return self._commands.get(FlowCommands.Teardown, ())
 
     def inside_host(self):
         raise NotImplementedError()

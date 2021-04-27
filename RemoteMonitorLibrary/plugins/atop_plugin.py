@@ -1,7 +1,6 @@
 import json
 import re
 from collections import namedtuple, OrderedDict
-from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterable, Tuple, List, Any
 
@@ -9,8 +8,8 @@ from SSHLibrary import SSHLibrary
 from robot.api import logger
 from robot.utils import timestr_to_secs
 
-from RemoteMonitorLibrary.api import plugins, model, tools, db
-from RemoteMonitorLibrary.api.plugins import ChartAbstract
+from RemoteMonitorLibrary.api import model, tools, db
+from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.utils import Size, get_error_info
 
 __doc__ = """
@@ -170,9 +169,9 @@ class aTopDataUnit(db.services.DataUnit):
         return super().__call__(**updates)
 
 
-class aTopParser(plugins.Parser):
+class aTopParser(Parser):
     def __init__(self, **kwargs):
-        plugins.Parser.__init__(self, **kwargs)
+        Parser.__init__(self, **kwargs)
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
 
     @staticmethod
@@ -220,20 +219,51 @@ class aTopParser(plugins.Parser):
         return False
 
 
-class aTop(plugins.PlugInAPI):
+class aTop(PlugInAPI):
     OS_DATE_FORMAT = {
         'debian': '%H:%M',
         'fedora': '%Y%m%d%H%M'
     }
 
     def __init__(self, parameters, data_handler, *args, **user_options):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+        PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
         self._os_name = None
         with self.inside_host() as ssh:
             self._os_name = self._get_os_name(ssh)
+
+        self.set_commands(FlowCommands.Setup,
+                          SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+                                            sudo=self.sudo_expected,
+                                            sudo_password=self.sudo_password_expected),
+                          SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
+                                            sudo_password=True),
+                          SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}',
+                                            sudo=self.sudo_expected,
+                                            sudo_password=self.sudo_password_expected),
+                          SSHLibraryCommand(SSHLibrary.start_command,
+                                            "{nohup} atop -w {folder}/{file} {interval} &".format(
+                                                nohup='' if self.persistent else 'nohup',
+                                                folder=self.folder,
+                                                file=self.file,
+                                                interval=int(self.interval)),
+                                            sudo=self.sudo_expected,
+                                            sudo_password=self.sudo_password_expected))
+
+        self.set_commands(FlowCommands.Command,
+                          SSHLibraryCommand(
+                              SSHLibrary.execute_command,
+                              f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
+                              sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
+                              parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
+                                                data_handler=self._data_handler, counter=self.iteration_counter,
+                                                interval=self.parameters.interval)))
+
+        self.set_commands(FlowCommands.Teardown,
+                          SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+                                            sudo=True, sudo_password=True))
 
     @property
     def os_name(self):
@@ -258,41 +288,10 @@ class aTop(plugins.PlugInAPI):
         return atop_system_level(),
 
     @staticmethod
-    def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
+    def affiliated_charts() -> Iterable[ChartAbstract]:
         return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart(
             'LVM'), \
                aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
-
-    @property
-    def setup(self):
-        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=self.sudo_expected,
-                                         sudo_password=self.sudo_password_expected), \
-               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
-                                         sudo_password=True), \
-               plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}', sudo=self.sudo_expected,
-                                         sudo_password=self.sudo_password_expected), \
-               plugins.SSHLibraryCommand(SSHLibrary.start_command,
-                                         "{nohup} atop -w {folder}/{file} {interval} &".format(
-                                             nohup='' if self.persistent else 'nohup',
-                                             folder=self.folder,
-                                             file=self.file,
-                                             interval=int(self.interval)),
-                                         sudo=self.sudo_expected,
-                                         sudo_password=self.sudo_password_expected)
-
-    @property
-    def periodic_commands(self):
-        return plugins.SSHLibraryCommand(
-            SSHLibrary.execute_command,
-            f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
-            sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
-            parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
-                              data_handler=self._data_handler, counter=self.iteration_counter,
-                              interval=self.parameters.interval)),
-
-    @property
-    def teardown(self):
-        return plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop', sudo=True, sudo_password=True),
 
 
 __all__ = [

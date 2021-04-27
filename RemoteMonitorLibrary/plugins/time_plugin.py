@@ -18,7 +18,8 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.api import plugins, model
+from RemoteMonitorLibrary.api import model
+from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.api.tools import Logger
 
 __doc__ = """
@@ -98,10 +99,10 @@ class TimeMeasurement(model.PlugInTable):
         self.add_output_cache_reference()
 
 
-class TimeChart(plugins.ChartAbstract):
+class TimeChart(ChartAbstract):
     def __init__(self, table: model.Table, title, *sections):
         self._table = table
-        plugins.ChartAbstract.__init__(self, *(sections if len(sections) > 0 else self._table.columns))
+        ChartAbstract.__init__(self, *(sections if len(sections) > 0 else self._table.columns))
         self._title = title
 
     @property
@@ -146,7 +147,7 @@ class TimeChart(plugins.ChartAbstract):
         return result
 
 
-class TimeParser(plugins.Parser):
+class TimeParser(Parser):
     def __call__(self, outputs) -> bool:
         command_out = outputs.get('stdout', None)
         time_output = outputs.get('stderr', None)
@@ -172,7 +173,7 @@ class TimeParser(plugins.Parser):
             raise RunnerError(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
 
 
-class TimeStartCommand(plugins.SSHLibraryCommand):
+class TimeStartCommand(SSHLibraryCommand):
     def __init__(self, command, **user_options):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
@@ -183,20 +184,20 @@ class TimeStartCommand(plugins.SSHLibraryCommand):
         if not user_options.get('return_stdout', False):
             command += ' > /dev/null'
         super().__init__(SSHLibrary.start_command, command,
-                         **plugins.extract_method_arguments(SSHLibrary.start_command.__name__, **user_options))
+                         **extract_method_arguments(SSHLibrary.start_command.__name__, **user_options))
 
 
-class TimeReadOutput(plugins.SSHLibraryCommand):
+class TimeReadOutput(SSHLibraryCommand):
     def __init__(self, **user_options):
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         user_options.update({'return_stderr': True, 'return_rc': True})
         super().__init__(SSHLibrary.read_command_output, parser=user_options.pop('parser', None),
-                         **plugins.extract_method_arguments(SSHLibrary.read_command_output.__name__, **user_options))
+                         **extract_method_arguments(SSHLibrary.read_command_output.__name__, **user_options))
 
 
-class Time(plugins.PlugInAPI):
+class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **options):
-        plugins.PlugInAPI.__init__(self, parameters, data_handler, *args, **options)
+        PlugInAPI.__init__(self, parameters, data_handler, *args, **options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
@@ -207,6 +208,14 @@ class Time(plugins.PlugInAPI):
         if self._start_in_folder:
             self._verify_folder_exist(self._start_in_folder)
         assert self._command, "SSHLibraryCommand not provided"
+        
+        self.set_commands(FlowCommands.Command,
+                          TimeStartCommand(**self.options),
+                          TimeReadOutput(parser=TimeParser(host_id=self.host_id,
+                                                           table=self.affiliated_tables()[0],
+                                                           data_handler=self.data_handler, Command=self.name),
+                                         **self.options)
+                          )
 
     def _verify_folder_exist(self, _path):
         with self as ssh:
@@ -221,19 +230,10 @@ class Time(plugins.PlugInAPI):
         # LinesCache(), LinesCacheMap()
 
     @staticmethod
-    def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
+    def affiliated_charts() -> Iterable[ChartAbstract]:
         base_table = TimeMeasurement()
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
-
-    @property
-    def periodic_commands(self):
-        return (TimeStartCommand(**self.options),
-                TimeReadOutput(parser=TimeParser(host_id=self.host_id,
-                                                 table=self.affiliated_tables()[0],
-                                                 data_handler=self.data_handler, Command=self.name),
-                               **self.options)
-                )
 
     def __str__(self):
         return f"{self.type} [on {self.host_alias}] start command '{self._command}'  [name={self.name}]"

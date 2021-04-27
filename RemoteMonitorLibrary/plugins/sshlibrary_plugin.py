@@ -5,7 +5,7 @@ from SSHLibrary import SSHLibrary as RSSHLibrary
 from robot.utils import is_truthy
 
 from RemoteMonitorLibrary.api import model, db
-from RemoteMonitorLibrary.api.plugins import SSHLibraryCommand, PlugInAPI, Parser, extract_method_arguments
+from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
 from RemoteMonitorLibrary.utils import Logger
 
@@ -114,6 +114,16 @@ class SSHLibrary(PlugInAPI):
                 assert user_options.get('return_stderr', None), \
                     "For verify expected pattern one of arguments 'return_stdout' or 'return_stderr' must be provided"
 
+        self.set_commands(FlowCommands.Command,
+                          SSHLibraryCommand(RSSHLibrary.execute_command, self._command,
+                                            parser=UserCommandParser(host_id=self.host_id,
+                                                                     data_handler=self.data_handler,
+                                                                     name=self.name, command=self._command,
+                                                                     **self.options),
+                                            **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
+                                                                            **self.options)))
+                          )
+
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
         return sshlibrary_monitor(),
@@ -125,14 +135,6 @@ class SSHLibrary(PlugInAPI):
             if k.startswith('return'):
                 kwargs.update({k: is_truthy(v)})
         return kwargs
-
-    @property
-    def periodic_commands(self):
-        return SSHLibraryCommand(RSSHLibrary.execute_command, self._command,
-                                 parser=UserCommandParser(host_id=self.host_id, data_handler=self.data_handler,
-                                                          name=self.name, command=self._command, **self.options),
-                                 **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
-                                                                 **self.options))),
 
     def __str__(self):
         return f"{self.type} on {super().host_alias}: {self._command}"
