@@ -15,7 +15,7 @@ class Configuration:
         'alias': (True, None, str, str),
         'host': (True, None, str, str),
         'username': (True, None, str, str),
-        'password': (True, None, str, str),
+        'password': (False, '', str, str),
         'port': (False, 22, int, int),
         'certificate': (False, None, str, str),
         'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
