@@ -97,19 +97,14 @@ class SSHLibraryCommand:
                f"{'; Parser: '.format(self.parser) if self.parser else ''}"
 
     def __call__(self, ssh_client: SSHLibrary, **runtime_options) -> Any:
-        try:
-            if self._command is not None:
-                command = self.command_template.format(**runtime_options)
-                output = self._method(ssh_client, command, **self._ssh_options)
-            else:
-                output = self._method(ssh_client, **self._ssh_options)
-            if self.parser:
-                return self.parser(dict(self._result_template(output)))
-            return output
-        except Exception as e:
-            f, li = get_error_info()
-            error_type = type(e)
-            raise error_type(f"{self.__class__.__name__} -> {error_type.__name__}:{e}; File: {f}:{li}")
+        if self._command is not None:
+            command = self.command_template.format(**runtime_options)
+            output = self._method(ssh_client, command, **self._ssh_options)
+        else:
+            output = self._method(ssh_client, **self._ssh_options)
+        if self.parser:
+            return self.parser(dict(self._result_template(output)))
+        return output
 
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
