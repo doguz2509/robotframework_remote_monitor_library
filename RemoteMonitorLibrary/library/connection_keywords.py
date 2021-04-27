@@ -6,12 +6,13 @@ from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
 from robot.utils import is_truthy
 
+import RemoteMonitorLibrary.api.db.services
+import RemoteMonitorLibrary.api.db.tables
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import Logger
-
 from RemoteMonitorLibrary.library.listener import TraceListener
 from RemoteMonitorLibrary.model.host_registry_model import HostRegistryCache, HostModule
-from RemoteMonitorLibrary.utils import get_error_info, SQLiteHandler
+from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
@@ -130,11 +131,17 @@ class ConnectionKeywords(TraceListener):
         Last created connection handled as 'current'
         In case tracing required for one host only, alias can be ignored
 
-        Arguments:
-        - host: IP address, DNS name, username, password:
-        - port: 22 if omitted
+        Connection arguments:
+        - host: IP address, DNS name,
+        - username
+        - password
+        - port          : 22 if omitted
+        - certificate   : key file (.pem) Optional
+
+        Extra arguments:
         - alias: 'username@host:port' if omitted
-        - str: alias
+        - timeout       : connection & command timeout
+        - log_to_db     : logger will store logs into db (table: log; Will cause db file size size growing)
 
         Examples:
         |  KW                       |  Host     | Username | Password       | Port  | Alias             | Comments              |
@@ -160,7 +167,6 @@ class ConnectionKeywords(TraceListener):
         if not db.DataHandlerService().is_active:
             output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
             db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
-            db.DataHandlerService().start()
             with Logger() as log:
                 level = BuiltIn().get_variable_value('${LOG LEVEL}')
                 log.set_level('DEBUG' if level == 'TRACE' else level)
@@ -168,15 +174,21 @@ class ConnectionKeywords(TraceListener):
                 abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
                 log.set_log_destination(abs_log_file_path)
                 if is_truthy(log_to_db):
-                    log.add_handler(SQLiteHandler(db.DataHandlerService().execute))
+                    db.TableSchemaService().register_table(db.tables.log())
+                    log.add_handler(db.services.SQLiteHandler())
+                db.DataHandlerService().start()
                 logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
-
-        module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias, certificate, timeout)
-        module.start()
-        logger.info(f"Connection {module.alias} ready to be monitored")
-        _alias = self._modules.register(module, module.alias)
-        self._start_period(alias=module.alias)
-        return module.alias
+        try:
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port, alias,
+                                certificate, timeout)
+            module.start()
+            logger.info(f"Connection {module.alias} ready to be monitored")
+            _alias = self._modules.register(module, module.alias)
+            self._start_period(alias=module.alias)
+        except Exception as e:
+            BuiltIn().fatal_error(f"Cannot start module '{module}; Reason: {e}")
+        else:
+            return module.alias
 
     @keyword("Close host monitor")
     def close_host_monitor(self, alias=None):
@@ -234,8 +246,8 @@ class ConnectionKeywords(TraceListener):
 
     def _start_period(self, period_name=None, alias=None):
         module: HostModule = self._modules.get_connection(alias)
-        db.DataHandlerService().execute(insert_sql(db.TableSchemaService().tables.Points.name,
-                                                   db.TableSchemaService().tables.Points.columns),
+        table = db.TableSchemaService().tables.Points
+        db.DataHandlerService().execute(insert_sql(table.name, table.columns),
                                         module.host_id, period_name or module.alias,
                                         datetime.now().strftime(DB_DATETIME_FORMAT),
                                         None)
@@ -246,13 +258,15 @@ class ConnectionKeywords(TraceListener):
 
     def _stop_period(self, period_name=None, alias=None):
         module: HostModule = self._modules.get_connection(alias)
-        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'End',
+        table = db.TableSchemaService().tables.Points
+        db.DataHandlerService().execute(update_sql(table.name, 'End',
                                                    HOST_REF=module.host_id, PointName=period_name or module.alias),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
         module: HostModule = self._modules.get_connection(alias)
-        db.DataHandlerService().execute(update_sql(db.TableSchemaService().tables.Points.name, 'Mark',
+        table = db.TableSchemaService().tables.Points
+        db.DataHandlerService().execute(update_sql(table.name, 'Mark',
                                                    HOST_REF=module.host_id, PointName=mark_name),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))

@@ -1,80 +1,20 @@
 import hashlib
+import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
-from threading import Event, Thread, RLock, Timer, currentThread
+from threading import Timer, Thread, Event, RLock
 from time import sleep
-from typing import List, AnyStr, Mapping, Tuple, Iterable
+from typing import Tuple, Iterable, Mapping, AnyStr, List
 
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.model.db_schema import Field, FieldType, PrimaryKeys, ForeignKey, Table, Query
-from RemoteMonitorLibrary.utils import Singleton, sql, collections, Logger, get_error_info, flat_iterator
-from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
-from RemoteMonitorLibrary.utils.sql_engine import insert_sql
-from .plugins import SSHLibraryPlugInWrapper
+from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
+from RemoteMonitorLibrary.utils import Singleton, Logger, collections, sql_engine, flat_iterator, get_error_info
+from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
+from .tables import *
+from .tables import log
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
-
-
-class TraceHost(Table):
-    def __init__(self):
-        super().__init__(name='TraceHost',
-                         fields=[Field('HOST_ID', FieldType.Int, PrimaryKeys(True)), Field('HostName')])
-
-
-class TimeLine(Table):
-    def __init__(self):
-        Table.__init__(self, name='TimeLine',
-                       fields=[Field('TL_ID', FieldType.Int, PrimaryKeys(True)), Field('TimeStamp', FieldType.Text)],
-                       queries=[Query('select_last', 'SELECT TL_ID FROM TimeLine WHERE TimeStamp == "{timestamp}"')]
-                       )
-
-    def cache_timestamp(self, sql_engine, timestamp):
-        last_tl_id = sql_engine.execute(self.queries.select_last.sql.format(timestamp=timestamp))
-        if len(last_tl_id) == 0:
-            DataHandlerService().execute(insert_sql(self.name, self.columns), *(None, timestamp))
-            last_tl_id = sql_engine.get_last_row_id
-        else:
-            last_tl_id = last_tl_id[0][0]
-        return last_tl_id
-
-
-class Points(Table):
-    def __init__(self):
-        Table.__init__(self, name='Points',
-                       fields=(Field('HOST_REF', FieldType.Int), Field('PointName'), Field('Start'), Field('End')),
-                       foreign_keys=[ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID')],
-                       queries=[Query('select_state', """SELECT {} FROM Points
-                       WHERE HOST_REF = {} AND PointName = '{}'""")])
-
-
-class LinesCacheMap(Table):
-    def __init__(self):
-        super().__init__(fields=[Field('OUTPUT_REF', FieldType.Int), Field('ORDER_ID', FieldType.Int),
-                                 Field('LINE_REF', FieldType.Int)],
-                         foreign_keys=[ForeignKey('OUTPUT_REF', 'TimeMeasurement', 'OUTPUT_ID'),
-                                       ForeignKey('LINE_REF', 'LinesCache', 'LINE_ID')],
-                         queries=[Query('last_output_id', 'select max(OUTPUT_REF) from LinesCacheMap')])
-
-
-class LinesCache(Table):
-    def __init__(self):
-        Table.__init__(self, fields=[
-            Field('LINE_ID', FieldType.Int, PrimaryKeys(True)),
-            Field('HashTag', unique=True),
-            Field('Line')])
-
-
-class PlugInTable(Table):
-    def add_time_reference(self):
-        self.add_field(Field('HOST_REF', FieldType.Int))
-        self.add_field(Field('TL_REF', FieldType.Int))
-        self.add_foreign_key(ForeignKey('TL_REF', 'TimeLine', 'TL_ID'))
-        self.add_foreign_key(ForeignKey('HOST_REF', 'TraceHost', 'HOST_ID'))
-
-    def add_output_cache_reference(self):
-        self.add_field(Field('OUTPUT_REF', FieldType.Int))
-        self.add_foreign_key(ForeignKey('OUTPUT_REF', 'LinesCacheMap', 'OUTPUT_REF'))
 
 
 class DataUnit:
@@ -209,7 +149,7 @@ class DataHandlerService:
         self._threads: List[Thread] = []
         self._queue = collections.tsQueue()
         self._event: Event = None
-        self._db: sql.SQL_DB = None
+        self._db: sql_engine.SQL_DB = None
 
     @property
     def is_active(self):
@@ -230,14 +170,14 @@ class DataHandlerService:
         self.queue.put(task)
 
     def init(self, location=None, file_name=DEFAULT_DB_FILE, cumulative=False):
-        self._db = sql.SQL_DB(location, file_name, cumulative)
+        self._db = sql_engine.SQL_DB(location, file_name, cumulative)
 
     def start(self, event=Event()):
         if self._db.is_new:
             for name, table in TableSchemaService().tables.items():
                 try:
                     assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
-                    self._db.execute(sql.create_table_sql(table.name, table.fields, table.foreign_keys))
+                    self._db.execute(sql_engine.create_table_sql(table.name, table.fields, table.foreign_keys))
                 except AssertionError as e:
                     Logger().warn(f"{e}")
                 except Exception as e:
@@ -282,7 +222,7 @@ class DataHandlerService:
 
                     Logger().debug(f"Dequeue item: {item}")
                     if isinstance(item.table, PlugInTable):
-                        last_tl_id = TableSchemaService().tables.TimeLine.cache_timestamp(self, item.timestamp)
+                        last_tl_id = cache_timestamp(item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
                         Logger().debug(f"Update item: {item}:\n{rows}")
                     else:
@@ -297,6 +237,7 @@ class DataHandlerService:
                 except Exception as e:
                     f, l = get_error_info()
                     Logger().error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
+
                 else:
                     Logger().debug(f"Item {type(item).__name__} successfully handled")
             sleep(1)
@@ -384,13 +325,28 @@ class CacheLines:
         return self.output_ref
 
 
-__all__ = [
-    'DataHandlerService',
-    'TableSchemaService',
-    'PlugInService',
-    'DB_DATETIME_FORMAT',
-    'CacheLines',
-    'PlugInTable',
-    'data_factory'
-]
+def cache_timestamp(timestamp):
+    table = TableSchemaService().tables.TimeLine
+    last_tl_id = DataHandlerService().execute(table.queries.select_last.sql.format(timestamp=timestamp))
+    if len(last_tl_id) == 0:
+        DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, timestamp))
+        last_tl_id = DataHandlerService().get_last_row_id
+    else:
+        last_tl_id = last_tl_id[0][0]
+    return last_tl_id
 
+
+class SQLiteHandler(logging.Handler):
+    """
+    Thread-safe logging handler for SQLite.
+    """
+
+    def emit(self, record):
+        self.format(record)
+        if record.exc_info:  # for exceptions
+            record.exc_text = logging._defaultFormatter.formatException(record.exc_info)
+        else:
+            record.exc_text = ""
+
+        log_record = tuple(record.__dict__.get(key) for key in log.INSERT_FIELDS)
+        DataHandlerService().execute(log.insertion_sql, *log_record)

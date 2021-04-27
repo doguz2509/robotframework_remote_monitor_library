@@ -99,7 +99,7 @@ class aTopSystemLevelChart(ChartAbstract):
         return result
 
 
-class aTopDataUnit(db.DataUnit):
+class aTopDataUnit(db.services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines

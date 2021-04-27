@@ -4,6 +4,7 @@ from typing import Iterable
 from SSHLibrary import SSHLibrary as RSSHLibrary
 from robot.utils import is_truthy
 
+import RemoteMonitorLibrary.api.db.services
 from RemoteMonitorLibrary.api import db, model
 from RemoteMonitorLibrary.api.plugins import SSHLibraryCommand, PlugInAPI, Parser, extract_method_arguments
 from RemoteMonitorLibrary.utils import Logger
@@ -52,7 +53,7 @@ class sshlibrary_monitor(model.PlugInTable):
 
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
-        super().__init__(table=db.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
+        super().__init__(table=RemoteMonitorLibrary.api.db.services.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
 
     def __call__(self, output: dict) -> bool:
         out = output.get('stdout', None)
@@ -89,7 +90,7 @@ class UserCommandParser(Parser):
         else:
             st = 'Pass'
             msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))
-        output_ref = db.CacheLines().upload(msg)
+        output_ref = RemoteMonitorLibrary.api.db.services.CacheLines().upload(msg)
         du = model.data_factory(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
                                                                 output_ref))
         self.data_handler(du)

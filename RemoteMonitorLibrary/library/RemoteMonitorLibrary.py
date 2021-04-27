@@ -7,9 +7,9 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
-from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
 from RemoteMonitorLibrary.utils import load_modules, print_plugins_table
 from RemoteMonitorLibrary.version import VERSION

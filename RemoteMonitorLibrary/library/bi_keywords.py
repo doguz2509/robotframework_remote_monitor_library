@@ -7,7 +7,6 @@ from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.api import db
-from RemoteMonitorLibrary.api.db import TableSchemaService
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
 from RemoteMonitorLibrary.model.host_registry_model import HostModule, HostRegistryCache
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
@@ -17,10 +16,10 @@ from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 def _get_period_marks(period, module_id):
     start = db.DataHandlerService().execute(
-        TableSchemaService().tables.Points.queries.select_state('Start', module_id, period))
+        db.Points.queries.select_state('Start', module_id, period))
     start = None if start == [] else start[0][0]
     end = db.DataHandlerService().execute(
-        TableSchemaService().tables.Points.queries.select_state('End', module_id, period))
+        db.Points.queries.select_state('End', module_id, period))
     end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
     return dict(start_mark=start, end_mark=end)
 

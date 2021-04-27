@@ -5,7 +5,7 @@ from time import sleep
 from robot.api import logger
 from robot.utils.connectioncache import ConnectionCache
 
-from RemoteMonitorLibrary.api.db import TableSchemaService, DataHandlerService
+from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.model.configuration import Configuration
 from RemoteMonitorLibrary.utils import Singleton, Logger
 from RemoteMonitorLibrary.utils.collections import tsQueue
@@ -75,10 +75,10 @@ class HostModule:
 
     def start(self):
         self._configuration.update({'event': Event()})
-        DataHandlerService().execute(insert_sql(TableSchemaService().tables.TraceHost.name,
-                                                TableSchemaService().tables.TraceHost.columns), *(None, self.alias))
+        table = db.TableSchemaService().tables.TraceHost
+        db.DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
 
-        self._host_id = DataHandlerService().get_last_row_id
+        self._host_id = db.DataHandlerService().get_last_row_id
         self._keep_alive = _keep_alive(self.alias, self._errors, self.event)
         self._keep_alive.start()
 

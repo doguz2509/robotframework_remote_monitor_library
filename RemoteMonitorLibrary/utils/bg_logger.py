@@ -2,7 +2,6 @@
 import logging
 import logging.handlers
 import os
-from threading import currentThread
 
 from robot.api import logger as robot_logger
 
