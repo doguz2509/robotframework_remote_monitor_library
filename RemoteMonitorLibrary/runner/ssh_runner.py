@@ -134,7 +134,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
-        self._thread = Thread(name=self.type, target=target, daemon=True)
+        self._thread = Thread(name=self.id, target=target, daemon=True)
 
     @property
     def host_alias(self):
@@ -143,6 +143,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     @property
     def type(self):
         return f"{self.__class__.__name__}"
+
+    @property
+    def id(self):
+        return f"{self.type} on {self.parameters.host}"
 
     def __str__(self):
         return "{} on {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
@@ -286,7 +290,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             Logger().info(f"Iteration {flow.name} completed\n{total_output}")
 
     def _persistent_worker(self):
-        Logger().info(f"PlugIn '{self}' started", console=True)
+        Logger().info(f"\nPlugIn '{self}' started", console=True)
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 self._run_command(ssh, self.flow_type.Setup)

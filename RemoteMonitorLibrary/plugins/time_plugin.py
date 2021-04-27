@@ -197,11 +197,11 @@ class TimeReadOutput(SSHLibraryCommand):
 
 class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **options):
+        self._command = options.pop('command', None)
         PlugInAPI.__init__(self, parameters, data_handler, *args, **options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
         self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
-        self._command = options.get('command', None)
         self._command_name = options.get('name', None)
 
         self._start_in_folder = options.get('start_in_folder', None)
@@ -210,7 +210,7 @@ class Time(PlugInAPI):
         assert self._command, "SSHLibraryCommand not provided"
         
         self.set_commands(FlowCommands.Command,
-                          TimeStartCommand(**self.options),
+                          TimeStartCommand(self._command, **self.options),
                           TimeReadOutput(parser=TimeParser(host_id=self.host_id,
                                                            table=self.affiliated_tables()[0],
                                                            data_handler=self.data_handler, Command=self.name),
@@ -234,6 +234,10 @@ class Time(PlugInAPI):
         base_table = TimeMeasurement()
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
+
+    @property
+    def id(self):
+        return f"{super().id}: {self._command}"
 
     def __str__(self):
         return f"{self.type} [on {self.host_alias}] start command '{self._command}'  [name={self.name}]"

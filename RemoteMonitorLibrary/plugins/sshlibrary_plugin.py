@@ -103,9 +103,10 @@ class UserCommandParser(Parser):
 
 class SSHLibrary(PlugInAPI):
     def __init__(self, parameters, data_handler, command, **user_options):
-        super().__init__(parameters, data_handler, command, **user_options)
-        self._command = ' '.join(self.args)
+        self._command = command
         assert self._command, "Commands not provided"
+        super().__init__(parameters, data_handler, **user_options)
+
         user_options = self._normalise_arguments(**user_options)
         if user_options.get('rc', None) is not None:
             assert user_options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
@@ -138,6 +139,10 @@ class SSHLibrary(PlugInAPI):
 
     def __str__(self):
         return f"{self.type} on {super().host_alias}: {self._command}"
+
+    @property
+    def id(self):
+        return f"{super().id}: {self._command}"
 
 
 if __name__ == '__main__':

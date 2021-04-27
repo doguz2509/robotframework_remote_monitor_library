@@ -110,7 +110,6 @@ class HostModule:
         plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         plugin.start()
         self._active_plugins[hash(plugin)] = plugin
-        logger.info(f"PlugIn '{plugin}' started", also_console=True)
 
     def get_plugin(self, plugin_name=None, **options):
         res = []

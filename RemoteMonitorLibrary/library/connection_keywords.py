@@ -226,8 +226,6 @@ class ConnectionKeywords:
         """
         try:
             monitor: HostModule = self._modules.get_connection(alias)
-            assert plugin_name in db.PlugInService().keys(), \
-                f"PlugIn '{plugin_name}' not registered"
             monitor.plugin_start(plugin_name, *args, **options)
             # logger.info(f"PlugIn '{plugin_name}' started on {monitor.alias}",
             #             also_console=True)
