@@ -1,5 +1,5 @@
 from threading import RLock
-from typing import Any
+from typing import Any, List
 
 from RemoteMonitorLibrary.utils import Logger
 
@@ -8,32 +8,36 @@ class Empty(Exception):
     pass
 
 
-class tsQueue:
+class tsQueue(list):
     def __init__(self, get_limit=10):
         self._get_limit = get_limit
-        self._queue = []
         self._lock = RLock()
 
     def put(self, item):
         with self._lock:
-            self._queue.append(item)
+            super().append(item)
             Logger().debug(f"Item '{id(item)}' enqueued")
 
     def get(self) -> Any:
         with self._lock:
             try:
-                Logger().debug(f"Item '{id(self._queue[0])}' dequeued")
-                yield self._queue.pop(0)
+                Logger().debug(f"Item '{id(self[0])}' dequeued")
+                yield super().pop(0)
             except IndexError:
                 yield Empty()
 
-    def __len__(self):
-        return len(self._queue)
+    def pop(self):
+        raise AttributeError("Method 'pop' not allowed here; Use 'get'")
 
-    def __iter__(self):
-        return self._queue
+    def append(self, item) -> None:
+        raise AttributeError("Method 'append' not allowed here; Use 'put'")
 
-    qsize = __len__
+    def extend(self, _list):
+        raise AttributeError("Method 'extend' not allowed here; Use 'put'")
+
+    @property
+    def qsize(self):
+        return len(self)
 
     def empty(self):
         return len(self) == 0
