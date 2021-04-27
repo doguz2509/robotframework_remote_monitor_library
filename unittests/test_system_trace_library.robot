@@ -6,7 +6,7 @@ Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  timeout=10s  log_to_db=yes
+Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s  log_to_db=yes
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
@@ -14,6 +14,8 @@ Suite Teardown   run keywords  close_all_host_monitors
 ...             AND  generate module statistics  plugin=aTop
 
 *** Variables ***
+${CERTIFICATE}  ${EMPTY}
+${PASSWORD}            ${EMPTY}
 ${DURATION}  10s
 ${INTERVAL}  0.5s
 ${PERSISTENT}  yes
@@ -36,14 +38,14 @@ Test demo attack
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  rc=137|128  return_rc=yes
-    ...     return_stderr=yes  expected=Killed
-    Start monitor plugin  Time  command=make -j 40 clean all  timeout=10m
-    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+#    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes
+    ...     return_stderr=yes  rc=137|128  expected=Killed
+#    Start monitor plugin  Time  command=make -j 40 clean all  timeout=10m
+#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
 #    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=1s  store_output=yes
 
-    sleep  ${DURATION}  make something here
+    wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation
 #    stop monitor plugin  atop
     generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
