@@ -92,7 +92,7 @@ class HostModule:
         try:
             assert self.event
             self.event.set()
-            # self._keep_alive.join()
+            Logger().debug(f"Terminating {self.alias}")
             self._configuration.update({'event': None})
             active_plugins = list(self._active_plugins.keys())
             while len(active_plugins) > 0:
@@ -101,6 +101,8 @@ class HostModule:
             # self._control_th.join()
         except AssertionError:
             logger.warn(f"Session '{self.alias}' not started yet")
+        else:
+            Logger().info(f"Session '{self.alias}' stopped", console=True)
 
     def plugin_start(self, plugin_name, *args, **options):
         plugin_conf = self.config.clone()
@@ -142,7 +144,6 @@ class HostModule:
         return res
 
     def plugin_terminate(self, plugin_name, **options):
-        err = []
         try:
             plugins_to_stop = self.get_plugin(plugin_name, **options)
             assert len(plugins_to_stop) > 0, f"Plugins '{plugin_name}' not matched in list"
@@ -165,6 +166,7 @@ class HostRegistryCache(ConnectionCache):
 
     def clear_all(self, closer_method='stop'):
         for conn in self._connections:
+            Logger().info(f"Clear {conn}")
             getattr(conn, closer_method)()
 
     close_all = clear_all

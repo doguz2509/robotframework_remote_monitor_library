@@ -173,12 +173,12 @@ class plugin_integration_abstract(object):
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return []
 
-    @staticmethod
-    def to_json():
-        return {
-            'tables': [t.name for t in plugin_integration_abstract.affiliated_tables()],
-            'charts': [{chart.__class__.__name__: chart.sections for chart in plugin_integration_abstract.affiliated_charts()}]
-        }
+    # @staticmethod
+    # def to_json():
+    #     return {
+    #         'tables': [t.name for t in plugin_integration_abstract.affiliated_tables()],
+    #         'charts': [{chart.__class__.__name__: chart.sections for chart in plugin_integration_abstract.affiliated_charts()}]
+    #     }
 
     def __hash__(self):
         return hash(f"{self.__class__.__name__}_{id(self)}")
