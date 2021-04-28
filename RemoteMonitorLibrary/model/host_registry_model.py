@@ -8,38 +8,8 @@ from robot.utils.connectioncache import ConnectionCache
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.utils import Singleton, Logger, logger_extension
-from RemoteMonitorLibrary.utils.collections import tsQueue
+from RemoteMonitorLibrary.utils import Singleton, Logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
-#
-#
-# class _keep_alive(Thread):
-#     def __init__(self, name, err_list: tsQueue, event=Event()):
-#         self.event = event
-#         self.err_list = err_list
-#
-#         super().__init__(name=name)
-#
-#     def run(self):
-#         logger_extension.register_logger_thread(self.name)
-#         Logger().info('Keep alive started')
-#         while not self.event.isSet():
-#             if len(self.err_list) > 0:
-#                 self.join()
-#             sleep(1)
-#         Logger().info('Keep alive stop invoked')
-#
-#     def join(self, timeout=None):
-#         try:
-#             if self.event:
-#                 self.event.set()
-#             assert len(self.err_list) == 0, \
-#                 "Following errors cause {} termination:\n\t{}".format(
-#                     self.name,
-#                     '\n\t'.join([f"{e}" for e in self.err_list]))
-#             Logger().info('Keep alive stopped')
-#         finally:
-#             logger_extension.unregister_logger_thread(self.name)
 
 
 class HostModule:
@@ -53,7 +23,6 @@ class HostModule:
         self._data_handler = data_handler
         self._active_plugins = {}
         self._host_id = -1
-        # self._keep_alive: _keep_alive = None
         self._errors = GlobalErrors()
 
     @property
@@ -85,8 +54,6 @@ class HostModule:
         db.DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
 
         self._host_id = db.DataHandlerService().get_last_row_id
-        # self._keep_alive = _keep_alive(self.alias, self._errors, self.event)
-        # self._keep_alive.start()
 
     def stop(self):
         try:
