@@ -227,6 +227,7 @@ class aTop(PlugInAPI):
 
     def __init__(self, parameters, data_handler, *args, **user_options):
         PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
@@ -234,6 +235,7 @@ class aTop(PlugInAPI):
         with self.inside_host() as ssh:
             self._os_name = self._get_os_name(ssh)
 
+        self._name = f"{self.name}-{self._os_name}"
         self.set_commands(FlowCommands.Setup,
                           SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
                                             sudo=self.sudo_expected,

@@ -105,9 +105,10 @@ class SSHLibrary(PlugInAPI):
     def __init__(self, parameters, data_handler, command, **user_options):
         self._command = command
         assert self._command, "Commands not provided"
+        user_options.update({'name': user_options.get('name', self._command)})
         super().__init__(parameters, data_handler, **user_options)
 
-        user_options = self._normalise_arguments(**user_options)
+        user_options = self.normalise_arguments(**user_options)
         if user_options.get('rc', None) is not None:
             assert user_options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
         if user_options.get('expected') or user_options.get('prohibited'):
@@ -129,20 +130,12 @@ class SSHLibrary(PlugInAPI):
     def affiliated_tables() -> Iterable[model.Table]:
         return sshlibrary_monitor(),
 
-    @staticmethod
-    def _normalise_arguments(**kwargs):
-        for k in kwargs.keys():
-            v = kwargs.get(k)
-            if k.startswith('return'):
-                kwargs.update({k: is_truthy(v)})
-        return kwargs
-
     def __str__(self):
         return f"{self.type} on {super().host_alias}: {self._command}"
 
-    @property
-    def id(self):
-        return f"{super().id}: {self._command}"
+    # @property
+    # def id(self):
+    #     return f"{super().id}: {self._command}"
 
 
 if __name__ == '__main__':

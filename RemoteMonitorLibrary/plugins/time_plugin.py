@@ -13,6 +13,7 @@ and you'll know something is happening when you start to see real compilation ha
 #BTW the above was without mlp ... so let's make sure we run at least 10 samples without mlp and 10 samples after - to conclude on avg, max and min for without mlp and then for with mlp """
 
 import os
+import re
 from typing import Iterable, Any, Tuple
 
 from SSHLibrary import SSHLibrary
@@ -153,7 +154,11 @@ class TimeParser(Parser):
         time_output = outputs.get('stderr', None)
         rc = outputs.get('rc')
         try:
-            assert rc == 0, f"Result return rc {rc}"
+            exp_rc = self.options.get('rc', None)
+            if exp_rc:
+                if rc not in [int(_rc) for _rc in re.split(r'\s*\|\s*', exp_rc)]:
+                    raise AssertionError(
+                        f"Result return rc {rc} not match expected\nStdOut:\n\t{command_out}\nStdErr:\n\t{time_output}")
             data = time_output.split(',')
             row_dict = DotDict(**{k: v.replace('%', '') for (k, v) in [entry.split(':', 1) for entry in data]})
             for k in row_dict.keys():
@@ -170,7 +175,8 @@ class TimeParser(Parser):
             return True
         except Exception as e:
             f, li = get_error_info()
-            raise RunnerError(f"{self.__class__.__name__} ->  {e}; File: {f}:{li}")
+            Logger().error(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
+            raise RunnerError(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
 
 
 class TimeStartCommand(SSHLibraryCommand):
@@ -196,19 +202,21 @@ class TimeReadOutput(SSHLibraryCommand):
 
 
 class Time(PlugInAPI):
-    def __init__(self, parameters, data_handler, *args, **options):
-        self._command = options.pop('command', None)
-        PlugInAPI.__init__(self, parameters, data_handler, *args, **options)
+    def __init__(self, parameters, data_handler, *args, **user_options):
+        self._command = user_options.pop('command', None)
+        self._command_name = user_options.update({'name': user_options.get('name', self._command)})
+        PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
-        self._time_cmd = options.get('time_cmd', DEFAULT_TIME_COMMAND)
-        self._command_name = options.get('name', None)
-
-        self._start_in_folder = options.get('start_in_folder', None)
+        self._time_cmd = user_options.get('time_cmd', DEFAULT_TIME_COMMAND)
+        self._start_in_folder = user_options.get('start_in_folder', None)
         if self._start_in_folder:
-            self._verify_folder_exist(self._start_in_folder)
+            self._verify_folder_exist()
+            self.options.update({'start_in_folder': self._start_in_folder})
         assert self._command, "SSHLibraryCommand not provided"
-        
+        self.options.update(**self.normalise_arguments(**self.options))
+        if user_options.get('rc', None) is not None:
+            assert user_options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
         self.set_commands(FlowCommands.Command,
                           TimeStartCommand(self._command, **self.options),
                           TimeReadOutput(parser=TimeParser(host_id=self.host_id,
@@ -217,12 +225,15 @@ class Time(PlugInAPI):
                                          **self.options)
                           )
 
-    def _verify_folder_exist(self, _path):
+    def _verify_folder_exist(self):
         with self.inside_host() as ssh:
             if self._start_in_folder.startswith('~'):
+                _path = self._start_in_folder
                 user_home = ssh.execute_command('echo $HOME').strip()
                 _path = _path.replace('~', user_home)
-            ssh.directory_should_exist(os.path.expanduser(_path))
+                Logger().info(f"Expand folder {self._start_in_folder} to {_path}")
+                self._start_in_folder = _path
+            ssh.directory_should_exist(os.path.expanduser(self._start_in_folder))
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
