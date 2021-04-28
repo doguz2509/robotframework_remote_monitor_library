@@ -7,6 +7,7 @@ Library  SSHLibrary
 Library  BuiltIn
 
 Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s  log_to_db=yes
+
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
@@ -37,15 +38,14 @@ Test demo attack
 
 Test Host monitor
     [Tags]  monitor
-#    [Setup]  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+    [Setup]  Prepare bm
 #    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes
 #    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
     Start monitor plugin  Time  command=make -j 40 clean all  timeout=10m
-    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11
-    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=10s  store_output=yes
-
+    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+#    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=10s  store_output=yes
     wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation
 #    stop monitor plugin  atop
@@ -68,3 +68,22 @@ Test Host monitor
 #     login  ${USER}  ${PASSWORD}
 #     ${out}  ${rc}=  execute command  echo "atop -r ~/atop_temp/atop.dat -b `date +%H:`$((`date +%_M` - 1)) -e `date +%H:%M`"  return_rc=yes
 #     log  \nOutput got:\n${out}  console=yes
+
+*** Keywords ***
+Prepare bm
+    open connection  ${HOST}
+    login with public key  ${USER}  ${CERTIFICATE}
+    log  Prepare environment  console=yes
+    ${HOME}=  execute command  echo $HOME
+    @{comd_list}=  create list
+    ...     rm -rf ${HOME}/bm_noise/linux-5.11.10
+    ...     cd ${HOME}/bm_noise; tar xvf kernel*
+    ...     cp -v /boot/config-$(uname -r) ${HOME}/bm_noise/linux-5.11.10/.config
+    ...     cd ${HOME}/bm_noise/linux-5.11.10; make defconfig
+    log many  @{comd_list}
+    FOR  ${cmd}  IN   @{comd_list}
+        ${err}  ${rc}=  execute command  ${cmd}  return_stdout=no  return_rc=yes  return_stderr=yes
+        run keyword if  ${rc} > 0  fail  Command: ${cmd} - FAILED [Rc: ${rc}]\n${err}
+    END
+    log  Environment setup successfully completed  console=yes
+    [Teardown]  close connection
