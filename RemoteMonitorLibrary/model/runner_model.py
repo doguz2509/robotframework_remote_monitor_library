@@ -183,14 +183,3 @@ class plugin_integration_abstract(object):
     def __hash__(self):
         return hash(f"{self.__class__.__name__}_{id(self)}")
 
-    def __str__(self):
-        _str = f"+----------------+----------------------+---------+\n"
-        _str += "| {:15s} |                    | PlugIn |\n".format(self.__class__.__name__)
-        _str += '\n'.join(['|                 | {:18s} | Table   |'.format(
-            t.name) for t in self.affiliated_tables()])
-        for c in self.affiliated_charts():
-            _str += f'|                 | {c:18s} | Chart   |\n'
-            for s in c.sections:
-                _str += f"|             | {s:28s} | Section |\n"
-        _str += f"+----------------+----------------------+---------+"
-        return _str

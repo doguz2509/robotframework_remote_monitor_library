@@ -1,10 +1,10 @@
 from abc import ABCMeta
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from enum import Enum
 from threading import Event, Thread, RLock
 from time import sleep
 from typing import Callable, Any
-from contextlib import contextmanager
 
 from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
@@ -12,8 +12,8 @@ from robot.utils import DotDict, is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.errors import PlugInError, EmptyCommandSet, RunnerError
-from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser
-from RemoteMonitorLibrary.utils import get_error_info, evaluate_duration, Logger
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser, FlowCommands
+from RemoteMonitorLibrary.utils import evaluate_duration, Logger
 
 
 #
@@ -154,9 +154,15 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         return f"{self.type}-{self.name}"
 
     def __str__(self):
-        return "{} on {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
-            self.type, self.host_alias, self._interval, self.persistent, self.sudo_expected,
-            self.sudo_password_expected)
+        _str = f"{self.__class__.__name__} instance created on host {self.host_alias} :"
+        for set_ in FlowCommands:
+            commands = getattr(self, set_.value, ())
+            _str += f"\n{set_.name}:"
+            if len(commands) > 0:
+                _str += '\n\t{}'.format('\n\t'.join([f"{c}" for c in getattr(self, set_.value, ())]))
+            else:
+                _str += f' N/A'
+        return _str
 
     def start(self):
         self._thread.start()

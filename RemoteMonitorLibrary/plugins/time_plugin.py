@@ -183,14 +183,25 @@ class TimeStartCommand(SSHLibraryCommand):
     def __init__(self, command, **user_options):
         self._time_cmd = user_options.pop('time_cmd', DEFAULT_TIME_COMMAND)
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
-        command = f'{self._time_cmd} -f "{self._format}" {command}'
-        start_in_folder = user_options.pop('start_in_folder', None)
-        if start_in_folder:
-            command = f"cd {start_in_folder}; {command}"
+        self._base_cmd = command
+        self._start_in_folder = user_options.pop('start_in_folder', None)
         if not user_options.get('return_stdout', False):
-            command += ' > /dev/null'
+            self._base_cmd += ' > /dev/null'
+        command = "{cd_to_folder}{time} -f \"{format}\" {base_cmd}".format(
+            cd_to_folder=f'cd {self._start_in_folder}; ' if self._start_in_folder else '',
+            time=self._time_cmd,
+            format=self._format,
+            base_cmd=self._base_cmd
+        )
         super().__init__(SSHLibrary.start_command, command,
                          **extract_method_arguments(SSHLibrary.start_command.__name__, **user_options))
+
+    def __str__(self):
+        return f"{self._method.__name__.replace('_', ' ').capitalize()}:  " \
+               f"{f'cd {self._start_in_folder}; ' if self._start_in_folder else ''}" \
+               f"{self._time_cmd} -f \"...\" " \
+               f"{', '.join([f'{a}' for a in [self._base_cmd] + [f'{k}={v}' for k, v in self._ssh_options.items()]])}" \
+               f"{'; Parser: '.format(self.parser) if self.parser else ''}"
 
 
 class TimeReadOutput(SSHLibraryCommand):
@@ -199,6 +210,11 @@ class TimeReadOutput(SSHLibraryCommand):
         user_options.update({'return_stderr': True, 'return_rc': True})
         super().__init__(SSHLibrary.read_command_output, parser=user_options.pop('parser', None),
                          **extract_method_arguments(SSHLibrary.read_command_output.__name__, **user_options))
+
+    def __str__(self):
+        return f"{self._method.__name__.replace('_', ' ').capitalize()}: " \
+               f"{', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])}" \
+               f"'; Parser: {'assigned' if self.parser else 'N/A'}"
 
 
 class Time(PlugInAPI):
@@ -224,6 +240,7 @@ class Time(PlugInAPI):
                                                            data_handler=self.data_handler, Command=self.name),
                                          **self.options)
                           )
+        Logger().info(f"{self}")
 
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
@@ -250,8 +267,16 @@ class Time(PlugInAPI):
     def id(self):
         return f"{super().id}: {self._command}"
 
-    def __str__(self):
-        return f"{self.type} [on {self.host_alias}] start command '{self._command}'  [name={self.name}]"
+    # def __str__(self):
+    #     _str = f"{self.__class__.__name__} instance created on host {self.host_alias} :"
+    #     for set_ in FlowCommands:
+    #         commands = getattr(self, set_.value, ())
+    #         _str += f"\n{set_.name}:"
+    #         if len(commands) > 0:
+    #             _str += '\n\t{}'.format('\n\t'.join([f"{c}" for c in getattr(self, set_.value, ())]))
+    #         else:
+    #             _str += f' N/A'
+    #     return _str
 
 
 __all__ = [

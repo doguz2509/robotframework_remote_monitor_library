@@ -130,13 +130,6 @@ class SSHLibrary(PlugInAPI):
     def affiliated_tables() -> Iterable[model.Table]:
         return sshlibrary_monitor(),
 
-    def __str__(self):
-        return f"{self.type} on {super().host_alias}: {self._command}"
-
-    # @property
-    # def id(self):
-    #     return f"{super().id}: {self._command}"
-
 
 if __name__ == '__main__':
     t = sshlibrary_monitor()
