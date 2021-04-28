@@ -267,18 +267,7 @@ class Time(PlugInAPI):
     def id(self):
         return f"{super().id}: {self._command}"
 
-    # def __str__(self):
-    #     _str = f"{self.__class__.__name__} instance created on host {self.host_alias} :"
-    #     for set_ in FlowCommands:
-    #         commands = getattr(self, set_.value, ())
-    #         _str += f"\n{set_.name}:"
-    #         if len(commands) > 0:
-    #             _str += '\n\t{}'.format('\n\t'.join([f"{c}" for c in getattr(self, set_.value, ())]))
-    #         else:
-    #             _str += f' N/A'
-    #     return _str
-
-
+   
 __all__ = [
     Time.__name__,
     __doc__
