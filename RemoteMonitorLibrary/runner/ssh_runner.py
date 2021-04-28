@@ -180,6 +180,14 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def persistent(self):
         return self._persistent
 
+    @staticmethod
+    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
+        for k in kwargs.keys():
+            v = kwargs.get(k)
+            if k.startswith(prefix):
+                kwargs.update({k: func(v)})
+        return kwargs
+
     def _close_ssh_library_connection_from_thread(self):
         try:
             with self._lock:
