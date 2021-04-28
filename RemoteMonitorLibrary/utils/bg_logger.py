@@ -13,7 +13,7 @@ class Logger:
     def __init__(self):
         self._logger = logging.getLogger('RemoteMonitorLibrary')
         handler = logging.StreamHandler()
-        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] %(threadName)-10s -> %(message)s")
+        self._formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] [%(threadName)-14s] : %(message)s")
         handler.setFormatter(self._formatter)
         self._logger.addHandler(logging.StreamHandler())
 
