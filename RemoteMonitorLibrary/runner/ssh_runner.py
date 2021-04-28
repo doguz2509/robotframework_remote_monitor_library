@@ -101,8 +101,13 @@ class SSHLibraryCommand:
     def __call__(self, ssh_client: SSHLibrary, **runtime_options) -> Any:
         if self._command is not None:
             command = self.command_template.format(**runtime_options)
+            Logger().debug(
+                f"Executing: {self._method.__name__}({command}, "
+                f"{', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, command, **self._ssh_options)
         else:
+            Logger().debug(f"Executing: {self._method.__name__}"
+                           f"({', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, **self._ssh_options)
         if self.parser:
             return self.parser(dict(self._result_template(output)))
@@ -134,7 +139,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             target = self._persistent_worker
         else:
             target = self._interrupt_worker
-        self._thread = Thread(name=self.id, target=target, daemon=True)
+        self._thread = Thread(name=self.name, target=target, daemon=True)
 
     @property
     def host_alias(self):
@@ -146,7 +151,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     @property
     def id(self):
-        return f"{self.type} on {self.parameters.host}"
+        return f"{self.type}-{self.name}"
 
     def __str__(self):
         return "{} on {} [Interval: {}; Persistent: {}; Sudo: {}; Password: {}]".format(
@@ -156,7 +161,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def start(self):
         self._thread.start()
 
-    def stop(self, timeout=5):
+    def stop(self, timeout=20):
         self._internal_event.set()
         self._thread.join(timeout)
 
@@ -255,8 +260,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     @contextmanager
     def inside_host(self):
         try:
-            self.login()
             with self._lock:
+                self.login()
                 yield self._ssh
         except Exception as e:
             Logger().critical("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
@@ -274,6 +279,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     @property
     def is_continue_expected(self):
+        # if len(GlobalErrors()) > 0:
+        #     Logger().critical(f"Global error occurred; Terminating")
+        #     self._internal_event.isSet()
         if self.parameters.event.isSet():
             Logger().info(f"Stop requested by external source")
             return False
@@ -296,6 +304,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(0.05)
         except EmptyCommandSet:
             Logger().warning(f"Iteration {flow.name} ignored")
+        except Exception as e:
+            raise RunnerError(f"Command set {flow.name} failed: {e}")
         else:
             Logger().info(f"Iteration {flow.name} completed\n{total_output}")
 
@@ -320,14 +330,16 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                             sleep(0.5)
                     except RunnerError as e:
                         self._session_errors.append(e)
-                        Logger().error(
+                        Logger().warning(
                             "Error execute on: {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                                 name=self.host_alias,
                                 error=e,
                                 real=len(self._session_errors),
                                 allowed=self._fault_tolerance,
                             ))
+                sleep(2)
                 self._run_command(ssh, self.flow_type.Teardown)
+        sleep(2)
         Logger().info(f"PlugIn '{self}' stopped", console=True)
 
     def _interrupt_worker(self):
@@ -347,7 +359,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                         evaluate_duration(start_ts, next_ts, self.host_alias)
                 except RunnerError as e:
                     self._session_errors.append(e)
-                    Logger().error(
+                    Logger().warning(
                         "Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                             name=self.host_alias,
                             error=e,
