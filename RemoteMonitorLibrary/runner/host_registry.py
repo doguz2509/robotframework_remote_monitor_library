@@ -1,6 +1,5 @@
 from collections import Callable
-from threading import Event, Thread, currentThread
-from time import sleep
+from threading import Event
 
 from robot.api import logger
 from robot.utils.connectioncache import ConnectionCache

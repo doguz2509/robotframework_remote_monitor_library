@@ -8,7 +8,7 @@ from robot.utils import is_truthy, timestr_to_secs
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import Logger
 from RemoteMonitorLibrary.library.listeners import *
-from RemoteMonitorLibrary.model.host_registry_model import HostRegistryCache, HostModule
+from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 

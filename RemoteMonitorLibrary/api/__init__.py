@@ -2,7 +2,7 @@ from . import plugins
 from . import model
 from . import db
 from . import tools
-from RemoteMonitorLibrary.model import host_registry_model as host_registry
+from RemoteMonitorLibrary.runner import host_registry
 
 
 __all__ = [

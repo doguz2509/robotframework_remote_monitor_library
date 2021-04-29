@@ -268,7 +268,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         try:
             with self._lock:
                 self.login()
+                assert self._ssh is not None, "Probably connection failed"
                 yield self._ssh
+        except AssertionError as e:
+            self._session_errors.append(f"{e}")
         except Exception as e:
             Logger().critical("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
@@ -285,9 +288,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     @property
     def is_continue_expected(self):
-        # if len(GlobalErrors()) > 0:
-        #     Logger().critical(f"Global error occurred; Terminating")
-        #     self._internal_event.isSet()
+        self._evaluate_tolerance()
         if self.parameters.event.isSet():
             Logger().info(f"Stop requested by external source")
             return False
@@ -322,7 +323,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 self._run_command(ssh, self.flow_type.Setup)
                 while self.is_continue_expected:
                     try:
-                        self._evaluate_tolerance()
                         start_ts = datetime.now()
                         _timedelta = timedelta(seconds=self.parameters.interval) \
                             if self.parameters.interval is not None else timedelta(seconds=0)

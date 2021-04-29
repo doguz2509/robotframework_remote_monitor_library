@@ -8,8 +8,9 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
-from RemoteMonitorLibrary.model.host_registry_model import HostModule, HostRegistryCache
+
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
+from RemoteMonitorLibrary.runner.host_registry import HostModule, HostRegistryCache
 from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 

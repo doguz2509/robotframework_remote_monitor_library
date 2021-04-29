@@ -1,4 +1,5 @@
-from .services import DB_DATETIME_FORMAT, DataHandlerService, TableSchemaService, PlugInService, CacheLines, data_factory
+from .services import DB_DATETIME_FORMAT, DataHandlerService, \
+    TableSchemaService, PlugInService, CacheLines, data_factory
 from .tables import PlugInTable, Points, log
 
 
