@@ -7,9 +7,12 @@ from time import sleep
 from typing import Tuple, Iterable, Mapping, AnyStr, List
 
 from robot.utils import DotDict
+from robotbackground_custom_logger import logger
+from robotbackground_custom_logger.api import StreamHandler
+
 
 from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
-from RemoteMonitorLibrary.utils import Singleton, Logger, collections, sql_engine, flat_iterator, get_error_info
+from RemoteMonitorLibrary.utils import Singleton, collections, sql_engine, flat_iterator, get_error_info
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
 from .tables import *
 from .tables import log
@@ -140,7 +143,7 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
                 _registered_plugins += f'\t\t{table.name}\n'
                 TableSchemaService().register_table(table)
         super().update(**plugin_modules)
-        Logger().info(_registered_plugins)
+        logger.info(_registered_plugins)
 
 
 @Singleton
@@ -162,7 +165,7 @@ class DataHandlerService:
     @property
     def queue(self):
         if self._event.isSet():
-            Logger().warning(f"Stop invoked; new data cannot be enqueued")
+            logger.warn(f"Stop invoked; new data cannot be enqueued")
             return
         return self._queue
 
@@ -179,9 +182,9 @@ class DataHandlerService:
                     assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
                     self._db.execute(sql_engine.create_table_sql(table.name, table.fields, table.foreign_keys))
                 except AssertionError as e:
-                    Logger().warn(f"{e}")
+                    logger.warn(f"{e}")
                 except Exception as e:
-                    Logger().error(f"Cannot create table '{name}' -> Error: {e}")
+                    logger.error(f"Cannot create table '{name}' -> Error: {e}")
                     raise
         self._event = event
 
@@ -196,15 +199,15 @@ class DataHandlerService:
             th = self._threads.pop(0)
             try:
                 th.join(timeout)
-                Logger().debug(f"Thread '{th.name}' gracefully stopped")
+                logger.debug(f"Thread '{th.name}' gracefully stopped")
             except Exception as e:
-                Logger().error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
+                logger.error(f"Thread '{th.name}' gracefully stop failed; Error raised: {e}")
 
     def execute(self, sql_text, *rows):
         try:
             return self._db.execute(sql_text, *rows)
         except Exception as e:
-            Logger().critical(f"DB execute error: {e}")
+            logger.error(f"DB execute error: {e}")
             raise
 
     @property
@@ -212,7 +215,7 @@ class DataHandlerService:
         return self._db.get_last_row_id
 
     def _data_handler(self):
-        Logger().debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
+        logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
         while not self._event.isSet() or not self._queue.empty():
             data_enumerator = self._queue.get()
             for item in flat_iterator(*data_enumerator):
@@ -220,29 +223,29 @@ class DataHandlerService:
                     if isinstance(item, collections.Empty):
                         continue
 
-                    Logger().debug(f"Dequeue item: {item}")
+                    logger.debug(f"Dequeue item: {item}")
                     if isinstance(item.table, PlugInTable):
                         last_tl_id = cache_timestamp(item.timestamp)
                         insert_sql_str, rows = item(TL_ID=last_tl_id)
-                        Logger().debug(f"Update item: {item}:\n{rows}")
+                        logger.debug(f"Update item: {item}:\n{rows}")
                     else:
                         insert_sql_str, rows = item()
-                        Logger().debug(f"Read item: {item}:\n{rows}")
+                        logger.debug(f"Read item: {item}:\n{rows}")
 
                     result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
                     item.result = result
-                    Logger().debug("{}\n\t{}\n\t{}".format(type(item).__name__,
+                    logger.debug("{}\n\t{}\n\t{}".format(type(item).__name__,
                                                            insert_sql_str,
                                                            '\n\t'.join([str(r) for r in rows])))
                 except Exception as e:
                     f, l = get_error_info()
-                    Logger().error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
+                    logger.error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
 
                 else:
-                    Logger().debug(f"Item {type(item).__name__} successfully handled")
+                    logger.debug(f"Item {type(item).__name__} successfully handled")
             sleep(1)
 
-        Logger().debug(f"Background task stopped invoked")
+        logger.debug(f"Background task stopped invoked")
 
 
 @Singleton
@@ -312,7 +315,7 @@ class CacheLines:
                 yield [output_ref, order_id, line_ref]
 
     def upload(self, output, max_workers: int = DEFAULT_MAX_WORKERS):
-        Logger().debug(f"Cache invoked {'concurrently' if max_workers > 1 else 'as sequence'}")
+        logger.debug(f"Cache invoked {'concurrently' if max_workers > 1 else 'as sequence'}")
         lines_cache = list(self.concurrent_lines_cache(output, max_workers)
                            if max_workers > 1 else self.sequence_line_cache(output))
 
@@ -336,7 +339,7 @@ def cache_timestamp(timestamp):
     return last_tl_id
 
 
-class SQLiteHandler(logging.Handler):
+class SQLiteHandler(StreamHandler):
     """
     Thread-safe logging handler for SQLite.
     """

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Iterable, Tuple, Any
 
-from robot.api import logger
+from robotbackground_custom_logger import logger
 
 warnings.filterwarnings("ignore")
 

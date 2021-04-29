@@ -19,9 +19,11 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
+from robotbackground_custom_logger import logger
+
 from RemoteMonitorLibrary.api import model
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.api.tools import Logger
+
 
 __doc__ = """
 == Time plugin overview ==
@@ -165,17 +167,17 @@ class TimeParser(Parser):
                 if k == 'Command':
                     continue
                 row_dict.update({k: float(row_dict[k])})
-            Logger().info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
+            logger.info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
 
             row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
             du = model.data_factory(self.table, row, output=command_out)
 
             self.data_handler(du)
-            Logger().debug(f"Item enqueued - {du}")
+            logger.debug(f"Item enqueued - {du}")
             return True
         except Exception as e:
             f, li = get_error_info()
-            Logger().error(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
+            logger.error(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
             raise RunnerError(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
 
 
@@ -240,7 +242,7 @@ class Time(PlugInAPI):
                                                            data_handler=self.data_handler, Command=self.name),
                                          **self.options)
                           )
-        Logger().info(f"{self}")
+        logger.info(f"{self}")
 
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
@@ -248,7 +250,7 @@ class Time(PlugInAPI):
                 _path = self._start_in_folder
                 user_home = ssh.execute_command('echo $HOME').strip()
                 _path = _path.replace('~', user_home)
-                Logger().info(f"Expand folder {self._start_in_folder} to {_path}")
+                logger.info(f"Expand folder {self._start_in_folder} to {_path}")
                 self._start_in_folder = _path
             ssh.directory_should_exist(os.path.expanduser(self._start_in_folder))
 

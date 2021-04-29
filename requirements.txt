@@ -1,5 +1,6 @@
 robotframework~=3.2.2
 robotframework-sshlibrary
+robotbackground_custom_logger
 matplotlib~=3.4.0
 pandas
 PyYAML

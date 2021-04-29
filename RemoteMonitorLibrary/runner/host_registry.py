@@ -1,13 +1,14 @@
 from collections import Callable
 from threading import Event
 
-from robot.api import logger
 from robot.utils.connectioncache import ConnectionCache
+
+from robotbackground_custom_logger import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.utils import Singleton, Logger
+from RemoteMonitorLibrary.utils import Singleton
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 
@@ -58,7 +59,7 @@ class HostModule:
         try:
             assert self.event
             self.event.set()
-            Logger().debug(f"Terminating {self.alias}")
+            logger.debug(f"Terminating {self.alias}")
             self._configuration.update({'event': None})
             active_plugins = list(self._active_plugins.keys())
             while len(active_plugins) > 0:
@@ -68,7 +69,7 @@ class HostModule:
         except AssertionError:
             logger.warn(f"Session '{self.alias}' not started yet")
         else:
-            Logger().info(f"Session '{self.alias}' stopped", console=True)
+            logger.info(f"Session '{self.alias}' stopped")
 
     def plugin_start(self, plugin_name, *args, **options):
         plugin_conf = self.config.clone()
@@ -132,7 +133,7 @@ class HostRegistryCache(ConnectionCache):
 
     def clear_all(self, closer_method='stop'):
         for conn in self._connections:
-            Logger().info(f"Clear {conn}")
+            logger.info(f"Clear {conn}")
             getattr(conn, closer_method)()
 
     close_all = clear_all

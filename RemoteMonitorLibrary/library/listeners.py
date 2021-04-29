@@ -1,4 +1,4 @@
-from robot.api import logger
+from robotbackground_custom_logger import logger
 from robot.errors import HandlerExecutionFailed
 from robot.libraries.BuiltIn import BuiltIn
 from robot.model import TestCase

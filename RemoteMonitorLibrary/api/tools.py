@@ -1,7 +1,5 @@
-from ..model.errors import PlugInError
 from ..utils import Singleton
-from ..utils.collections import CacheList, tsQueue
-from ..utils.bg_logger import Logger
+from ..utils.collections import CacheList
 
 
 @Singleton
@@ -11,6 +9,5 @@ class GlobalErrors(list):
 
 __all__ = [
     'CacheList',
-    'Logger',
     'GlobalErrors'
 ]

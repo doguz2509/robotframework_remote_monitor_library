@@ -4,9 +4,11 @@ from collections import namedtuple, OrderedDict
 from datetime import datetime
 from typing import Iterable, Tuple, List, Any
 
-from SSHLibrary import SSHLibrary
-from robot.api import logger
 from robot.utils import timestr_to_secs
+
+from SSHLibrary import SSHLibrary
+
+from robotbackground_custom_logger import logger
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
@@ -157,10 +159,10 @@ class aTopDataUnit(db.services.DataUnit):
                 res.append(columns_template(
                     *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
             except ValueError as e:
-                tools.Logger().error(f"aTop parse error: {e}")
+                logger.error(f"aTop parse error: {e}")
             except Exception as e:
                 f, l = get_error_info()
-                tools.Logger().error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
+                logger.error("aTop unknown parse error: {}; File: {}:{}\n{}".format(e, f, l, line))
                 raise
         return res
 
@@ -212,7 +214,7 @@ class aTopParser(Parser):
 
         except Exception as e:
             f, li = get_error_info()
-            tools.Logger().error(
+            logger.error(
                 f"{self.__class__.__name__}: Unexpected error: {type(e).__name__}: {e}; File: {f}:{li}")
         else:
             return True
@@ -282,7 +284,7 @@ class aTop(PlugInAPI):
                 out = _os
                 break
 
-        tools.Logger().debug(f"OS resolved: {out}")
+        logger.debug(f"OS resolved: {out}")
         return out
 
     @staticmethod

@@ -2,12 +2,11 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
-from robot.utils import is_truthy
+from robotbackground_custom_logger import logger
 
 from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
-from RemoteMonitorLibrary.utils import Logger
 
 __doc__ = """
     == SSHLibrary PlugIn ==
@@ -86,7 +85,7 @@ class UserCommandParser(Parser):
             msg = "\nErrors:\n\t{}\n\tRC: {}\nOutput:\n\t{}".format('\n\t'.join(errors),
                                                                     rc,
                                                                     '\n\t'.join(total_output.splitlines()))
-            Logger().error(msg)
+            logger.error(msg)
         else:
             st = 'Pass'
             msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))

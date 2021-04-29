@@ -1,12 +1,14 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
-
+from logging.handlers import RotatingFileHandler
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs
 
+from robotbackground_custom_logger import logger
+from robotbackground_custom_logger.api import *
+
 from RemoteMonitorLibrary.api import db
-from RemoteMonitorLibrary.api.tools import Logger
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
@@ -167,17 +169,19 @@ class ConnectionKeywords:
         if not db.DataHandlerService().is_active:
             output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
             db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
-            with Logger() as log:
-                level = BuiltIn().get_variable_value('${LOG LEVEL}')
-                log.set_level('DEBUG' if level == 'TRACE' else level)
-                rel_log_file_path = os.path.join(self.location, self.file_name)
-                abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
-                log.set_log_destination(abs_log_file_path)
-                if is_truthy(log_to_db):
-                    db.TableSchemaService().register_table(db.tables.log())
-                    log.add_handler(db.services.SQLiteHandler())
-                db.DataHandlerService().start()
-                logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
+
+            level = BuiltIn().get_variable_value('${LOG LEVEL}')
+            logger.set_level(level)
+            rel_log_file_path = os.path.join(self.location, self.file_name)
+            abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
+            fh = RotatingFileHandler(abs_log_file_path, maxBytes=DEFAULT_MAX_BYTES, backupCount=DEFAULT_ROLLUP_COUNT,
+                                     encoding='utf-8')
+            logger.add_handler(fh)
+            # if is_truthy(log_to_db):
+            #     db.TableSchemaService().register_table(db.tables.log())
+            #     log.add_handler(db.services.SQLiteHandler())
+            db.DataHandlerService().start()
+            logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
         try:
             module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
                                 alias,

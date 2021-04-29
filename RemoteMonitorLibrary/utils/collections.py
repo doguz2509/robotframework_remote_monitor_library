@@ -1,7 +1,6 @@
 from threading import RLock
-from typing import Any, List
-
-from RemoteMonitorLibrary.utils import Logger
+from typing import Any
+from robotbackground_custom_logger import logger
 
 
 class Empty(Exception):
@@ -16,12 +15,12 @@ class tsQueue(list):
     def put(self, item):
         with self._lock:
             super().append(item)
-            Logger().debug(f"Item '{id(item)}' enqueued")
+            logger.debug(f"Item '{id(item)}' enqueued")
 
     def get(self) -> Any:
         with self._lock:
             try:
-                Logger().debug(f"Item '{id(self[0])}' dequeued")
+                logger.debug(f"Item '{id(self[0])}' dequeued")
                 yield super().pop(0)
             except IndexError:
                 yield Empty()

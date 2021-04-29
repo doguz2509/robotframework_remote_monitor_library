@@ -1,5 +1,5 @@
 
-from robot.api import logger
+from robotbackground_custom_logger import logger
 from robot.output import librarylogger
 
 BASE_THREADS = librarylogger.LOGGING_THREADS

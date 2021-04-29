@@ -1,6 +1,6 @@
 import os
 
-from RemoteMonitorLibrary.utils import Logger
+from robotbackground_custom_logger import logger
 
 __doc__ = """= Integrations =
     
@@ -26,9 +26,8 @@ try:
     from robotframework_reportportal import logger as portal_logger
     from robotframework_reportportal.exception import RobotServiceException
     PORTAL = True
-    Logger().info(f"RobotFramework portal available")
+    logger.info(f"RobotFramework portal available")
 except (ImportError, ValueError):
-    # Logger().warning(f"RobotFramework portal not available")
     PORTAL = False
 
 
@@ -47,7 +46,7 @@ def upload_file_to_portal(link_title, file_path):
         })
         return True
     except RobotServiceException as e:
-        Logger().error(f"Cannot upload file '{file_path}'; Reason: {e}")
+        logger.error(f"Cannot upload file '{file_path}'; Reason: {e}")
     except Exception as e:
-        Logger().error(f"Unexpected error during upload file '{file_path}'; Reason: {e}")
+        logger.error(f"Unexpected error during upload file '{file_path}'; Reason: {e}")
     return False

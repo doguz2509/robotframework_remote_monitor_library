@@ -10,10 +10,12 @@ from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
+from robotbackground_custom_logger import logger
+
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.errors import PlugInError, EmptyCommandSet, RunnerError
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser, FlowCommands
-from RemoteMonitorLibrary.utils import evaluate_duration, Logger
+from RemoteMonitorLibrary.utils import evaluate_duration
 
 
 #
@@ -101,12 +103,12 @@ class SSHLibraryCommand:
     def __call__(self, ssh_client: SSHLibrary, **runtime_options) -> Any:
         if self._command is not None:
             command = self.command_template.format(**runtime_options)
-            Logger().debug(
+            logger.debug(
                 f"Executing: {self._method.__name__}({command}, "
                 f"{', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, command, **self._ssh_options)
         else:
-            Logger().debug(f"Executing: {self._method.__name__}"
+            logger.debug(f"Executing: {self._method.__name__}"
                            f"({', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, **self._ssh_options)
         if self.parser:
@@ -207,7 +209,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             pass
         except Exception as e:
             if 'Logging background messages is only allowed from the main thread' in str(e):
-                Logger().warning(f"Ignore SSHLibrary error: '{e}'")
+                logger.warn(f"Ignore SSHLibrary error: '{e}'")
                 return True
             raise
 
@@ -228,9 +230,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
 
         if len(self._session_errors) == 0:
-            Logger().info(f"Connection establishing")
+            logger.info(f"Connection establishing")
         else:
-            Logger().warning(f"Connection restoring at {len(self._session_errors)} time")
+            logger.warn(f"Connection restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, self.host_alias, port)
 
@@ -242,7 +244,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 else:
                     self._ssh.login(username, password)
             except Exception as err:
-                Logger().warning(f"Connection to {self.host_alias} failed; Reason: {err}")
+                logger.warn(f"Connection to {self.host_alias} failed; Reason: {err}")
                 raise
             else:
                 self._is_logged_in = True
@@ -252,16 +254,16 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 if duration >= self.parameters.timeout:
                     raise TimeoutError(
                         f"Cannot connect to {self.host_alias} during {self.parameters.timeout}s")
-        Logger().info(f"Connection established to {self.host_alias}")
+        logger.info(f"Connection established to {self.host_alias}")
 
     def exit(self):
         if self._is_logged_in:
             # self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
-            Logger().info(f"Connection to {self.host_alias} closed")
+            logger.info(f"Connection to {self.host_alias} closed")
         else:
-            Logger().info(f"Connection to {self.host_alias} not opened")
+            logger.info(f"Connection to {self.host_alias} not opened")
 
     @contextmanager
     def inside_host(self):
@@ -273,7 +275,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         except AssertionError as e:
             self._session_errors.append(f"{e}")
         except Exception as e:
-            Logger().critical("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+            logger.error("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
                 error=e,
                 real=len(self._session_errors),
@@ -281,7 +283,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             ))
             GlobalErrors().append(e)
         else:
-            Logger().debug('Errors cleared')
+            logger.debug('Errors cleared')
             self._session_errors.clear()
         finally:
             self.exit()
@@ -290,10 +292,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def is_continue_expected(self):
         self._evaluate_tolerance()
         if self.parameters.event.isSet():
-            Logger().info(f"Stop requested by external source")
+            logger.info(f"Stop requested by external source")
             return False
         if self._internal_event.isSet():
-            Logger().info(f"Stop requested internally")
+            logger.info(f"Stop requested internally")
             return False
         return True
 
@@ -304,20 +306,20 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             flow_values = getattr(self, flow.value)
             if len(flow_values) == 0:
                 raise EmptyCommandSet()
-            Logger().debug(f"Iteration {flow.name} started")
+            logger.debug(f"Iteration {flow.name} started")
             for i, cmd in enumerate(flow_values):
                 run_status = cmd(ssh_client, **self.parameters)
                 total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
                 sleep(0.05)
         except EmptyCommandSet:
-            Logger().warning(f"Iteration {flow.name} ignored")
+            logger.warn(f"Iteration {flow.name} ignored")
         except Exception as e:
             raise RunnerError(f"Command set {flow.name} failed: {e}")
         else:
-            Logger().info(f"Iteration {flow.name} completed\n{total_output}")
+            logger.info(f"Iteration {flow.name} completed\n{total_output}")
 
     def _persistent_worker(self):
-        Logger().info(f"\nPlugIn '{self}' started", console=True)
+        logger.info(f"\nPlugIn '{self}' started")
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
@@ -336,7 +338,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                             sleep(0.5)
                     except RunnerError as e:
                         self._session_errors.append(e)
-                        Logger().warning(
+                        logger.warn(
                             "Error execute on: {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                                 name=self.host_alias,
                                 error=e,
@@ -346,10 +348,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(2)
                 self._run_command(ssh, self.flow_type.Teardown)
         sleep(2)
-        Logger().info(f"PlugIn '{self}' stopped", console=True)
+        logger.info(f"PlugIn '{self}' stopped")
 
     def _interrupt_worker(self):
-        Logger().info(f"PlugIn '{self}' started", console=True)
+        logger.info(f"PlugIn '{self}' started")
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Setup)
         while self.is_continue_expected:
@@ -365,7 +367,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                         evaluate_duration(start_ts, next_ts, self.host_alias)
                 except RunnerError as e:
                     self._session_errors.append(e)
-                    Logger().warning(
+                    logger.warn(
                         "Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                             name=self.host_alias,
                             error=e,
@@ -378,5 +380,5 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(0.5)
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Teardown)
-        Logger().info(f"End interrupt-session for '{self}'")
+        logger.info(f"End interrupt-session for '{self}'")
 

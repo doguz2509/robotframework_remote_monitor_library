@@ -2,9 +2,10 @@ import os
 import re
 from datetime import datetime
 
-from robot.api import logger
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
+
+from robotbackground_custom_logger import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal

@@ -3,8 +3,7 @@ import enum
 import operator
 import re
 
-from robot.api import logger
-
+from robotbackground_custom_logger import logger
 
 def get_minimal(type_):
     return min([type_[i] for i in type_.__dict__ if not i.startswith('_')])
