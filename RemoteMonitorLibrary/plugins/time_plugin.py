@@ -19,7 +19,7 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model
 from RemoteMonitorLibrary.api.plugins import *

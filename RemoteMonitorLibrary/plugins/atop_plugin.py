@@ -8,7 +8,7 @@ from robot.utils import timestr_to_secs
 
 from SSHLibrary import SSHLibrary
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *

@@ -1,5 +1,5 @@
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from robot.output import librarylogger
 
 BASE_THREADS = librarylogger.LOGGING_THREADS

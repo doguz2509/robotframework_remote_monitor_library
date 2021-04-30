@@ -1,6 +1,6 @@
 from threading import RLock
 from typing import Any
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
 class Empty(Exception):

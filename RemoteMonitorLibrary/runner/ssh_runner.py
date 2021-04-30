@@ -10,7 +10,7 @@ from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.errors import PlugInError, EmptyCommandSet, RunnerError

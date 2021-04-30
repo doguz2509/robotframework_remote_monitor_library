@@ -4,7 +4,7 @@ import re
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.api import db

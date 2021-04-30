@@ -54,28 +54,42 @@ class TimeLine(Table):
 
 
 class log(PlugInTable):
+    FIELDS_TYPES = [
+        ('asctime', FieldType.Int),
+        ('levelname', FieldType.Text),
+        ('threadName', FieldType.Text),
+        ('module', FieldType.Text),
+        ('funcName', FieldType.Text),
+        ('msg', FieldType.Text),
+        ('lineno', FieldType.Int),
+        ('exc_text', FieldType.Text),
+        ('process', FieldType.Int),
+        ('thread', FieldType.Text),
+        ('levelno', FieldType.Int),
+        ('name', FieldType.Text)]
+
+    _shown_fields = [0, 1, 2, 3, 4, 5]
+
     def __init__(self):
-        super().__init__(fields=[Field('TimeStamp'),
-                                 Field('Source'),
-                                 Field('LogLevel', FieldType.Int),
-                                 Field('LogLevelName'),
-                                 Field('Message'),
-                                 Field('Module'),
-                                 Field('FuncName'),
-                                 Field('LineNo', FieldType.Int),
-                                 Field('Exception'),
-                                 Field('Process', FieldType.Int),
-                                 Field('Thread'),
-                                 Field('ThreadName')])
+        super().__init__()
+        for i in self._shown_fields:
+            f, t = self.FIELDS_TYPES[i]
+            self.add_field(Field(f.capitalize(), t))
 
-    initial_sql = """CREATE TABLE IF NOT EXISTS log(TimeStamp TEXT, Source TEXT, LogLevel INT, LogLevelName TEXT,
-                                                    Message TEXT, Module TEXT, FuncName TEXT, LineNo INT,
-                                                    Exception TEXT, Process INT, Thread TEXT, ThreadName TEXT)"""
+    # initial_sql = """CREATE TABLE IF NOT EXISTS log(TimeStamp TEXT, Source TEXT, LogLevel INT, LogLevelName TEXT,
+    #                                                 Message TEXT, Module TEXT, FuncName TEXT, LineNo INT,
+    #                                                 Exception TEXT, Process INT, Thread TEXT, ThreadName TEXT)"""
+    # insertion_sql = """INSERT INTO log(TimeStamp, Source, LogLevel, LogLevelName, Message, Module, FuncName, LineNo,
+    #                         Exception, Process, Thread, ThreadName)
+    #                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    #                    """
+    #
 
-    INSERT_FIELDS = ('asctime', 'name', 'levelno', 'levelname', 'msg', 'module',
-                     'funcName', 'lineno', 'exc_text', 'process', 'thread', 'threadName')
-
-    insertion_sql = """INSERT INTO log(TimeStamp, Source, LogLevel, LogLevelName, Message, Module, FuncName, LineNo, 
-                            Exception, Process, Thread, ThreadName)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                       """
+    @staticmethod
+    def format_record(record):
+        _result_record = []
+        for i in log._shown_fields:
+            f, _ = log.FIELDS_TYPES[i]
+            assert hasattr(record, f)
+            _result_record.append(getattr(record, f))
+        return tuple(_result_record)

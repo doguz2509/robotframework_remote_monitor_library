@@ -1,6 +1,7 @@
 from RemoteMonitorLibrary.utils.singleton import Singleton
 from RemoteMonitorLibrary.utils.sys_utils import get_error_info
 from RemoteMonitorLibrary.utils.size import Size
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from .time_utils import evaluate_duration
 from RemoteMonitorLibrary.utils.load_modules import get_class_from_module, load_classes_from_module_by_name, \
     load_modules, print_plugins_table
@@ -48,6 +49,7 @@ class Counter:
 __all__ = [
     'Singleton',
     'logger_extension',
+    'logging',
     'Size',
     'sql',
     'get_error_info',

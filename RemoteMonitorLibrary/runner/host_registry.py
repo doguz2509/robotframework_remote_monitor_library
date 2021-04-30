@@ -3,7 +3,7 @@ from threading import Event
 
 from robot.utils.connectioncache import ConnectionCache
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
@@ -87,6 +87,7 @@ class HostModule:
             )
         else:
             plugin.start()
+            logger.info(f"\nStarted {plugin}", also_console=True)
             self._active_plugins[hash(plugin)] = plugin
 
     def get_plugin(self, plugin_name=None, **options):

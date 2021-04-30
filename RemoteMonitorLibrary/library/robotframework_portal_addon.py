@@ -1,6 +1,6 @@
 import os
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 __doc__ = """= Integrations =
     

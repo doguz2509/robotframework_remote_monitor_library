@@ -7,9 +7,7 @@ from time import sleep
 from typing import Tuple, Iterable, Mapping, AnyStr, List
 
 from robot.utils import DotDict
-from robotbackground_custom_logger import logger
-from robotbackground_custom_logger.api import StreamHandler
-
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
 from RemoteMonitorLibrary.utils import Singleton, collections, sql_engine, flat_iterator, get_error_info
@@ -339,17 +337,11 @@ def cache_timestamp(timestamp):
     return last_tl_id
 
 
-class SQLiteHandler(StreamHandler):
+class SQLiteHandler(logging.StreamHandler):
     """
     Thread-safe logging handler for SQLite.
     """
+    _table = log()
 
     def emit(self, record):
-        self.format(record)
-        if record.exc_info:  # for exceptions
-            record.exc_text = logging._defaultFormatter.formatException(record.exc_info)
-        else:
-            record.exc_text = ""
-
-        log_record = tuple(record.__dict__.get(key) for key in log.INSERT_FIELDS)
-        DataHandlerService().execute(log.insertion_sql, *log_record)
+        DataHandlerService().execute(insert_sql(self._table.name, self._table.columns), *log.format_record(record))

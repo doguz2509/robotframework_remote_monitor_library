@@ -2,7 +2,7 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *

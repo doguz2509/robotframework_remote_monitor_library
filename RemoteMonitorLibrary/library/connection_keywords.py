@@ -1,17 +1,15 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
-from logging.handlers import RotatingFileHandler
+
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs
-
-from robotbackground_custom_logger import logger
-from robotbackground_custom_logger.api import *
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
@@ -171,17 +169,16 @@ class ConnectionKeywords:
             db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
 
             level = BuiltIn().get_variable_value('${LOG LEVEL}')
-            logger.set_level(level)
+            logger.setLevel(level)
             rel_log_file_path = os.path.join(self.location, self.file_name)
             abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
-            fh = RotatingFileHandler(abs_log_file_path, maxBytes=DEFAULT_MAX_BYTES, backupCount=DEFAULT_ROLLUP_COUNT,
-                                     encoding='utf-8')
-            logger.add_handler(fh)
-            # if is_truthy(log_to_db):
-            #     db.TableSchemaService().register_table(db.tables.log())
-            #     log.add_handler(db.services.SQLiteHandler())
+
+            logger.set_file_handler(abs_log_file_path)
+            if is_truthy(log_to_db):
+                db.TableSchemaService().register_table(db.tables.log())
+                logger.addHandler(db.services.SQLiteHandler())
             db.DataHandlerService().start()
-            logger.write(f'<a href="{rel_log_file_path}">{self.file_name}</a>', level='WARN', html=True)
+            logger.warn(f'<a href="{rel_log_file_path}">{self.file_name}</a>', html=True)
         try:
             module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
                                 alias,

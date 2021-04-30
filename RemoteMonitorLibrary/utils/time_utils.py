@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
 def evaluate_duration(start_ts, expected_end_ts, alias):

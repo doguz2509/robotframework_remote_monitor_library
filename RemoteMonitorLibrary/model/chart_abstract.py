@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Iterable, Tuple, Any
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 warnings.filterwarnings("ignore")
 

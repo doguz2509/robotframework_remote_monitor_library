@@ -1,6 +1,8 @@
 robotframework~=3.2.2
 robotframework-sshlibrary
-robotbackground_custom_logger
+robotbackgroundlogger~=1.2
 matplotlib~=3.4.0
-pandas
-PyYAML
+pandas~=1.2.3
+PyYAML~=5.4.1
+
+setuptools~=56.0.0

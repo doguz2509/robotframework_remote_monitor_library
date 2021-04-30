@@ -5,7 +5,7 @@ from datetime import datetime
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal

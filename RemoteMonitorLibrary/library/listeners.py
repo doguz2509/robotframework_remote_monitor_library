@@ -1,4 +1,4 @@
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from robot.errors import HandlerExecutionFailed
 from robot.libraries.BuiltIn import BuiltIn
 from robot.model import TestCase

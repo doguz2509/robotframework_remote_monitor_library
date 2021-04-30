@@ -3,7 +3,7 @@ from inspect import isclass, ismodule
 from os.path import join as path_join
 from typing import Mapping, Any
 
-from robotbackground_custom_logger import logger
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from robot.utils import Importer
 
 from RemoteMonitorLibrary.version import VERSION
@@ -84,4 +84,4 @@ def print_plugins_table(plugins, show_tables=True, show_charts=True, title='Plug
                     _str += _template.format(col1=' ', col2='  ' + s.replace(c.title, ''), col3='Section') + '\n'
         _str += _delimiter + '\n'
 
-    logger.info(f"{_str.strip()}", also_to_console=True)
+    logger.info(f"{_str.strip()}", also_console=True)
