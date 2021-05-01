@@ -93,7 +93,7 @@ class ConnectionKeywords:
         self._modules = HostRegistryCache()
         self.location, self.file_name, self.cumulative = \
             rel_location, file_name, is_truthy(options.get('cumulative', False))
-
+        self._log_to_db = options.get('log_to_db', False)
         suite_start_kw = self._normalise_auto_mark(options.get('start_suite', None), 'start_period')
         suite_end_kw = self._normalise_auto_mark(options.get('start_suite', None), 'stop_period')
         test_start_kw = self._normalise_auto_mark(options.get('start_test', None), 'start_period')
@@ -125,7 +125,7 @@ class ConnectionKeywords:
 
     @keyword("Create host monitor")
     def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None,
-                            timeout=None, log_to_db=None):
+                            timeout=None):
         """
         Create basic host connection module used for trace host
         Last created connection handled as 'current'
@@ -174,7 +174,7 @@ class ConnectionKeywords:
             abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
 
             logger.set_file_handler(abs_log_file_path)
-            if is_truthy(log_to_db):
+            if is_truthy(self._log_to_db):
                 db.TableSchemaService().register_table(db.tables.log())
                 logger.addHandler(db.services.SQLiteHandler())
             db.DataHandlerService().start()

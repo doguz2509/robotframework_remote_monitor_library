@@ -2,11 +2,11 @@
 Documentation    Suite description
 
 #Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
-Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes  log_to_db=yes
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s  log_to_db=yes
+Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
 
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}

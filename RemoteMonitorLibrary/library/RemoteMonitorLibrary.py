@@ -69,10 +69,15 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
                                       base_path=current_dir, base_class=SSHLibraryPlugInWrapper)
         db.PlugInService().update(**plugin_modules)
         print_plugins_table(db.PlugInService())
+        doc_path = self._get_doc_link()
+        logger.warn(f'{self.__class__.__name__} <a href="{doc_path}">LibDoc</a>', html=True)
+
+    @staticmethod
+    def _get_doc_link():
         lib_path, lib_file = os.path.split(__file__)
         lib_name, ext = os.path.splitext(lib_file)
         lib_doc_file = f"{lib_name}.html"
-        logger.warn(f'{self.__class__.__name__} <a href="{os.path.join(lib_path, lib_doc_file)}">LibDoc</a>', html=True)
+        return os.path.join(lib_path, lib_doc_file)
 
     def get_keyword_names(self):
         return ConnectionKeywords.get_keyword_names(self) + BIKeywords.get_keyword_names(self)
