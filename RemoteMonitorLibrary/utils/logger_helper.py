@@ -8,7 +8,8 @@ from robotbackgroundlogger import BaseLogger
 
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
-DEFAULT_FORMATTER = "%(asctime)s [ %(levelname)-8s ] [%(threadName)-25s::%(module)-10s::%(funcName)-10s ] : %(message)s"
+DEFAULT_FORMATTER = "%(asctime)s [ %(levelname)-8s ] [%(threadName)-15s ] " \
+                    "[ %(module)-20s :: %(funcName)-20s ] : %(message)s"
 
 DEFAULT_LOG_COUNT = 10
 DEFAULT_LOG_LEVEL = 'INFO'
@@ -41,29 +42,15 @@ level_map = {'TRACE': logging.DEBUG // 2,
              'ERROR': logging.ERROR}
 
 
-class RenewableRotatingFileHandler(logging.handlers.RotatingFileHandler):
-    def __init__(self, filename, mode='w', maxBytes=0, backupCount=0, encoding=None, delay=False):
-        _mode = mode
-        super().__init__(filename, mode, maxBytes, backupCount, encoding, delay)
-        self.mode = _mode
-
-        if mode == 'w':
-            if self.stream:
-                self.stream.close()
-            self.clean_logs()
-
-    def clean_logs(self):
-        path, file = os.path.split(self.baseFilename)
-        for file in [f for f in os.listdir(path) if f.startswith(file)]:
-            os.remove(os.path.join(path, file))
-
-    def __del__(self):
+def clean_files(filename):
+    path, file = os.path.split(filename)
+    for file in [f for f in os.listdir(path) if f.startswith(file)]:
+        _path = os.path.join(path, file)
         try:
-            self.flush()
-            if self.stream:
-                self.stream.close()
-        except Exception as e:
-            logging.warning(f"{e}")
+            os.remove(_path)
+        except PermissionError as e:
+            print(f"{e}")
+            raise
 
 
 class CustomLogger(BaseLogger):
@@ -76,7 +63,19 @@ class CustomLogger(BaseLogger):
         if currentThread().getName() in self.LOGGING_THREADS:
             robot_logger.write(msg, level, html)
         else:
-            self._logger.log(level_map[level], msg, stacklevel=4, exc_info=True)
+            _msg = '\n'.join([(line if i == 0 else '\t\t' + line) for i, line in enumerate(msg.splitlines())])
+            self._logger.log(level_map[level], _msg, stacklevel=4)
+            # fn, lno, func, sinfo = self._logger.findCaller(stacklevel=4)
+            # _, module = os.path.split(fn)
+            # extra = {
+            #     'e_module': module,
+            #     'e_funcName': func
+            # }
+            # for i, line in enumerate(msg.splitlines()):
+            #     if i == 0:
+            #         self._logger.log(level_map[level], line, extra=extra)
+            #     else:
+            #         self._logger.log(level_map[level], '\t' + line, extra=extra)
 
     def info(self, msg, html=False, also_console=False):
         super().info(msg, html, also_console)
@@ -84,8 +83,12 @@ class CustomLogger(BaseLogger):
     def setLevel(self, level):
         self._logger.setLevel(level)
 
-    def set_file_handler(self, file):
-        handler = RenewableRotatingFileHandler(file, maxBytes=DEFAULT_MAX_BYTES, backupCount=DEFAULT_ROLLUP_COUNT)
+    def set_file_handler(self, file, purge_old=True):
+        if purge_old:
+            clean_files(file)
+
+        handler = logging.handlers.RotatingFileHandler(file, mode='w', maxBytes=DEFAULT_MAX_BYTES,
+                                                       backupCount=DEFAULT_ROLLUP_COUNT, encoding='utf-8')
         self.addHandler(handler)
 
     def addHandler(self, handler):
@@ -93,6 +96,6 @@ class CustomLogger(BaseLogger):
         self._logger.addHandler(handler)
 
 
-logger = CustomLogger()
+logger = CustomLogger('RemoteMonitorLogger')
 
 __all__ = ['logger']
