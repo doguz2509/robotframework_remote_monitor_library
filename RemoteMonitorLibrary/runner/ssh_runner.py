@@ -216,11 +216,13 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def _evaluate_tolerance(self):
         if len(self._session_errors) == self._fault_tolerance:
             self._internal_event.set()
-            raise PlugInError(
+            e = PlugInError(
                 "Stop plugin '{}' invoked; Errors count arrived to limit ({})".format(
                     self.host_alias,
                     self._fault_tolerance,
                 ), *self._session_errors)
+            logger.error(f"{e}")
+            raise e
 
     def login(self):
         host = self.parameters.host

@@ -14,11 +14,11 @@ from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 class HostModule:
     def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
-                 port=None, alias=None, certificate=None, timeout=None):
+                 port=None, alias=None, certificate=None, timeout=None, interval=None):
         self._configuration = Configuration(alias=alias or f"{username}@{host}:{port}",
                                             host=host, username=username, password=password,
                                             port=port, certificate=certificate, event=None,
-                                            timeout=timeout)
+                                            timeout=timeout, interval=interval)
         self._plugin_registry = plugin_registry
         self._data_handler = data_handler
         self._active_plugins = {}

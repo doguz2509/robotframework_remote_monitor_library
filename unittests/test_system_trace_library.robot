@@ -31,27 +31,27 @@ Test demo attack
 #    start command  echo ""|/opt/morphisec/demo/mlp_attack_demo 2>&1
 #    ${out}  ${rc}=  read command output  return_rc=yes
 #    log  \nRC: ${rc}\nOutput:\n${out}  console=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  name=demo_attack
-    ...     rc=137|128  return_rc=yes
-    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
+#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  name=demo_attack
+#    ...     rc=137|128  return_rc=yes
+#    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes  expected=Killed
     sleep  ${DURATION}  make something here
 #    [Teardown]  close all connections
 
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
-    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
-    ...     return_stderr=yes  rc=137|128|127
+#    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
+#    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
-#    Start monitor plugin  Time  command=make -j 40 clean all  timeout=10m
-#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=10s  store_output=yes
+    Start monitor plugin  Time  command=make -j 40 clean all
+    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  persistent=no
+#    Start monitor plugin  Time  command=ls -l  name=Compilation  interval=1s  return_stdout=yes  persistent=no
     wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation
 #    stop monitor plugin  atop
-#    generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
-    generate module statistics  period=${TEST_NAME}  plugin=aTop
+    generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
+#    generate module statistics  period=${TEST_NAME}  plugin=aTop
 
 #    [Teardown]  close_all_host_monitors
 

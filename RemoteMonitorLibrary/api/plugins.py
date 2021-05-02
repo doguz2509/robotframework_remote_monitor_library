@@ -16,11 +16,21 @@ class PlugInAPI(ABC, SSHLibraryPlugInWrapper, plugin_integration_abstract):
     pass
 
 
+class ParseRC(Parser):
+    def __init__(self, expected_rc=0):
+        self._rc = expected_rc
+
+    def __call__(self, output: dict) -> bool:
+        rc = output.get('rc')
+        assert rc == self._rc, f"Command result not match expected one (Result: {rc} vs. Expected: {self._rc})"
+
+
 __all__ = ['PlugInAPI',
            'FlowCommands',
            SSHLibraryCommand.__name__,
            'extract_method_arguments',
            Parser.__name__,
+           ParseRC.__name__,
            ChartAbstract.__name__,
            Configuration.__name__
            ]
