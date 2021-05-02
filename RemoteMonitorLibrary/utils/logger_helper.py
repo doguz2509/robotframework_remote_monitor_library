@@ -65,17 +65,6 @@ class CustomLogger(BaseLogger):
         else:
             _msg = '\n'.join([(line if i == 0 else '\t\t' + line) for i, line in enumerate(msg.splitlines())])
             self._logger.log(level_map[level], _msg, stacklevel=4)
-            # fn, lno, func, sinfo = self._logger.findCaller(stacklevel=4)
-            # _, module = os.path.split(fn)
-            # extra = {
-            #     'e_module': module,
-            #     'e_funcName': func
-            # }
-            # for i, line in enumerate(msg.splitlines()):
-            #     if i == 0:
-            #         self._logger.log(level_map[level], line, extra=extra)
-            #     else:
-            #         self._logger.log(level_map[level], '\t' + line, extra=extra)
 
     def info(self, msg, html=False, also_console=False):
         super().info(msg, html, also_console)
