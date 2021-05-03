@@ -247,7 +247,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                     self._ssh.login(username, password)
             except Exception as err:
                 logger.warn(f"Connection to {self.host_alias} failed; Reason: {err}")
-                raise
             else:
                 self._is_logged_in = True
                 break
@@ -274,8 +273,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 self.login()
                 assert self._ssh is not None, "Probably connection failed"
                 yield self._ssh
-        except AssertionError as e:
-            self._session_errors.append(f"{e}")
         except Exception as e:
             logger.error("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
@@ -316,7 +313,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         except EmptyCommandSet:
             logger.warn(f"Iteration {flow.name} ignored")
         except Exception as e:
-            raise RunnerError(f"Command set {flow.name} failed: {e}")
+            raise RunnerError(f"Command set '{flow.name}' failed: {e}")
         else:
             logger.info(f"Iteration {flow.name} completed\n{total_output}")
 
@@ -325,6 +322,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
+                logger.info(f"Setup for {self.name} completed", also_console=True)
                 while self.is_continue_expected:
                     try:
                         start_ts = datetime.now()
@@ -349,6 +347,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                             ))
                 sleep(2)
                 self._run_command(ssh, self.flow_type.Teardown)
+                logger.info(f"Teardown for {self.name} completed", also_console=True)
         sleep(2)
         logger.info(f"PlugIn '{self}' stopped")
 
@@ -356,10 +355,10 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         logger.info(f"PlugIn '{self}' started")
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Setup)
+            logger.info(f"Setup for {self.name} completed", also_console=True)
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 try:
-                    self._evaluate_tolerance()
                     start_ts = datetime.now()
                     _timedelta = timedelta(seconds=self.parameters.interval) \
                         if self.parameters.interval is not None else timedelta(seconds=0)
@@ -382,5 +381,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(0.5)
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Teardown)
+            logger.info(f"Teardown for {self.name} completed", also_console=True)
         logger.info(f"End interrupt-session for '{self}'")
 
