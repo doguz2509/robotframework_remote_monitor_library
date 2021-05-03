@@ -64,7 +64,6 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         except RobotNotRunningError:
             current_dir = ''
 
-        self._start_suite_name = ''
         plugin_modules = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=SSHLibraryPlugInWrapper)
         db.PlugInService().update(**plugin_modules)

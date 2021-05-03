@@ -141,7 +141,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         if self.persistent:
             target = self._persistent_worker
         else:
-            target = self._interrupt_worker
+            target = self._non_persistent_worker
         self._thread = Thread(name=self.name, target=target, daemon=True)
 
     @property
@@ -272,7 +272,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             self._is_logged_in = False
             logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection closed")
         else:
-            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection close not required (not openned)")
+            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection close not required (not opened)")
 
     @contextmanager
     def inside_host(self):
@@ -290,7 +290,8 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             ))
             GlobalErrors().append(e)
         else:
-            logger.debug('Errors cleared')
+            logger.debug(
+                f"Host '{repr(self)}::{self.host_alias}': Runtime errors occurred during tolerance period cleared")
             self._session_errors.clear()
         finally:
             self.exit()
@@ -326,11 +327,11 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             logger.info(f"Iteration {flow.name} completed\n{total_output}")
 
     def _persistent_worker(self):
-        logger.info(f"\nPlugIn '{self}' started")
+        logger.info(f"\nPlugIn '{repr(self)}' started")
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
-                logger.info(f"Setup for {self.name} completed", also_console=True)
+                logger.info(f"Host {repr(self)}: Setup completed", also_console=True)
                 while self.is_continue_expected:
                     try:
                         start_ts = datetime.now()
@@ -355,15 +356,15 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                             ))
                 sleep(2)
                 self._run_command(ssh, self.flow_type.Teardown)
-                logger.info(f"Teardown for {self.name} completed", also_console=True)
+                logger.info(f"Host {repr(self)}: Teardown completed", also_console=True)
         sleep(2)
         logger.info(f"PlugIn '{self}' stopped")
 
-    def _interrupt_worker(self):
-        logger.info(f"PlugIn '{self}' started")
+    def _non_persistent_worker(self):
+        logger.info(f"\nPlugIn '{repr(self)}' started")
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Setup)
-            logger.info(f"Setup for {self.name} completed", also_console=True)
+            logger.info(f"Host {repr(self)}: Setup completed", also_console=True)
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 try:
@@ -389,6 +390,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(0.5)
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Teardown)
-            logger.info(f"Teardown for {self.name} completed", also_console=True)
-        logger.info(f"End interrupt-session for '{self}'")
+            logger.info(f"Host {repr(self)}: Teardown completed", also_console=True)
+        logger.info(f"PlugIn '{repr(self)}' stopped")
 
