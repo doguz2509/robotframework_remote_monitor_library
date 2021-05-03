@@ -257,6 +257,8 @@ class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
         self._command_name = user_options.update({'name': user_options.get('name', self._command)})
+        user_options.update({'persistent': user_options.get('persistent', 'no')})
+
         PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
