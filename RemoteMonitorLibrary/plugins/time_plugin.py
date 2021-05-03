@@ -97,7 +97,8 @@ cd {start_folder}
 
 while :
 do
-    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/time.txt {command} > {output}
+    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/.time_temp.txt {command} > {output}
+    mv ~/.time_temp.txt ~/time.txt
     sleep {interval}
 done
 """
