@@ -6,6 +6,7 @@ from threading import Event, Thread, RLock
 from time import sleep
 from typing import Callable, Any
 
+import paramiko
 from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
@@ -155,6 +156,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def id(self):
         return f"{self.type}-{self.name}"
 
+    def __repr__(self):
+        return self.id
+
     def __str__(self):
         _str = f"{self.__class__.__name__} instance created on host {self.host_alias} :"
         for set_ in FlowCommands:
@@ -232,9 +236,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
 
         if len(self._session_errors) == 0:
-            logger.info(f"Connection establishing")
+            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connecting")
         else:
-            logger.warn(f"Connection restoring at {len(self._session_errors)} time")
+            logger.warn(f"Host '{repr(self)}::{self.host_alias}': Restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, self.host_alias, port)
 
@@ -242,29 +246,33 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         while True:
             try:
                 if certificate:
+                    logger.debug(f"Host '{repr(self)}::{self.host_alias}': Login with user/certificate")
                     self._ssh.login_with_public_key(username, certificate, '')
                 else:
+                    logger.debug(f"Host '{repr(self)}::{self.host_alias}': Login with user/password")
                     self._ssh.login(username, password)
-            except Exception as err:
-                logger.warn(f"Connection to {self.host_alias} failed; Reason: {err}")
+            except paramiko.AuthenticationException:
+                raise
+            except Exception as e:
+                logger.warn(f"Host '{repr(self)}::{self.host_alias}': Connection failed; Reason: {type(e).__name___}{e}")
             else:
                 self._is_logged_in = True
+                logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection established")
                 break
             finally:
                 duration = (datetime.now() - start_ts).total_seconds()
                 if duration >= self.parameters.timeout:
                     raise TimeoutError(
-                        f"Cannot connect to {self.host_alias} during {self.parameters.timeout}s")
-        logger.info(f"Connection established to {self.host_alias}")
+                        f"Cannot connect to '{repr(self)}::{self.host_alias}' during {self.parameters.timeout}s")
 
     def exit(self):
         if self._is_logged_in:
             self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
-            logger.info(f"Connection to {self.host_alias} closed")
+            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection closed")
         else:
-            logger.info(f"Connection to {self.host_alias} not opened")
+            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection close not required (not openned)")
 
     @contextmanager
     def inside_host(self):
