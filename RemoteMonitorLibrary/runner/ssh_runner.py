@@ -260,7 +260,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def exit(self):
         if self._is_logged_in:
-            # self._ssh.switch_connection(self.host_alias)
+            self._ssh.switch_connection(self.host_alias)
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
             logger.info(f"Connection to {self.host_alias} closed")
