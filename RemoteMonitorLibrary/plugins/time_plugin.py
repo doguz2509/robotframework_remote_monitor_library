@@ -327,8 +327,6 @@ class Time(PlugInAPI):
                                                                         data_handler=self.data_handler,
                                                                         Command=self.name)))
 
-        logger.info(f"{self}")
-
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
             if self._start_in_folder.startswith('~'):

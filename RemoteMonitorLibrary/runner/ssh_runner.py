@@ -144,7 +144,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             target = self._persistent_worker
         else:
             target = self._non_persistent_worker
-        self._thread = Thread(name=self.name, target=target, daemon=True)
+        self._thread = Thread(name=self.id, target=target, daemon=True)
 
     @property
     def host_alias(self):
@@ -160,13 +160,17 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     @property
     def id(self):
-        return f"{self.type}-{self.name}"
+        return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
 
     def __repr__(self):
         return f"{self.uuid}"
 
     def __str__(self):
-        _str = f"{self.__class__.__name__} instance created on host {self.host_alias} ({self.uuid}) :"
+        return f"{self.id}::{self.host_alias}"
+
+    @property
+    def info(self):
+        _str = f"{self.__class__.__name__} on host {self.host_alias} ({self.uuid}) :"
         for set_ in FlowCommands:
             commands = getattr(self, set_.value, ())
             _str += f"\n{set_.name}:"
@@ -242,9 +246,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
 
         if len(self._session_errors) == 0:
-            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connecting")
+            logger.info(f"Host '{self.id}::{self.host_alias}': Connecting")
         else:
-            logger.warn(f"Host '{repr(self)}::{self.host_alias}': Restoring at {len(self._session_errors)} time")
+            logger.warn(f"Host '{self.id}::{self.host_alias}': Restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, repr(self), port)
 
@@ -252,33 +256,33 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         while True:
             try:
                 if certificate:
-                    logger.debug(f"Host '{repr(self)}::{self.host_alias}': Login with user/certificate")
+                    logger.debug(f"Host '{self.id}::{self.host_alias}': Login with user/certificate")
                     self._ssh.login_with_public_key(username, certificate, '')
                 else:
-                    logger.debug(f"Host '{repr(self)}::{self.host_alias}': Login with user/password")
+                    logger.debug(f"Host '{self.id}::{self.host_alias}': Login with user/password")
                     self._ssh.login(username, password)
             except paramiko.AuthenticationException:
                 raise
             except Exception as e:
-                logger.warn(f"Host '{repr(self)}::{self.host_alias}': Connection failed; Reason: {e}")
+                logger.warn(f"Host '{self.id}::{self.host_alias}': Connection failed; Reason: {e}")
             else:
                 self._is_logged_in = True
-                logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection established")
+                logger.info(f"Host '{self.id}::{self.host_alias}': Connection established")
                 break
             finally:
                 duration = (datetime.now() - start_ts).total_seconds()
                 if duration >= self.parameters.timeout:
                     raise TimeoutError(
-                        f"Cannot connect to '{repr(self)}::{self.host_alias}' during {self.parameters.timeout}s")
+                        f"Cannot connect to '{self.id}::{self.host_alias}' during {self.parameters.timeout}s")
 
     def exit(self):
         if self._is_logged_in:
             self._ssh.switch_connection(repr(self))
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
-            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection closed")
+            logger.info(f"Host '{self.id}::{self.host_alias}': Connection closed")
         else:
-            logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection close not required (not opened)")
+            logger.info(f"Host '{self.id}::{self.host_alias}': Connection close not required (not opened)")
 
     @contextmanager
     def inside_host(self):
@@ -297,7 +301,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             GlobalErrors().append(e)
         else:
             logger.debug(
-                f"Host '{repr(self)}::{self.host_alias}': Runtime errors occurred during tolerance period cleared")
+                f"Host '{self.id}::{self.host_alias}': Runtime errors occurred during tolerance period cleared")
             self._session_errors.clear()
         finally:
             self.exit()
@@ -333,11 +337,11 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             logger.info(f"Iteration {flow.name} completed\n{total_output}")
 
     def _persistent_worker(self):
-        logger.info(f"\nPlugIn '{repr(self)}' started")
+        logger.info(f"\nPlugIn '{self}' started")
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 self._run_command(ssh, self.flow_type.Setup)
-                logger.info(f"Host {repr(self)}: Setup completed", also_console=True)
+                logger.info(f"Host {self}: Setup completed", also_console=True)
                 while self.is_continue_expected:
                     try:
                         start_ts = datetime.now()
@@ -362,15 +366,15 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                             ))
                 sleep(2)
                 self._run_command(ssh, self.flow_type.Teardown)
-                logger.info(f"Host {repr(self)}: Teardown completed", also_console=True)
+                logger.info(f"Host {self}: Teardown completed", also_console=True)
         sleep(2)
         logger.info(f"PlugIn '{self}' stopped")
 
     def _non_persistent_worker(self):
-        logger.info(f"\nPlugIn '{repr(self)}' started")
+        logger.info(f"\nPlugIn '{self}' started")
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Setup)
-            logger.info(f"Host {repr(self)}: Setup completed", also_console=True)
+            logger.info(f"Host {self}: Setup completed", also_console=True)
         while self.is_continue_expected:
             with self.inside_host() as ssh:
                 try:
@@ -396,6 +400,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                 sleep(0.5)
         with self.inside_host() as ssh:
             self._run_command(ssh, self.flow_type.Teardown)
-            logger.info(f"Host {repr(self)}: Teardown completed", also_console=True)
-        logger.info(f"PlugIn '{repr(self)}' stopped")
+            logger.info(f"Host {self}: Teardown completed", also_console=True)
+        logger.info(f"PlugIn '{self}' stopped")
 

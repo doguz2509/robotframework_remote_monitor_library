@@ -82,15 +82,15 @@ class HostModule:
         except Exception as e:
             raise RuntimeError("Cannot create plugin instance '{}, args={}, parameters={}, options={}'"
                                "\nError: {}".format(
-                plugin_name,
-                ', '.join([f"{a}" for a in args]),
-                ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
-                ', '.join([f"{k}={v}" for k, v in tail.items()]),
-                e
-            ))
+                                    plugin_name,
+                                    ', '.join([f"{a}" for a in args]),
+                                    ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
+                                    ', '.join([f"{k}={v}" for k, v in tail.items()]),
+                                    e
+                               ))
         else:
             plugin.start()
-            logger.info(f"\nStarted {plugin}", also_console=True)
+            logger.info(f"\nPlugin {plugin_name} Started\n{plugin.info}", also_console=True)
             self._active_plugins[hash(plugin)] = plugin
 
     def get_plugin(self, plugin_name=None, **options):
