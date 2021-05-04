@@ -254,6 +254,11 @@ class TimeReadOutput(SSHLibraryCommand):
                f"'; Parser: {'assigned' if self.parser else 'N/A'}"
 
 
+class GetPIDList(Variable):
+    def __call__(self, output):
+        self.result = {'pid_list': output.replace('\n', ' ')}
+
+
 class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
@@ -295,12 +300,21 @@ class Time(PlugInAPI):
                                   read_output='cat ~/output.txt >&1' if self.options.get('return_stdout', False) else ''
                               )
 
+            pid_list = GetPIDList()
+
             self.set_commands(FlowCommands.Teardown,
                               SSHLibraryCommand(SSHLibrary.execute_command,
                                                 "kill -9 `ps -ef|egrep 'time_write|"
                                                 "{}'|grep -v grep|awk '{{{{print$2}}}}'`".format(self._command),
                                                 sudo=self.sudo_expected,
-                                                sudo_password=self.sudo_password_expected))
+                                                sudo_password=self.sudo_password_expected,
+                                                return_stdout=True,
+                                                variable_setter=pid_list),
+                              SSHLibraryCommand(SSHLibrary.execute_command, "kill -9 {pid_list}",
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected,
+                                                variable_getter=pid_list)
+                              )
 
             self.set_commands(FlowCommands.Setup,
                               self.teardown[0],

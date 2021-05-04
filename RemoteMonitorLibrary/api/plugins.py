@@ -2,7 +2,7 @@ from abc import ABC
 
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.model.runner_model import Parser, plugin_integration_abstract, FlowCommands
+from RemoteMonitorLibrary.model.runner_model import Parser, plugin_integration_abstract, FlowCommands, Variable
 from RemoteMonitorLibrary.runner.ssh_runner import SSHLibraryPlugInWrapper, SSHLibraryCommand, \
     extract_method_arguments
 
@@ -30,6 +30,7 @@ __all__ = ['PlugInAPI',
            SSHLibraryCommand.__name__,
            'extract_method_arguments',
            Parser.__name__,
+           Variable.__name__,
            ParseRC.__name__,
            ChartAbstract.__name__,
            Configuration.__name__
