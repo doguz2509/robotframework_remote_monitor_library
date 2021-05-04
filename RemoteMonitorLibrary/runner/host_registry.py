@@ -120,7 +120,7 @@ class HostModule:
             assert len(plugins_to_stop) > 0, f"Plugins '{plugin_name}' not matched in list"
             for plugin in plugins_to_stop:
                 try:
-                    plugin.stop()
+                    plugin.stop(timeout=options.get('timeout', None))
                     assert plugin.iteration_counter > 0
                 except AssertionError:
                     logger.warn(f"Plugin '{plugin}' didn't got monitor data during execution")
