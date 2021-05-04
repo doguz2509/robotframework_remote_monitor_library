@@ -1,3 +1,4 @@
+import uuid
 from abc import ABCMeta
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -119,6 +120,7 @@ class SSHLibraryCommand:
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, *user_args, **user_options):
+        self._uuid = uuid.uuid4()
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         super().__init__(data_handler, *user_args, **user_options)
@@ -153,14 +155,18 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         return f"{self.__class__.__name__}"
 
     @property
+    def uuid(self):
+        return self._uuid
+
+    @property
     def id(self):
         return f"{self.type}-{self.name}"
 
     def __repr__(self):
-        return self.id
+        return f"{self.uuid}"
 
     def __str__(self):
-        _str = f"{self.__class__.__name__} instance created on host {self.host_alias} :"
+        _str = f"{self.__class__.__name__} instance created on host {self.host_alias} ({self.uuid}) :"
         for set_ in FlowCommands:
             commands = getattr(self, set_.value, ())
             _str += f"\n{set_.name}:"
@@ -240,7 +246,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         else:
             logger.warn(f"Host '{repr(self)}::{self.host_alias}': Restoring at {len(self._session_errors)} time")
 
-        self._ssh.open_connection(host, self.host_alias, port)
+        self._ssh.open_connection(host, repr(self), port)
 
         start_ts = datetime.now()
         while True:
@@ -254,7 +260,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             except paramiko.AuthenticationException:
                 raise
             except Exception as e:
-                logger.warn(f"Host '{repr(self)}::{self.host_alias}': Connection failed; Reason: {type(e).__name___}{e}")
+                logger.warn(f"Host '{repr(self)}::{self.host_alias}': Connection failed; Reason: {e}")
             else:
                 self._is_logged_in = True
                 logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection established")
@@ -267,7 +273,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
 
     def exit(self):
         if self._is_logged_in:
-            self._ssh.switch_connection(self.host_alias)
+            self._ssh.switch_connection(repr(self))
             self._close_ssh_library_connection_from_thread()
             self._is_logged_in = False
             logger.info(f"Host '{repr(self)}::{self.host_alias}': Connection closed")
@@ -310,7 +316,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
         total_output = ''
         try:
-            ssh_client.switch_connection(self.host_alias)
+            ssh_client.switch_connection(repr(self))
             flow_values = getattr(self, flow.value)
             if len(flow_values) == 0:
                 raise EmptyCommandSet()

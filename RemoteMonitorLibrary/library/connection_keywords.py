@@ -212,7 +212,7 @@ class ConnectionKeywords:
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{li}")
+            raise BuiltIn().fatal_error(f"{e}; File: {f}:{li}")
 
     @keyword("Stop monitor plugin")
     def stop_monitor_plugin(self, plugin_name, alias=None, **options):

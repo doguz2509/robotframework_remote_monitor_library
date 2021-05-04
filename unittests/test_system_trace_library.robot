@@ -41,8 +41,8 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
-    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
-    ...     return_stderr=yes  rc=137|128|127
+#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
+#    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
 #    Start monitor plugin  Time  command=make -j 40 clean all
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  persistent=no

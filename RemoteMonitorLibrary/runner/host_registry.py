@@ -1,6 +1,7 @@
 from collections import Callable
 from threading import Event
 
+from robot.libraries.BuiltIn import BuiltIn
 from robot.utils.connectioncache import ConnectionCache
 
 from RemoteMonitorLibrary.utils.logger_helper import logger
@@ -79,12 +80,14 @@ class HostModule:
             assert plugin, f"Plugin '{plugin_name}' not registered"
             plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         except Exception as e:
-            assert "Cannot create plugin instance '{}, args={}, parameters={}, options={}'".format(
+            raise RuntimeError("Cannot create plugin instance '{}, args={}, parameters={}, options={}'"
+                               "\nError: {}".format(
                 plugin_name,
                 ', '.join([f"{a}" for a in args]),
                 ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
-                ', '.join([f"{k}={v}" for k, v in tail.items()])
-            )
+                ', '.join([f"{k}={v}" for k, v in tail.items()]),
+                e
+            ))
         else:
             plugin.start()
             logger.info(f"\nStarted {plugin}", also_console=True)
