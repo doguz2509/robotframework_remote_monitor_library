@@ -97,15 +97,16 @@ cd {start_folder}
 
 while :
 do
-    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/.time_temp.txt {command} > {output}
-    mv ~/.time_temp.txt ~/time.txt
+    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/time_data/.time_temp.txt {command} > {output}
+    mv ~/time_data/.time_temp.txt ~/time_data/time.txt
+    {mv_output}
     sleep {interval}
 done
 """
 
 TIME_READ_SCRIPT = """
 #!/bin/bash
-cat ~/time.txt >&2
+cat ~/time_data/time.txt >&2
 {read_output}
 """
 
@@ -196,7 +197,7 @@ class TimeParser(Parser):
         except Exception as e:
             f, li = get_error_info()
             logger.error(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
-            raise RunnerError(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
+            raise RunnerError(f"{self}", f"{e}; File: {f}:{li}")
 
 
 class TimeCachedParser(TimeParser):
@@ -204,12 +205,10 @@ class TimeCachedParser(TimeParser):
         time_output = outputs.get('stderr', None)
         rc = outputs.get('rc')
 
-        assert rc == 0, f"Error execution Time command [Rc: {rc}]: {time_output}"
-
-        if time_output == '':
+        if 'No such file or directory' in time_output and rc == 1:
             logger.warn(f"Time command still not completed first iteration")
             return True
-
+        assert rc == 0, f"Error RC occur - {outputs}"
         time_stamp, time_output = time_output.split(',', 1)
         _, datetime = time_stamp.split(':', 1)
         outputs.update(**{'stderr': time_output})
@@ -293,19 +292,20 @@ class Time(PlugInAPI):
                 format=self._format,
                 command=self._command,
                 interval=int(self.parameters.interval),
-                output='~/output.txt' if self.options.get('return_stdout', False) else '/dev/null',
+                output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
+                mv_output='mv ~/time_data/.temp_output.txt ~/time_data/output.txt' if self.options.get('return_stdout', False) else '',
                 date_format=DB_DATETIME_FORMAT
             )
             time_read_script = TIME_READ_SCRIPT.format(
-                                  read_output='cat ~/output.txt >&1' if self.options.get('return_stdout', False) else ''
+                                  read_output='cat ~/time_data/output.txt >&1' if self.options.get('return_stdout', False) else ''
                               )
 
             pid_list = GetPIDList()
 
             self.set_commands(FlowCommands.Teardown,
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                "kill -9 `ps -ef|egrep 'time_write|"
-                                                "{}'|grep -v grep|awk '{{{{print$2}}}}'`".format(self._command),
+                                                "ps -ef|egrep 'time_write|"
+                                                "{}'|grep -v grep|awk '{{{{print$2}}}}'".format(self._command),
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_password_expected,
                                                 return_stdout=True,
@@ -317,21 +317,29 @@ class Time(PlugInAPI):
                               )
 
             self.set_commands(FlowCommands.Setup,
-                              self.teardown[0],
+                              self.teardown,
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                f"echo \"{time_write_script}\" > ~/time_write.sh",
+                                                f"mkdir ~/time_data",
+                                                return_rc=True),
+                              SSHLibraryCommand(SSHLibrary.execute_command, "rm -rf ~/time_data/*",
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected,
+                                                return_rc=True,
+                                                return_stderr=True),
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f"echo \"{time_write_script}\" > ~/time_data/time_write.sh",
                                                 return_rc=True, parser=ParseRC()),
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                f"echo \"{time_read_script}\" > ~/time_read.sh",
+                                                f"echo \"{time_read_script}\" > ~/time_data/time_read.sh",
                                                 return_rc=True, parser=ParseRC()),
-                              SSHLibraryCommand(SSHLibrary.execute_command, 'chmod +x ~/time_*.sh',
+                              SSHLibraryCommand(SSHLibrary.execute_command, 'chmod +x ~/time_data/*time_*.sh',
                                                 return_rc=True, parser=ParseRC()),
                               SSHLibraryCommand(SSHLibrary.start_command,
-                                                f'nohup ~/time_write.sh &')
+                                                f'nohup ~/time_data/time_write.sh &')
                               )
 
             self.set_commands(FlowCommands.Command,
-                              SSHLibraryCommand(SSHLibrary.execute_command, '~/time_read.sh',
+                              SSHLibraryCommand(SSHLibrary.execute_command, '~/time_data/time_read.sh',
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_expected,
                                                 return_stderr=True,
