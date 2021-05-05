@@ -19,11 +19,9 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.utils.logger_helper import logger
-
 from RemoteMonitorLibrary.api import model
 from RemoteMonitorLibrary.api.plugins import *
-
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 __doc__ = """
 == Time plugin overview ==
@@ -44,24 +42,25 @@ __doc__ = """
 
     - name: User friendly alias for command (Optional)
     - start_in_folder: path to executable binary/script if execution by path not relevant (Optional)
-    - store_output: bool -> if true output store to cache in DB
+    - return_stdout: bool -> if true output store to cache in DB
     - sudo: True if sudo required, False if omitted (Optional)
     - sudo_password: True if password required for sudo, False if omitted (Optional)
 
       On plugin start sudo and sudo_password will be replace with sudo password provided for connection module
     
     Examples:
-    |       Flags |  Command executed |
+    |       Flags |  What really executed |
     | <command> | /usr/bin/time -f "..." 'command' > /dev/null |
     | <command> start_in_folder=<folder> | cd <folder> ; /usr/bin/time -f "..." command > /dev/null |
-    | <command> start_in_folder=<folder> store_output=yes |  cd <folder> ;/usr/bin/time -f "..." command |
-    | <command> start_in_folder=<folder> store_output=yes sudo=yes |  cd <folder> ;sudo /usr/bin/time -f "..." command |
+    | <command> start_in_folder=<folder> return_stdout=yes |  cd <folder> ;/usr/bin/time -f "..." command |
+    | <command> start_in_folder=<folder> return_stdout=yes sudo=yes |  cd <folder> ;sudo /usr/bin/time -f "..." command |
     
 """
 
 from RemoteMonitorLibrary.model.errors import RunnerError
 
 from RemoteMonitorLibrary.utils import get_error_info
+from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
 
@@ -90,6 +89,26 @@ CMD_TIME_FORMAT = DotDict(
     Rc="x",
     Command="C"
 )
+
+TIME_BG_SCRIPT = """ 
+#!/bin/bash
+
+cd {start_folder}
+
+while :
+do
+    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/time_data/.time_temp.txt {command} > {output}
+    mv ~/time_data/.time_temp.txt ~/time_data/time.txt
+    {mv_output}
+    sleep {interval}
+done
+"""
+
+TIME_READ_SCRIPT = """
+#!/bin/bash
+cat ~/time_data/time.txt >&2
+{read_output}
+"""
 
 
 class TimeMeasurement(model.PlugInTable):
@@ -151,7 +170,7 @@ class TimeChart(ChartAbstract):
 
 
 class TimeParser(Parser):
-    def __call__(self, outputs) -> bool:
+    def __call__(self, outputs, datetime=None) -> bool:
         command_out = outputs.get('stdout', None)
         time_output = outputs.get('stderr', None)
         rc = outputs.get('rc')
@@ -170,7 +189,7 @@ class TimeParser(Parser):
             logger.info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
 
             row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
-            du = model.data_factory(self.table, row, output=command_out)
+            du = model.data_factory(self.table, row, output=command_out, datetime=datetime)
 
             self.data_handler(du)
             logger.debug(f"Item enqueued - {du}")
@@ -178,7 +197,22 @@ class TimeParser(Parser):
         except Exception as e:
             f, li = get_error_info()
             logger.error(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
-            raise RunnerError(f"{self.__class__.__name__}: {e}; File: {f}:{li}")
+            raise RunnerError(f"{self}", f"{e}; File: {f}:{li}")
+
+
+class TimeCachedParser(TimeParser):
+    def __call__(self, outputs, datetime=None):
+        time_output = outputs.get('stderr', None)
+        rc = outputs.get('rc')
+
+        if 'No such file or directory' in time_output and rc == 1:
+            logger.warn(f"Time command still not completed first iteration")
+            return True
+        assert rc == 0, f"Error RC occur - {outputs}"
+        time_stamp, time_output = time_output.split(',', 1)
+        _, datetime = time_stamp.split(':', 1)
+        outputs.update(**{'stderr': time_output})
+        return super().__call__(outputs, datetime=datetime)
 
 
 class TimeStartCommand(SSHLibraryCommand):
@@ -219,10 +253,17 @@ class TimeReadOutput(SSHLibraryCommand):
                f"'; Parser: {'assigned' if self.parser else 'N/A'}"
 
 
+class GetPIDList(Variable):
+    def __call__(self, output):
+        self.result = {'pid_list': output.replace('\n', ' ')}
+
+
 class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
         self._command_name = user_options.update({'name': user_options.get('name', self._command)})
+        user_options.update({'persistent': user_options.get('persistent', 'no')})
+
         PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
@@ -231,18 +272,82 @@ class Time(PlugInAPI):
         if self._start_in_folder:
             self._verify_folder_exist()
             self.options.update({'start_in_folder': self._start_in_folder})
+        self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         assert self._command, "SSHLibraryCommand not provided"
         self.options.update(**self.normalise_arguments(**self.options))
         if user_options.get('rc', None) is not None:
             assert user_options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
-        self.set_commands(FlowCommands.Command,
-                          TimeStartCommand(self._command, **self.options),
-                          TimeReadOutput(parser=TimeParser(host_id=self.host_id,
-                                                           table=self.affiliated_tables()[0],
-                                                           data_handler=self.data_handler, Command=self.name),
-                                         **self.options)
-                          )
-        logger.info(f"{self}")
+
+        if self.persistent:
+            self.set_commands(FlowCommands.Command,
+                              TimeStartCommand(self._command, **self.options),
+                              TimeReadOutput(parser=TimeParser(host_id=self.host_id,
+                                                               table=self.affiliated_tables()[0],
+                                                               data_handler=self.data_handler, Command=self.name),
+                                             **self.options))
+        else:
+            time_write_script = TIME_BG_SCRIPT.format(
+                start_folder=f"{self._start_in_folder}" if self._start_in_folder else '',
+                time_command=self._time_cmd,
+                format=self._format,
+                command=self._command,
+                interval=int(self.parameters.interval),
+                output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
+                mv_output='mv ~/time_data/.temp_output.txt ~/time_data/output.txt' if self.options.get('return_stdout', False) else '',
+                date_format=DB_DATETIME_FORMAT
+            )
+            time_read_script = TIME_READ_SCRIPT.format(
+                                  read_output='cat ~/time_data/output.txt >&1' if self.options.get('return_stdout', False) else ''
+                              )
+
+            pid_list = GetPIDList()
+
+            self.set_commands(FlowCommands.Teardown,
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                "ps -ef|egrep 'time_write|"
+                                                "{}'|grep -v grep|awk '{{{{print$2}}}}'".format(self._command),
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected,
+                                                return_stdout=True,
+                                                variable_setter=pid_list),
+                              SSHLibraryCommand(SSHLibrary.execute_command, "kill -9 {pid_list}",
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected,
+                                                variable_getter=pid_list)
+                              )
+
+            self.set_commands(FlowCommands.Setup,
+                              self.teardown,
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f"mkdir ~/time_data",
+                                                return_rc=True),
+                              SSHLibraryCommand(SSHLibrary.execute_command, "rm -rf ~/time_data/*",
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected,
+                                                return_rc=True,
+                                                return_stderr=True),
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f"echo \"{time_write_script}\" > ~/time_data/time_write.sh",
+                                                return_rc=True, parser=ParseRC()),
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f"echo \"{time_read_script}\" > ~/time_data/time_read.sh",
+                                                return_rc=True, parser=ParseRC()),
+                              SSHLibraryCommand(SSHLibrary.execute_command, 'chmod +x ~/time_data/*time_*.sh',
+                                                return_rc=True, parser=ParseRC()),
+                              SSHLibraryCommand(SSHLibrary.start_command,
+                                                f'nohup ~/time_data/time_write.sh &')
+                              )
+
+            self.set_commands(FlowCommands.Command,
+                              SSHLibraryCommand(SSHLibrary.execute_command, '~/time_data/time_read.sh',
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_expected,
+                                                return_stderr=True,
+                                                return_rc=True,
+                                                parser=TimeCachedParser(host_id=self.host_id,
+                                                                        table=self.affiliated_tables()[0],
+                                                                        data_handler=self.data_handler,
+                                                                        Command=self.name)))
 
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
@@ -257,7 +362,6 @@ class Time(PlugInAPI):
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
         return TimeMeasurement(),
-        # LinesCache(), LinesCacheMap()
 
     @staticmethod
     def affiliated_charts() -> Iterable[ChartAbstract]:
@@ -265,11 +369,11 @@ class Time(PlugInAPI):
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
 
-    @property
-    def id(self):
-        return f"{super().id}: {self._command}"
+    # @property
+    # def id(self):
+    #     return f"{super().id}: {self._command}"
 
-   
+
 __all__ = [
     Time.__name__,
     __doc__

@@ -95,7 +95,7 @@ class UserCommandParser(Parser):
         self.data_handler(du)
 
         if st != 'Pass':
-            raise RunnerError(msg)
+            raise RunnerError(f"{self}", msg)
 
         return True if st == 'Pass' else False
 

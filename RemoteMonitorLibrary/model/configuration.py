@@ -5,7 +5,7 @@ from robot.utils.robottime import timestr_to_secs
 
 from RemoteMonitorLibrary.utils.sys_utils import get_error_info
 
-DEFAULT_INTERVAL = None
+DEFAULT_INTERVAL = 1
 DEFAULT_CONNECTION_INTERVAL = 60
 DEFAULT_FAULT_TOLERANCE = 10
 

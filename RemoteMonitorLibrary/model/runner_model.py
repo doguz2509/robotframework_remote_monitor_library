@@ -1,5 +1,6 @@
+from abc import ABC
 from enum import Enum
-from typing import Iterable, Callable
+from typing import Iterable, Callable, Mapping, AnyStr, Any
 
 from RemoteMonitorLibrary.model import db_schema as model
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
@@ -82,6 +83,22 @@ class Parser:
         return self.__class__.__name__
 
 
+class Variable:
+    def __init__(self):
+        self._result = None
+
+    def __call__(self, output):
+        raise NotImplementedError
+
+    @property
+    def result(self) -> Mapping[AnyStr, Any]:
+        return self._result
+
+    @result.setter
+    def result(self, value: Mapping[AnyStr, Any]):
+        self._result = value
+
+
 class FlowCommands(Enum):
     Setup = 'setup'
     Command = 'periodic_commands'
@@ -100,8 +117,17 @@ class plugin_runner_abstract:
         self._user_options = kwargs
         self._commands = {}
 
+    @staticmethod
+    def _normalise_commands(*commands):
+        for command in commands:
+            if isinstance(command, (list, tuple)):
+                for sub_command in command:
+                    yield sub_command
+            else:
+                yield command
+
     def set_commands(self, type_: FlowCommands, *commands):
-        self._commands.setdefault(type_, []).extend(commands)
+        self._commands.setdefault(type_, []).extend(tuple(self._normalise_commands(*commands)))
 
     def store_variable(self, variable_name):
         def _(value):

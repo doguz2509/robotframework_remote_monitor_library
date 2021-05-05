@@ -1,6 +1,7 @@
 from collections import Callable
 from threading import Event
 
+from robot.libraries.BuiltIn import BuiltIn
 from robot.utils.connectioncache import ConnectionCache
 
 from RemoteMonitorLibrary.utils.logger_helper import logger
@@ -14,11 +15,11 @@ from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 class HostModule:
     def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
-                 port=None, alias=None, certificate=None, timeout=None):
+                 port=None, alias=None, certificate=None, timeout=None, interval=None):
         self._configuration = Configuration(alias=alias or f"{username}@{host}:{port}",
                                             host=host, username=username, password=password,
                                             port=port, certificate=certificate, event=None,
-                                            timeout=timeout)
+                                            timeout=timeout, interval=interval)
         self._plugin_registry = plugin_registry
         self._data_handler = data_handler
         self._active_plugins = {}
@@ -79,15 +80,17 @@ class HostModule:
             assert plugin, f"Plugin '{plugin_name}' not registered"
             plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         except Exception as e:
-            assert "Cannot create plugin instance '{}, args={}, parameters={}, options={}'".format(
-                plugin_name,
-                ', '.join([f"{a}" for a in args]),
-                ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
-                ', '.join([f"{k}={v}" for k, v in tail.items()])
-            )
+            raise RuntimeError("Cannot create plugin instance '{}, args={}, parameters={}, options={}'"
+                               "\nError: {}".format(
+                                    plugin_name,
+                                    ', '.join([f"{a}" for a in args]),
+                                    ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
+                                    ', '.join([f"{k}={v}" for k, v in tail.items()]),
+                                    e
+                               ))
         else:
             plugin.start()
-            logger.info(f"\nStarted {plugin}", also_console=True)
+            logger.info(f"\nPlugin {plugin_name} Started\n{plugin.info}", also_console=True)
             self._active_plugins[hash(plugin)] = plugin
 
     def get_plugin(self, plugin_name=None, **options):
@@ -117,7 +120,7 @@ class HostModule:
             assert len(plugins_to_stop) > 0, f"Plugins '{plugin_name}' not matched in list"
             for plugin in plugins_to_stop:
                 try:
-                    plugin.stop()
+                    plugin.stop(timeout=options.get('timeout', None))
                     assert plugin.iteration_counter > 0
                 except AssertionError:
                     logger.warn(f"Plugin '{plugin}' didn't got monitor data during execution")

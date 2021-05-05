@@ -68,28 +68,7 @@ class ConnectionKeywords:
     """
 
     def __init__(self, rel_location, file_name, **options):
-        # __doc__ = """
-        # === Initialise System Trace Library instance ===
-        #
-        # Arguments:
-        # - rel_location: relative log location
-        # - file_name: name for db & log files
-        #
-        # Optional parameters:
-        #     - cumulative: existed db file will be reused if True otherwise deleted and recreate [Default: False]
-        #
-        # Auto start/end period will be invoked for:
-        #     - start_test:
-        #     - end_test
-        #
-        # Keywords (start_period, stop_period will be assigned) will be assigned if True
-        # Provided keyword will be provided if defined
-        #
-        # Default - Nothing
-        #
-        # Note: working with current alias only
-        # """
-        self._start_suite_name = ''
+
         self._modules = HostRegistryCache()
         self.location, self.file_name, self.cumulative = \
             rel_location, file_name, is_truthy(options.get('cumulative', False))
@@ -109,6 +88,22 @@ class ConnectionKeywords:
         elif custom_kw is not None:
             return custom_kw
         return None
+
+    def _init(self):
+        output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
+        db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
+
+        level = BuiltIn().get_variable_value('${LOG LEVEL}')
+        logger.setLevel(level)
+        rel_log_file_path = os.path.join(self.location, self.file_name)
+        abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
+
+        logger.set_file_handler(abs_log_file_path)
+        if is_truthy(self._log_to_db):
+            db.TableSchemaService().register_table(db.tables.log())
+            logger.addHandler(db.services.SQLiteHandler())
+        db.DataHandlerService().start()
+        logger.warn(f'<a href="{rel_log_file_path}">{self.file_name}</a>', html=True)
 
     def get_keyword_names(self):
         return [
@@ -165,20 +160,7 @@ class ConnectionKeywords:
 
         """
         if not db.DataHandlerService().is_active:
-            output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
-            db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
-
-            level = BuiltIn().get_variable_value('${LOG LEVEL}')
-            logger.setLevel(level)
-            rel_log_file_path = os.path.join(self.location, self.file_name)
-            abs_log_file_path = os.path.join(output_location, self.location, self.file_name)
-
-            logger.set_file_handler(abs_log_file_path)
-            if is_truthy(self._log_to_db):
-                db.TableSchemaService().register_table(db.tables.log())
-                logger.addHandler(db.services.SQLiteHandler())
-            db.DataHandlerService().start()
-            logger.warn(f'<a href="{rel_log_file_path}">{self.file_name}</a>', html=True)
+            self._init()
         try:
             module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
                                 alias,
@@ -230,7 +212,7 @@ class ConnectionKeywords:
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
-            raise type(e)(f"{e}; File: {f}:{li}")
+            raise BuiltIn().fatal_error(f"{e}; File: {f}:{li}")
 
     @keyword("Stop monitor plugin")
     def stop_monitor_plugin(self, plugin_name, alias=None, **options):

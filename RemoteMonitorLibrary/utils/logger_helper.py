@@ -19,25 +19,11 @@ DEFAULT_ROLLUP_COUNT = 20
 # # Adopt logging levels with robot logger
 logging.addLevelName(logging.DEBUG // 2, 'TRACE')
 logging.TRACE = logging.DEBUG // 2
-logging.addLevelName(logging.INFO, 'HTML')
 
-
-# def emit(self, record) -> None:
-#     for k, v in {k: v for k, v in record.__dict__.items() if k.startswith('e_')}.items():
-#         if k.startswith('e_'):
-#             name = k.replace('e_', '')
-#             setattr(record, name, v)
-#
-#     self.orig_emit(record)
-#
-#
-# logging.StreamHandler.orig_emit = logging.StreamHandler.emit
-# logging.StreamHandler.emit = emit
 
 level_map = {'TRACE': logging.DEBUG // 2,
              'DEBUG': logging.DEBUG,
              'INFO': logging.INFO,
-             'HTML': logging.INFO,
              'WARN': logging.WARNING,
              'ERROR': logging.ERROR}
 
