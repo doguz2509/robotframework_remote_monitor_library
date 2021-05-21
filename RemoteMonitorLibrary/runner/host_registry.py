@@ -1,15 +1,14 @@
+
 from collections import Callable
 from threading import Event
 
-from robot.libraries.BuiltIn import BuiltIn
 from robot.utils.connectioncache import ConnectionCache
-
-from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.configuration import Configuration
 from RemoteMonitorLibrary.utils import Singleton
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 

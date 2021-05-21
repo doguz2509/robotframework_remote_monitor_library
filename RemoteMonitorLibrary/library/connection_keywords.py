@@ -218,19 +218,19 @@ class ConnectionKeywords:
 
     @keyword("Stop monitor plugin")
     def stop_monitor_plugin(self, plugin_name, alias=None, **options):
-        monitor = HostRegistryCache().get_connection(alias)
+        monitor = self._modules.get_connection(alias)
         monitor.plugin_terminate(plugin_name, **options)
         logger.info(f"PlugIn '{plugin_name}' stopped on {monitor.alias}", also_console=True)
 
     @keyword("Pause monitor")
     def pause_monitor(self, reason, alias=None):
-        monitor = HostRegistryCache().get_connection(alias)
+        monitor = self._modules.get_connection(alias)
         monitor.pause_plugins()
         self._start_period(reason, alias)
 
     @keyword("Resume monitor")
     def resume_monitor(self, reason, alias=None):
-        monitor: HostModule = HostRegistryCache().get_connection(alias)
+        monitor: HostModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
