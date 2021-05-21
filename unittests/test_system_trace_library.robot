@@ -44,11 +44,15 @@ Test Host monitor
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
-#    Start monitor plugin  Time  command=make -j 40 clean all
-#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  persistent=no
+#    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
+#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
     Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=1s  return_stdout=yes
-    wait  ${DURATION}
-#    Stop monitor plugin  Time  name=Complilation
+    wait  20s
+    pause monitor  Pause_me
+    wait  20s
+    resume monitor  Pause_me
+    wait  20s
+#    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
     generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
 #    generate module statistics  period=${TEST_NAME}  plugin=aTop

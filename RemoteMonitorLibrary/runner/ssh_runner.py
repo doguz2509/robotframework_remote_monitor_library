@@ -129,7 +129,7 @@ class SSHLibraryCommand:
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, *user_args, **user_options):
-        self._uuid = uuid.uuid4()
+        # self._uuid = uuid.uuid4()
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         super().__init__(data_handler, *user_args, **user_options)
@@ -145,8 +145,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         self._session_errors = []
         assert self._host_id, "Host ID cannot be empty"
         self._persistent = is_truthy(user_options.get('persistent', 'yes'))
-        self._thread: Thread
-        self._set_worker()
+        self._thread: Thread = None
 
     def _set_worker(self):
         if self.persistent:
@@ -163,23 +162,23 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def type(self):
         return f"{self.__class__.__name__}"
 
-    @property
-    def uuid(self):
-        return self._uuid
+    # @property
+    # def uuid(self):
+    #     return self._uuid
 
-    @property
-    def id(self):
-        return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
+    # @property
+    # def id(self):
+    #     return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
 
     def __repr__(self):
-        return f"{self.uuid}"
+        return f"{self.id}"
 
     def __str__(self):
         return f"{self.id}::{self.host_alias}"
 
     @property
     def info(self):
-        _str = f"{self.__class__.__name__} on host {self.host_alias} ({self.uuid}) :"
+        _str = f"{self.__class__.__name__} on host {self.host_alias} ({self.id}) :"
         for set_ in FlowCommands:
             commands = getattr(self, set_.value, ())
             _str += f"\n{set_.name}:"
@@ -190,6 +189,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         return _str
 
     def start(self):
+        self._set_worker()
         self._thread.start()
 
     def stop(self, timeout=None):
@@ -197,10 +197,13 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         timeout = timestr_to_secs(timeout)
         self._internal_event.set()
         self._thread.join(timeout)
+        self._thread = None
 
     @property
     def is_alive(self):
-        return self._thread.is_alive()
+        if self._thread:
+            return self._thread.is_alive()
+        return False
 
     @property
     def sudo_expected(self):

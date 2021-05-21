@@ -57,6 +57,8 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
                    robotframework_portal_addon.__doc__
                    )
 
+        file_name = f"{file_name}.log" if not file_name.endswith('.log') else file_name
+
         ConnectionKeywords.__init__(self, location, file_name, **kwargs)
         BIKeywords.__init__(self, location)
         try:
