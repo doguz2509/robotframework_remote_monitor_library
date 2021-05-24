@@ -205,7 +205,7 @@ class DataHandlerService:
         try:
             return self._db.execute(sql_text, *rows)
         except Exception as e:
-            logger.error(f"DB execute error: {e}")
+            logger.error("DB execute error: {}\n{}\n{}".format(e, sql_text, '\n\t'.join([r for r in rows])))
             raise
 
     @property
