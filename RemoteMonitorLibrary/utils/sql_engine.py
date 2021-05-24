@@ -131,7 +131,7 @@ def update_sql(name, *columns, **where):
     return UPDATE_TABLE_TEMPLATE.format(table=name,
                                         columns=",\n\t".join([f"{c} = ?" for c in columns]),
                                         where=' AND '.join(
-                                            "{} = {}".format(f, v if str(v).isdigit() else f"'{v}'") for f, v in
+                                            "{} = {}".format(f, v if str(v).isdigit() else f'"{v}"') for f, v in
                                             where.items()))
 
 

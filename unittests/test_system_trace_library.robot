@@ -22,6 +22,16 @@ ${INTERVAL}  0.5s
 ${PERSISTENT}  yes
 
 *** Test Cases ***
+Test own keywords
+    [Tags]  periods
+    start period
+    start period  P1
+    start period  P2
+    wait  20s
+    stop period  P1
+    stop period  P2
+    stop period
+
 
 Test demo attack
     [Tags]  demo
@@ -92,3 +102,4 @@ Prepare bm
     END
     log  Environment setup successfully completed  console=yes
     [Teardown]  close connection
+

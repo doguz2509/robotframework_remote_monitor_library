@@ -253,8 +253,9 @@ class ConnectionKeywords:
     def _stop_period(self, period_name=None, alias=None):
         module: HostModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
+        point_name = rf"{period_name or module.alias}"
         db.DataHandlerService().execute(update_sql(table.name, 'End',
-                                                   HOST_REF=module.host_id, PointName=period_name or module.alias),
+                                                   HOST_REF=module.host_id, PointName=point_name),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Wait")
