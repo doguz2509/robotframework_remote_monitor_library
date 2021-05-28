@@ -164,7 +164,7 @@ class ConnectionKeywords:
         if not db.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit, host, username, password, port,
                                 alias,
                                 certificate, timeout)
             module.start()

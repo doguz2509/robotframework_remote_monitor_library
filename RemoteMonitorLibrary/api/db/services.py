@@ -167,9 +167,6 @@ class DataHandlerService:
             return
         return self._queue
 
-    def add_task(self, task: DataUnit):
-        self.queue.put(task)
-
     def init(self, location=None, file_name=DEFAULT_DB_FILE, cumulative=False):
         self._db = sql_engine.SQL_DB(location, file_name, cumulative)
 
@@ -211,6 +208,15 @@ class DataHandlerService:
     @property
     def get_last_row_id(self):
         return self._db.get_last_row_id
+
+    def add_data_unit(self, item: DataUnit):
+        if isinstance(item.table, PlugInTable):
+            last_tl_id = cache_timestamp(item.timestamp)
+            item(TL_ID=last_tl_id)
+            logger.debug(f"Item updated: {item.sql_data}")
+        self.queue.put(item)
+        logger.debug(f"Item enqueued: '{item}' (Current queue size {self.queue.qsize()})")
+        # sleep(0.01)
 
     def _data_handler(self):
         logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
