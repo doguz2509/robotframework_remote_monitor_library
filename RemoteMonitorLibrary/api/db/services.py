@@ -2,6 +2,7 @@ import hashlib
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
+from queue import Queue
 from threading import Timer, Thread, Event, RLock
 from time import sleep
 from typing import Tuple, Iterable, Mapping, AnyStr, List
@@ -148,7 +149,8 @@ class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
 class DataHandlerService:
     def __init__(self):
         self._threads: List[Thread] = []
-        self._queue = collections.tsQueue()
+        self._queue = Queue()
+        # self._queue = collections.tsQueue()
         self._event: Event = None
         self._db: sql_engine.SQL_DB = None
 
@@ -221,11 +223,12 @@ class DataHandlerService:
     def _data_handler(self):
         logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
         while not self._event.isSet() or not self._queue.empty():
-            data_enumerator = self._queue.get()
-            for item in flat_iterator(*data_enumerator):
-                try:
-                    if isinstance(item, collections.Empty):
-                        continue
+            # for item in flat_iterator(*data_enumerator):
+            # if isinstance(item, collections.Empty):
+            #     continue
+
+            if self.queue.empty():
+                continue
 
                     logger.debug(f"Dequeue item: {item}")
                     if isinstance(item.table, PlugInTable):
