@@ -15,15 +15,14 @@ class tsQueue(list):
     def put(self, item):
         with self._lock:
             super().append(item)
-            logger.debug(f"Item '{id(item)}' enqueued")
 
     def get(self) -> Any:
         with self._lock:
             try:
                 logger.debug(f"Item '{id(self[0])}' dequeued")
-                yield super().pop(0)
+                return super().pop(0)
             except IndexError:
-                yield Empty()
+                return Empty()
 
     def pop(self):
         raise AttributeError("Method 'pop' not allowed here; Use 'get'")
