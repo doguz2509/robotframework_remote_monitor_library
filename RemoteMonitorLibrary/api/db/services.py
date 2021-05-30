@@ -54,7 +54,7 @@ class DataUnit:
 
     def get_insert_data(self, **updates) -> Tuple[str, Iterable[Iterable]]:
         data = self._update_data(self._table, self._data, **updates)
-        return str(self), [tuple(r) for r in data]
+        self._data = [tuple(r) for r in data]
 
     def __str__(self):
         return insert_sql(self._table.name, self._table.columns)
@@ -66,11 +66,15 @@ class DataUnit:
 
         return _
 
-    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+    def __call__(self, **updates):
         if self._timeout:
             self._timer = Timer(self._timeout, self._raise_timeout(f"Timeout expired on query {self}"))
             self._timer.start()
-        return self.get_insert_data(**updates)
+        self.get_insert_data(**updates)
+
+    @property
+    def sql_data(self):
+        return f"{self}", self._data
 
     @property
     def result(self):
@@ -220,38 +224,30 @@ class DataHandlerService:
         logger.debug(f"Item enqueued: '{item}' (Current queue size {self.queue.qsize()})")
         # sleep(0.01)
 
+    # FIXME: Handle stdout should be moved in separate thread task; It should bw async with main data handler
+
     def _data_handler(self):
         logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
         while not self._event.isSet() or not self._queue.empty():
-            # for item in flat_iterator(*data_enumerator):
-            # if isinstance(item, collections.Empty):
-            #     continue
-
             if self.queue.empty():
-                continue
-
-                    logger.debug(f"Dequeue item: {item}")
-                    if isinstance(item.table, PlugInTable):
-                        last_tl_id = cache_timestamp(item.timestamp)
-                        insert_sql_str, rows = item(TL_ID=last_tl_id)
-                        logger.debug(f"Update item: {item}:\n{rows}")
-                    else:
-                        insert_sql_str, rows = item()
-                        logger.debug(f"Read item: {item}:\n{rows}")
-
-                    result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
-                    item.result = result
-                    logger.debug("{}\n\t{}\n\t{}".format(type(item).__name__,
-                                                           insert_sql_str,
-                                                           '\n\t'.join([str(r) for r in rows])))
-                except Exception as e:
-                    f, l = get_error_info()
-                    logger.error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
-
+                if self._event.isSet():
+                    break
                 else:
-                    logger.debug(f"Item {type(item).__name__} successfully handled")
-            sleep(1)
+                    continue
 
+            item = self.queue.get()
+            try:
+                logger.debug(f"Deque item: '{item}' (Current queue size {self.queue.qsize()})")
+                insert_sql_str, rows = item.sql_data
+                result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
+                item.result = result
+                logger.debug("Insert item: {}\n\t{}\n\t{}".format(type(item).__name__, insert_sql_str,
+                                                                  '\n\t'.join([str(r) for r in rows])))
+            except Exception as e:
+                f, l = get_error_info()
+                logger.error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")
+            else:
+                logger.debug(f"Item {type(item).__name__} successfully handled")
         logger.debug(f"Background task stopped invoked")
 
 
@@ -300,7 +296,8 @@ class CacheLines:
                 line_ref = entry[0][0]
 
             if is_output_required:
-                entry1 = DataHandlerService().execute(f"SELECT ORDER_ID FROM LinesCacheMap WHERE LINE_REF == {line_ref}")
+                entry1 = DataHandlerService().execute(
+                    f"SELECT ORDER_ID FROM LinesCacheMap WHERE LINE_REF == {line_ref}")
                 if len(entry1) != 0:
                     output_ref = entry1[0][0]
                     if output_ref != order_id:

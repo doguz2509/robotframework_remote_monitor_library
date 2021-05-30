@@ -18,7 +18,7 @@ Suite Teardown   run keywords  close_all_host_monitors
 ${CERTIFICATE}  ${EMPTY}
 ${PASSWORD}     ${EMPTY}
 ${DURATION}  10s
-${INTERVAL}  0.5s
+${INTERVAL}  2s
 ${PERSISTENT}  yes
 
 *** Test Cases ***
@@ -56,12 +56,12 @@ Test Host monitor
 #    expected=Killed
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=1s  return_stdout=yes
-    wait  20s
-    pause monitor  Pause_me
-    wait  20s
-    resume monitor  Pause_me
-    wait  20s
+    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=${INTERVAL}
+#    wait  20s
+#    pause monitor  Pause_me
+#    wait  20s
+#    resume monitor  Pause_me
+    wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
     generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
