@@ -1,15 +1,14 @@
+
 from collections import Callable
 from threading import Event
 
-from robot.libraries.BuiltIn import BuiltIn
 from robot.utils.connectioncache import ConnectionCache
-
-from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.configuration import Configuration
 from RemoteMonitorLibrary.utils import Singleton
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql
 
 
@@ -91,7 +90,7 @@ class HostModule:
         else:
             plugin.start()
             logger.info(f"\nPlugin {plugin_name} Started\n{plugin.info}", also_console=True)
-            self._active_plugins[hash(plugin)] = plugin
+            self._active_plugins[plugin.id] = plugin
 
     def get_plugin(self, plugin_name=None, **options):
         res = []
@@ -127,7 +126,25 @@ class HostModule:
         except (AssertionError, IndexError) as e:
             logger.info(f"Plugin '{plugin_name}' raised error: {type(e).__name__}: {e}")
         else:
-            logger.info(f"PlugIn '{plugin_name}' gracefully stopped")
+            logger.info(f"PlugIn '{plugin_name}' gracefully stopped", also_console=True)
+
+    def pause_plugins(self):
+        for name, plugin in self._active_plugins.items():
+            try:
+                plugin.stop()
+            except Exception as e:
+                logger.warn(f"Plugin '{name}' pause error: {e}")
+            else:
+                logger.info(f"Plugin '{name}' paused", also_console=True)
+
+    def resume_plugins(self):
+        for name, plugin in self._active_plugins.items():
+            try:
+                plugin.start()
+            except Exception as e:
+                logger.warn(f"Plugin '{name}' resume error: {e}")
+            else:
+                logger.info(f"Plugin '{name}' resumed", also_console=True)
 
 
 @Singleton
@@ -137,7 +154,7 @@ class HostRegistryCache(ConnectionCache):
 
     def clear_all(self, closer_method='stop'):
         for conn in self._connections:
-            logger.info(f"Clear {conn}")
+            logger.info(f"Clear {conn}", also_console=True)
             getattr(conn, closer_method)()
 
     close_all = clear_all

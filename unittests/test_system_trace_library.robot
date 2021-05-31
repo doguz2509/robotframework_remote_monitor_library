@@ -18,10 +18,20 @@ Suite Teardown   run keywords  close_all_host_monitors
 ${CERTIFICATE}  ${EMPTY}
 ${PASSWORD}     ${EMPTY}
 ${DURATION}  10s
-${INTERVAL}  0.5s
+${INTERVAL}  2s
 ${PERSISTENT}  yes
 
 *** Test Cases ***
+Test own keywords
+    [Tags]  periods
+    start period
+    start period  P1
+    start period  P2
+    wait  20s
+    stop period  P1
+    stop period  P2
+    stop period
+
 
 Test demo attack
     [Tags]  demo
@@ -44,11 +54,15 @@ Test Host monitor
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
-#    Start monitor plugin  Time  command=make -j 40 clean all
-#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10  persistent=no
-    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=1s  return_stdout=yes
+#    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
+#    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=${INTERVAL}
+#    wait  20s
+#    pause monitor  Pause_me
+#    wait  20s
+#    resume monitor  Pause_me
     wait  ${DURATION}
-#    Stop monitor plugin  Time  name=Complilation
+#    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
     generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
 #    generate module statistics  period=${TEST_NAME}  plugin=aTop
@@ -88,3 +102,4 @@ Prepare bm
     END
     log  Environment setup successfully completed  console=yes
     [Teardown]  close connection
+

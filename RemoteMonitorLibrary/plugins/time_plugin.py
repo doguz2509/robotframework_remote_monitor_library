@@ -192,7 +192,6 @@ class TimeParser(Parser):
             du = model.data_factory(self.table, row, output=command_out, datetime=datetime)
 
             self.data_handler(du)
-            logger.debug(f"Item enqueued - {du}")
             return True
         except Exception as e:
             f, li = get_error_info()
@@ -292,7 +291,10 @@ class Time(PlugInAPI):
                 format=self._format,
                 command=self._command,
                 interval=int(self.parameters.interval),
-                output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
+                output='/dev/null',
+                # FIXME: ReturnStdout disabled due to performance issues
+                #        Pending fix in next releases
+                #        output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
                 mv_output='mv ~/time_data/.temp_output.txt ~/time_data/output.txt' if self.options.get('return_stdout', False) else '',
                 date_format=DB_DATETIME_FORMAT
             )

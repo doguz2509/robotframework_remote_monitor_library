@@ -114,6 +114,8 @@ class ConnectionKeywords:
             self.stop_monitor_plugin.__name__,
             self.start_period.__name__,
             self.stop_period.__name__,
+            self.pause_monitor.__name__,
+            self.resume_monitor.__name__,
             self.set_mark.__name__,
             self.wait.__name__
         ]
@@ -162,7 +164,7 @@ class ConnectionKeywords:
         if not db.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_task, host, username, password, port,
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit, host, username, password, port,
                                 alias,
                                 certificate, timeout)
             module.start()
@@ -216,9 +218,21 @@ class ConnectionKeywords:
 
     @keyword("Stop monitor plugin")
     def stop_monitor_plugin(self, plugin_name, alias=None, **options):
-        monitor = HostRegistryCache().get_connection(alias)
+        monitor = self._modules.get_connection(alias)
         monitor.plugin_terminate(plugin_name, **options)
         logger.info(f"PlugIn '{plugin_name}' stopped on {monitor.alias}", also_console=True)
+
+    @keyword("Pause monitor")
+    def pause_monitor(self, reason, alias=None):
+        monitor = self._modules.get_connection(alias)
+        monitor.pause_plugins()
+        self._start_period(reason, alias)
+
+    @keyword("Resume monitor")
+    def resume_monitor(self, reason, alias=None):
+        monitor: HostModule = self._modules.get_connection(alias)
+        monitor.resume_plugins()
+        self._stop_period(reason, alias)
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
@@ -239,8 +253,9 @@ class ConnectionKeywords:
     def _stop_period(self, period_name=None, alias=None):
         module: HostModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
+        point_name = rf"{period_name or module.alias}"
         db.DataHandlerService().execute(update_sql(table.name, 'End',
-                                                   HOST_REF=module.host_id, PointName=period_name or module.alias),
+                                                   HOST_REF=module.host_id, PointName=point_name),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Wait")

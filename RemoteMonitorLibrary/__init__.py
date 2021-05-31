@@ -9,7 +9,7 @@ from RemoteMonitorLibrary.version import VERSION
 __author__ = 'Dmitry Oguz'
 __author_email__ = 'doguz2509@gmail.com'
 __version__ = VERSION
-__url__ = 'https://github.com/doguz2509/robotframework_system_trace_library'
+__url__ = 'https://github.com/doguz2509/robotframework_remote_monitor_library'
 __package_name__ = os.path.split(os.path.split(__file__)[0])[1]
 
 
