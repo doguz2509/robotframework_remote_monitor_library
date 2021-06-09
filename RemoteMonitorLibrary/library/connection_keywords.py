@@ -73,13 +73,21 @@ class ConnectionKeywords:
         self.location, self.file_name, self.cumulative = \
             rel_location, file_name, is_truthy(options.get('cumulative', False))
         self._log_to_db = options.get('log_to_db', False)
+        self.ROBOT_LIBRARY_LISTENER = AutoSignPeriodsListener()
+
         suite_start_kw = self._normalise_auto_mark(options.get('start_suite', None), 'start_period')
         suite_end_kw = self._normalise_auto_mark(options.get('start_suite', None), 'stop_period')
         test_start_kw = self._normalise_auto_mark(options.get('start_test', None), 'start_period')
         test_end_kw = self._normalise_auto_mark(options.get('end_test', None), 'stop_period')
 
-        self.ROBOT_LIBRARY_LISTENER = AutoSignPeriodsListener(start_suite=suite_start_kw, end_suite=suite_end_kw,
-                                                              start_test=test_start_kw, end_test=test_end_kw)
+        if suite_start_kw:
+            self.ROBOT_LIBRARY_LISTENER.register('start_suite', suite_start_kw)
+        if suite_end_kw:
+            self.ROBOT_LIBRARY_LISTENER.register('end_suite', suite_end_kw)
+        if test_start_kw:
+            self.ROBOT_LIBRARY_LISTENER.register('start_test', test_start_kw)
+        if test_end_kw:
+            self.ROBOT_LIBRARY_LISTENER.register('end_test', test_end_kw)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
@@ -117,7 +125,10 @@ class ConnectionKeywords:
             self.pause_monitor.__name__,
             self.resume_monitor.__name__,
             self.set_mark.__name__,
-            self.wait.__name__
+            self.wait.__name__,
+            self.register_kw.__name__,
+            self.unregister_kw.__name__,
+            self.get_current_errors.__name__
         ]
 
     @keyword("Create host monitor")
@@ -236,6 +247,13 @@ class ConnectionKeywords:
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
+        """
+        Start period keyword
+
+        Arguments:
+        - period_name: Name of period to be stopped
+        - alias: Connection alias
+        """
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
@@ -248,6 +266,13 @@ class ConnectionKeywords:
 
     @keyword("Stop period")
     def stop_period(self, period_name=None, alias=None):
+        """
+        Stop period keyword
+
+        Arguments:
+        - period_name: Name of period to be stopped
+        - alias: Connection alias
+        """
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
@@ -285,3 +310,30 @@ class ConnectionKeywords:
         db.DataHandlerService().execute(update_sql(table.name, 'Mark',
                                                    HOST_REF=module.host_id, PointName=mark_name),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
+
+    @keyword("Get Current RML Errors")
+    def get_current_errors(self):
+        return GlobalErrors()
+
+    @keyword("Register kw")
+    def register_kw(self, hook, kw_name, *args, **kwargs):
+        """
+        Register keyword to listener
+
+        Arguments:
+        - hook: one of start_suite, end_suite, start_test, end_test
+        - kw_name: Keyword name
+        - args: unnamed arguments
+        - kwargs: named arguments
+        """
+        self.ROBOT_LIBRARY_LISTENER.register(hook, kw_name, list(args) + [f"{k}={v}" for k, v in kwargs.items()])
+
+    @keyword("Unregister kw")
+    def unregister_kw(self, hook, kw_name):
+        """
+        Unregister keyword from listener
+        - hook: one of start_suite, end_suite, start_test, end_test
+        - kw_name: Keyword name
+        """
+        self.ROBOT_LIBRARY_LISTENER.unregister(hook, kw_name)
+

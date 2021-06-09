@@ -56,7 +56,8 @@ Test Host monitor
 #    expected=Killed
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=${INTERVAL}
+    Start monitor plugin  Time  command=du -hc .  name=Du  interval=${INTERVAL}
+    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
 #    wait  20s
 #    pause monitor  Pause_me
 #    wait  20s
