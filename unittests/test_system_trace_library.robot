@@ -13,6 +13,7 @@ Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${C
 #Test Teardown  generate module statistics  ${TEST_NAME}
 Suite Teardown   run keywords  close_all_host_monitors
 ...             AND  generate module statistics
+...             AND  close all connections
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
