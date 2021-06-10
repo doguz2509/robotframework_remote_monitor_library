@@ -375,10 +375,6 @@ class Time(PlugInAPI):
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
 
-    # @property
-    # def id(self):
-    #     return f"{super().id}: {self._command}"
-
 
 __all__ = [
     Time.__name__,
