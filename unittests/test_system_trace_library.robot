@@ -11,14 +11,13 @@ Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${C
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-Suite Teardown   run keywords  close_all_host_monitors
-...             AND  generate module statistics
-...             AND  close all connections
+Suite Teardown   run keywords  generate module statistics
+...             AND  Terminate all monitors
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
 ${PASSWORD}     ${EMPTY}
-${DURATION}  10s
+${DURATION}  20s
 ${INTERVAL}  2s
 ${PERSISTENT}  yes
 
@@ -51,6 +50,7 @@ Test demo attack
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
+#    Register KW  end_test  fatal error  StamFatal
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
@@ -66,10 +66,10 @@ Test Host monitor
     wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
-    generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
+    generate module statistics  period=${TEST_NAME}  plugin=Time
 #    generate module statistics  period=${TEST_NAME}  plugin=aTop
 
-#    [Teardown]  close_all_host_monitors
+#    [Teardown]  terminate_all_monitors
 
 #Test statistic
 #    [Tags]  systrace_test
@@ -87,6 +87,7 @@ Test Host monitor
 #     log  \nOutput got:\n${out}  console=yes
 
 *** Keywords ***
+
 Prepare bm
     open connection  ${HOST}
     login with public key  ${USER}  ${CERTIFICATE}

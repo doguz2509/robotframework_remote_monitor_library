@@ -110,6 +110,8 @@ cat ~/time_data/{title}/time_{title}.txt >&2
 {read_output}
 """
 
+TIME_NAME_CACHE = []
+
 
 class TimeMeasurement(model.PlugInTable):
     def __init__(self):
@@ -260,7 +262,11 @@ class GetPIDList(Variable):
 class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
-        self._command_name = user_options.update({'name': user_options.get('name', self._command)})
+        user_options.update({'name': user_options.get('name', super().id)})
+        self._command_name = user_options.get('name')
+
+        assert self.id not in TIME_NAME_CACHE, f"Name '{self._command_name}' already exists"
+        TIME_NAME_CACHE.append(self.id)
         user_options.update({'persistent': user_options.get('persistent', 'no')})
 
         PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
@@ -354,6 +360,10 @@ class Time(PlugInAPI):
                                                                         table=self.affiliated_tables()[0],
                                                                         data_handler=self.data_handler,
                                                                         Command=self.name)))
+
+    @property
+    def id(self):
+        return f"{self.__class__.__name__}_{self._command_name}"
 
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
