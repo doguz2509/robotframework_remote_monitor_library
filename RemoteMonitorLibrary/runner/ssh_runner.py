@@ -261,9 +261,9 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         certificate = self.parameters.certificate
 
         if len(self._session_errors) == 0:
-            logger.info(f"Host '{self.id}::{self.host_alias}': Connecting")
+            logger.info(f"Host '{self.host_alias}': Connecting")
         else:
-            logger.warn(f"Host '{self.id}::{self.host_alias}': Restoring at {len(self._session_errors)} time")
+            logger.warn(f"Host '{self.host_alias}': Restoring at {len(self._session_errors)} time")
 
         self._ssh.open_connection(host, repr(self), port)
 
@@ -271,24 +271,24 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         while True:
             try:
                 if certificate:
-                    logger.debug(f"Host '{self.id}::{self.host_alias}': Login with user/certificate")
+                    logger.debug(f"Host '{self.host_alias}': Login with user/certificate")
                     self._ssh.login_with_public_key(username, certificate, '')
                 else:
-                    logger.debug(f"Host '{self.id}::{self.host_alias}': Login with user/password")
+                    logger.debug(f"Host '{self.host_alias}': Login with user/password")
                     self._ssh.login(username, password)
             except paramiko.AuthenticationException:
                 raise
             except Exception as e:
-                logger.warn(f"Host '{self.id}::{self.host_alias}': Connection failed; Reason: {e}")
+                logger.warn(f"Host '{self.host_alias}': Connection failed; Reason: {e}")
             else:
                 self._is_logged_in = True
-                logger.info(f"Host '{self.id}::{self.host_alias}': Connection established")
+                logger.info(f"Host '{self.host_alias}': Connection established")
                 break
             finally:
                 duration = (datetime.now() - start_ts).total_seconds()
                 if duration >= self.parameters.timeout:
                     raise TimeoutError(
-                        f"Cannot connect to '{self.id}::{self.host_alias}' during {self.parameters.timeout}s")
+                        f"Cannot connect to '{self.host_alias}' during {self.parameters.timeout}s")
 
     def exit(self):
         if self._is_logged_in:
@@ -309,14 +309,14 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         except RunnerError as e:
             self._session_errors.append(e)
             logger.warn(
-                "Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+                "Non critical error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                     name=self.host_alias,
                     error=e,
                     real=len(self._session_errors),
                     allowed=self._fault_tolerance,
                 ))
         except Exception as e:
-            logger.error("Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+            logger.error("Critical Error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
                 name=self.host_alias,
                 error=e,
                 real=len(self._session_errors),
