@@ -6,6 +6,7 @@ from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
@@ -19,7 +20,7 @@ class ConnectionKeywords:
     
     `Close host monitor`
     
-    `Close all host monitors`
+    `Terminate all monitors`
 
     === PlugIn's keywords ===
     
@@ -44,7 +45,7 @@ class ConnectionKeywords:
     | Library           BuiltIn
     | 
     | Suite Setup       Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-    | Suite Teardown    close_all_host_monitors
+    | Suite Teardown    terminate_all_monitors
     |
     | ***** Variables *****
     | ${HOST}           ...
@@ -81,13 +82,13 @@ class ConnectionKeywords:
         test_end_kw = self._normalise_auto_mark(options.get('end_test', None), 'stop_period')
 
         if suite_start_kw:
-            self.ROBOT_LIBRARY_LISTENER.register('start_suite', suite_start_kw)
+            self.register_kw(AllowedHooks.start_suite, suite_start_kw)
         if suite_end_kw:
-            self.ROBOT_LIBRARY_LISTENER.register('end_suite', suite_end_kw)
+            self.register_kw(AllowedHooks.end_suite, suite_end_kw)
         if test_start_kw:
-            self.ROBOT_LIBRARY_LISTENER.register('start_test', test_start_kw)
+            self.register_kw(AllowedHooks.start_test, test_start_kw)
         if test_end_kw:
-            self.ROBOT_LIBRARY_LISTENER.register('end_test', test_end_kw)
+            self.register_kw(AllowedHooks.end_test, test_end_kw)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
@@ -117,7 +118,7 @@ class ConnectionKeywords:
         return [
             self.create_host_monitor.__name__,
             self.close_host_monitor.__name__,
-            self.close_all_host_monitors.__name__,
+            self.terminate_all_monitors.__name__,
             self.start_monitor_plugin.__name__,
             self.stop_monitor_plugin.__name__,
             self.start_period.__name__,
@@ -198,14 +199,15 @@ class ConnectionKeywords:
         self._stop_period(alias)
         self._modules.stop_current()
 
-    @keyword("Close all host monitors")
-    def close_all_host_monitors(self):
+    @keyword("Terminate all monitors")
+    def terminate_all_monitors(self):
         """
-        Stop all active hosts plugins
+        Terminate all active hosts & running plugins
         """
         for module in self._modules:
             self._stop_period(module.alias)
         self._modules.close_all()
+        db.DataHandlerService().stop()
 
     @keyword("Start monitor plugin")
     def start_monitor_plugin(self, plugin_name, *args, alias=None, **options):
@@ -235,12 +237,26 @@ class ConnectionKeywords:
 
     @keyword("Pause monitor")
     def pause_monitor(self, reason, alias=None):
+        """
+        Pause monitor's plugins (Actual for host reboot or network restart tests)
+
+        Arguments:
+        - reason: Pause reason text
+        - alias: Desired monitor alias (Default: current)
+        """
         monitor = self._modules.get_connection(alias)
         monitor.pause_plugins()
         self._start_period(reason, alias)
 
     @keyword("Resume monitor")
     def resume_monitor(self, reason, alias=None):
+        """
+        Resume previously paused monitor (Actual for host reboot or network restart tests)
+
+        Arguments:
+        - reason: Pause reason text
+        - alias: Desired monitor alias (Default: current)
+        """
         monitor: HostModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
@@ -315,8 +331,8 @@ class ConnectionKeywords:
     def get_current_errors(self):
         return GlobalErrors()
 
-    @keyword("Register kw")
-    def register_kw(self, hook, kw_name, *args, **kwargs):
+    @keyword("Register KW")
+    def register_kw(self, hook: AllowedHooks, kw_name, *args, **kwargs):
         """
         Register keyword to listener
 
@@ -329,7 +345,7 @@ class ConnectionKeywords:
         self.ROBOT_LIBRARY_LISTENER.register(hook, kw_name, list(args) + [f"{k}={v}" for k, v in kwargs.items()])
 
     @keyword("Unregister kw")
-    def unregister_kw(self, hook, kw_name):
+    def unregister_kw(self, hook: AllowedHooks, kw_name):
         """
         Unregister keyword from listener
         - hook: one of start_suite, end_suite, start_test, end_test
