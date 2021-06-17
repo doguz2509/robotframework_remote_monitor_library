@@ -421,6 +421,9 @@ class aTop(PlugInAPI):
         return aTopProcessLevelChart(), aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), \
                aTopSystemLevelChart('LVM'), aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
+# TODO: Add trace process flag allow error raising or collecting during monitoring if monitored processes disappearing
+#  from process list
+
 
 __all__ = [
     aTop.__name__,
