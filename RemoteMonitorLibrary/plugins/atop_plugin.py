@@ -32,6 +32,11 @@ Reading atop statistics made with command
 !!! Pay attention: Ubuntu & CentOS supported only for now !!! 
 
 aTop Arguments:
+
+Not named:
+- processes names: provided process CPU & Memory data will be monitored
+    
+Named:
 - interval: can be define from keyword `Start monitor plugin` as key-value pair (Default: 1s) 
 
 Note: Support robot time format string (1s, 05m, etc.)
