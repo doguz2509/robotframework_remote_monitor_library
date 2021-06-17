@@ -53,6 +53,63 @@ class atop_system_level(model.PlugInTable):
         self.add_field(model.Field('SUB_ID'))
 
 
+PROCESS_DISTINCT_LIST = []
+
+
+def update_distinct_list(name):
+    global PROCESS_DISTINCT_LIST
+    if name in PROCESS_DISTINCT_LIST:
+        return
+    PROCESS_DISTINCT_LIST.append(name)
+
+
+def get_distinct_list_by_pattern(pattern):
+    return [name for name in PROCESS_DISTINCT_LIST if pattern in name]
+
+
+class atop_process_level(model.PlugInTable):
+    def __init__(self):
+        super().__init__(name='atop_process_level')
+        self.add_time_reference()
+        self.add_field(model.Field('PID', model.FieldType.Int))
+        self.add_field(model.Field('SYSCPU', model.FieldType.Real))
+        self.add_field(model.Field('USRCPU', model.FieldType.Real))
+        self.add_field(model.Field('VGROW', model.FieldType.Real))
+        self.add_field(model.Field('RGROW', model.FieldType.Real))
+        self.add_field(model.Field('RDDSK', model.FieldType.Real))
+        self.add_field(model.Field('WRDSK', model.FieldType.Real))
+        self.add_field(model.Field('THR', model.FieldType.Int))
+        self.add_field(model.Field('S'))
+        self.add_field(model.Field('CPUNR', model.FieldType.Int))
+        self.add_field(model.Field('CPU', model.FieldType.Int))
+        self.add_field(model.Field('CMD'))
+
+
+class aTopProcessLevelChart(ChartAbstract):
+    @property
+    def get_sql_query(self) -> str:
+        return f"""SELECT t.TimeStamp, p.SYSCPU as SYSCPU, p.USRCPU, p.VGROW, p.RDDSK, p.WRDSK, p.CPU, p.CMD
+            FROM atop_process_level p
+            JOIN TraceHost h ON p.HOST_REF = h.HOST_ID
+            JOIN TimeLine t ON p.TL_REF = t.TL_ID 
+            WHERE h.HostName = '{{host_name}}'"""
+
+    @property
+    def file_name(self) -> str:
+        return "process_{name}.png"
+
+    def y_axes(self, data: [Iterable[Iterable]] = None) -> Iterable[Any]:
+        return ['SYSCPU', 'USRCPU', 'VGROW', 'RDDSK', 'WRDSK', 'CPU']
+
+    def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) -> \
+            Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
+        result = []
+        for instance in PROCESS_DISTINCT_LIST:
+            data = [entry[0:6] for entry in query_results if entry[7] == instance]
+            result.append((instance, self.x_axes(data), self.y_axes(), data))
+        return result
+
+
 class aTopSystemLevelChart(ChartAbstract):
     def __init__(self, *sections):
         self._sections = sections
@@ -101,7 +158,7 @@ class aTopSystemLevelChart(ChartAbstract):
         return result
 
 
-class aTopDataUnit(db.services.DataUnit):
+class aTopSystem_DataUnit(db.services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
@@ -171,10 +228,69 @@ class aTopDataUnit(db.services.DataUnit):
         return super().__call__(**updates)
 
 
+class aTopProcesses_DataUnit(db.services.DataUnit):
+    def __init__(self, table, host_id, *lines, **kwargs):
+        super().__init__(table, **kwargs)
+        self._lines = lines
+        self._host_id = host_id
+        self._monitor_processes = kwargs.get('processes', None)
+
+    @staticmethod
+    def _line_to_cells(line):
+        return [c for c in re.split(r'\s+', line) if c != '']
+
+    def is_process_monitored(self, process):
+        names = [p for p in self._monitor_processes if p in process]
+        return (self._monitor_processes is not None and len(names) > 0) or not self._monitor_processes
+
+    @staticmethod
+    def _normalise_process_name(pattern: str, replacement='.'):
+        replaces = [r'/', '\\']
+        for r in replaces:
+            pattern = pattern.replace(r, replacement)
+        return pattern
+
+    def _generate_atop_process_level(self, input_text, *defaults):
+        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
+        process_lines = process_portion[1:]
+        # _name_cache = {}
+        for line in process_lines:
+            cells = self._line_to_cells(line)
+            if not self.is_process_monitored(cells[11]):
+                continue
+            # _name_cache.setdefault(cells[11], 0)
+            # _name_cache[cells[11]] += 1
+            process_name = self._normalise_process_name(f"{cells[11]}_{cells[0]}")
+            update_distinct_list(process_name)
+            yield self.table.template(*(list(defaults) +
+                                        [cells[0],
+                                         timestr_to_secs(cells[1], 2),
+                                         timestr_to_secs(cells[2], 2),
+                                         Size(cells[3]).set_format('M').number,
+                                         Size(cells[4]).set_format('M').number,
+                                         Size(cells[5]).set_format('M').number,
+                                         Size(cells[6]).set_format('M').number,
+                                         cells[7],
+                                         cells[8],
+                                         cells[9],
+                                         cells[10].replace('%', ''),
+                                         process_name
+                                         ]
+                                        )
+                                      )
+
+    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        self._data = list(
+            self._generate_atop_process_level('\n'.join(self._lines), self._host_id, None)
+        )
+        return super().__call__(**updates)
+
+
 class aTopParser(Parser):
-    def __init__(self, **kwargs):
+    def __init__(self, *monitor_fields, **kwargs):
         Parser.__init__(self, **kwargs)
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
+        self._monitor_fields = monitor_fields
 
     @staticmethod
     def try_time_string_to_secs(time_str):
@@ -210,7 +326,10 @@ class aTopParser(Parser):
                 ts = '_'.join(re.split(r'\s+', f_line)[2:4]) + f".{datetime.now().strftime('%S')}"
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
-                    self.data_handler(aTopDataUnit(self.table, self.host_id, *lines))
+                    self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id, *lines))
+                    if len(self._monitor_fields) > 0:
+                        self.data_handler(aTopProcesses_DataUnit(self.table['process'], self.host_id, *lines,
+                                                                 processes=self._monitor_fields))
 
         except Exception as e:
             f, li = get_error_info()
@@ -227,8 +346,8 @@ class aTop(PlugInAPI):
         'fedora': '%Y%m%d%H%M'
     }
 
-    def __init__(self, parameters, data_handler, *args, **user_options):
-        PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+    def __init__(self, parameters, data_handler, *monitor_processes, **user_options):
+        PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
 
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
@@ -238,6 +357,7 @@ class aTop(PlugInAPI):
             self._os_name = self._get_os_name(ssh)
 
         self._name = f"{self.name}-{self._os_name}"
+
         self.set_commands(FlowCommands.Setup,
                           SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
                                             sudo=self.sudo_expected,
@@ -261,7 +381,12 @@ class aTop(PlugInAPI):
                               SSHLibrary.execute_command,
                               f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                               sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
-                              parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
+                              parser=aTopParser(*self.args,
+                                                host_id=self.host_id,
+                                                table={
+                                                    'system': self.affiliated_tables()[0],
+                                                    'process': self.affiliated_tables()[1]
+                                                },
                                                 data_handler=self._data_handler, counter=self.iteration_counter,
                                                 interval=self.parameters.interval)))
 
@@ -289,13 +414,12 @@ class aTop(PlugInAPI):
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return atop_system_level(),
+        return atop_system_level(), atop_process_level()
 
     @staticmethod
     def affiliated_charts() -> Iterable[ChartAbstract]:
-        return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart(
-            'LVM'), \
-               aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
+        return aTopProcessLevelChart(), aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), \
+               aTopSystemLevelChart('LVM'), aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 
 
 __all__ = [
