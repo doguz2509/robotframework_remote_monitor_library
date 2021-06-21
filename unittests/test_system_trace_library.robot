@@ -51,7 +51,16 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
 #    Register KW  end_test  fatal error  StamFatal
-    Start monitor plugin  aTop  apache  kworker  interval=${INTERVAL}  sudo=yes
+    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+    add to plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    remove from plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    add to plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    remove from plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
@@ -63,7 +72,7 @@ Test Host monitor
 #    pause monitor  Pause_me
 #    wait  20s
 #    resume monitor  Pause_me
-    wait  ${DURATION}
+#    wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
 #    generate module statistics  period=${TEST_NAME}  plugin=Time

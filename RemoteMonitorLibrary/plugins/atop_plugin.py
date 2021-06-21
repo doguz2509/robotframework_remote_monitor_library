@@ -2,7 +2,7 @@ import json
 import re
 from collections import namedtuple, OrderedDict
 from datetime import datetime
-from typing import Iterable, Tuple, List, Any
+from typing import Iterable, Tuple, List, Any, AnyStr, Dict
 
 from robot.utils import timestr_to_secs
 
@@ -12,7 +12,7 @@ from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.utils import Size, get_error_info
+from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 
 __doc__ = """
 == aTop plugin overview == 
@@ -58,20 +58,6 @@ class atop_system_level(model.PlugInTable):
         self.add_field(model.Field('SUB_ID'))
 
 
-PROCESS_DISTINCT_LIST = []
-
-
-def update_distinct_list(name):
-    global PROCESS_DISTINCT_LIST
-    if name in PROCESS_DISTINCT_LIST:
-        return
-    PROCESS_DISTINCT_LIST.append(name)
-
-
-def get_distinct_list_by_pattern(pattern):
-    return [name for name in PROCESS_DISTINCT_LIST if pattern in name]
-
-
 class atop_process_level(model.PlugInTable):
     def __init__(self):
         super().__init__(name='atop_process_level')
@@ -88,6 +74,32 @@ class atop_process_level(model.PlugInTable):
         self.add_field(model.Field('CPUNR', model.FieldType.Int))
         self.add_field(model.Field('CPU', model.FieldType.Int))
         self.add_field(model.Field('CMD'))
+
+
+@Singleton
+class ProcessMonitorRegistry(dict):
+
+    def __getitem__(self, plugin_id):
+        self.setdefault(plugin_id, {})
+        return super().__getitem__(plugin_id)
+
+    def register(self, plugin_id, name, control=False):
+        if name in self.get(plugin_id).keys():
+            logger.warn(f"Process '{name}' already registered in {plugin_id}")
+            return
+        self[plugin_id].update({name: {'control': control, 'active': True}})
+
+    def activate(self, plugin_id, name):
+        data = self[plugin_id].get(name, None)
+        assert data, f"Process '{name}' mot registered in '{plugin_id}"
+        data.update(active=True)
+        self[plugin_id].update({name: data})
+
+    def deactivate(self, plugin_id, name):
+        data = self[plugin_id].get(name, None)
+        assert data, f"Process '{name}' mot registered in '{plugin_id}"
+        data.update(active=False)
+        self[plugin_id].update({name: data})
 
 
 class aTopProcessLevelChart(ChartAbstract):
@@ -109,9 +121,10 @@ class aTopProcessLevelChart(ChartAbstract):
     def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) -> \
             Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
         result = []
-        for instance in PROCESS_DISTINCT_LIST:
-            data = [entry[0:6] for entry in query_results if entry[7] == instance]
-            result.append((instance, self.x_axes(data), self.y_axes(), data))
+        for plugin, processes in ProcessMonitorRegistry().items():
+            for process in [p for p in processes.keys()]:
+                data = [entry[0:6] for entry in query_results if process in entry[7]]
+                result.append((process, self.x_axes(data), self.y_axes(), data))
         return result
 
 
@@ -238,15 +251,17 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
         super().__init__(table, **kwargs)
         self._lines = lines
         self._host_id = host_id
-        self._monitor_processes = kwargs.get('processes', None)
+        self._processes_id = kwargs.get('processes_id', {})
 
     @staticmethod
     def _line_to_cells(line):
         return [c for c in re.split(r'\s+', line) if c != '']
 
     def is_process_monitored(self, process):
-        names = [p for p in self._monitor_processes if p in process]
-        return (self._monitor_processes is not None and len(names) > 0) or not self._monitor_processes
+        for proc_name in ProcessMonitorRegistry()[self._processes_id].keys():
+            if proc_name in process:
+                return True
+        return False
 
     @staticmethod
     def _normalise_process_name(pattern: str, replacement='.'):
@@ -255,18 +270,19 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
             pattern = pattern.replace(r, replacement)
         return pattern
 
-    def _generate_atop_process_level(self, input_text, *defaults):
-        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
-        process_lines = process_portion[1:]
-        # _name_cache = {}
+    def _filter_controlled_processes(self, *process_lines):
         for line in process_lines:
             cells = self._line_to_cells(line)
             if not self.is_process_monitored(cells[11]):
                 continue
-            # _name_cache.setdefault(cells[11], 0)
-            # _name_cache[cells[11]] += 1
+            yield cells
+
+    def _generate_atop_process_level(self, input_text, *defaults):
+        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
+        control_processes = self._filter_controlled_processes(*process_portion[1:])
+
+        for cells in control_processes:
             process_name = self._normalise_process_name(f"{cells[11]}_{cells[0]}")
-            update_distinct_list(process_name)
             yield self.table.template(*(list(defaults) +
                                         [cells[0],
                                          timestr_to_secs(cells[1], 2),
@@ -292,10 +308,10 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
 
 
 class aTopParser(Parser):
-    def __init__(self, *monitor_fields, **kwargs):
+    def __init__(self, plugin_id, **kwargs):
         Parser.__init__(self, **kwargs)
+        self.id = plugin_id
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
-        self._monitor_fields = monitor_fields
 
     @staticmethod
     def try_time_string_to_secs(time_str):
@@ -332,9 +348,9 @@ class aTopParser(Parser):
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
                     self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id, *lines))
-                    if len(self._monitor_fields) > 0:
+                    if len(ProcessMonitorRegistry()[self.id]) > 0:
                         self.data_handler(aTopProcesses_DataUnit(self.table['process'], self.host_id, *lines,
-                                                                 processes=self._monitor_fields))
+                                                                 processes_id=self.id))
 
         except Exception as e:
             f, li = get_error_info()
@@ -386,7 +402,7 @@ class aTop(PlugInAPI):
                               SSHLibrary.execute_command,
                               f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                               sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
-                              parser=aTopParser(*self.args,
+                              parser=aTopParser(self.id,
                                                 host_id=self.host_id,
                                                 table={
                                                     'system': self.affiliated_tables()[0],
@@ -416,6 +432,38 @@ class aTop(PlugInAPI):
 
         logger.debug(f"OS resolved: {out}")
         return out
+
+    def upgrade_plugin(self, *args, **kwargs):
+        """
+        Upgrade aTop plugin: add processes for monitor during execution
+
+        Arguments:
+        - args:     process names
+
+        Future features:
+        - kwargs:   process names following boolean flag (Default: False; If True error will raise if process diappearing)
+        """
+        kwargs.update(**{arg: False for arg in args})
+        for process, control in kwargs.items():
+            if process in ProcessMonitorRegistry()[self.id]:
+                logger.info(f"Process '{process}' already registered; Activating")
+                ProcessMonitorRegistry().activate(self.id, process)
+                continue
+            ProcessMonitorRegistry().register(self.id, process, control)
+        logger.info(f"Following processes added to be monitored: {', '.join([f'{k}={v}' for k, v in kwargs.items()])}")
+
+    def downgrade_plugin(self, *args, **kwargs):
+        """
+        Downgrade aTop plugin: remove processes for monitor during execution
+
+        Arguments:
+        - args:     process names
+        - kwargs:   kept process names only
+        """
+        processes_to_unregister = list(args) + list(kwargs.keys())
+        for process in processes_to_unregister:
+            ProcessMonitorRegistry().deactivate(self.id, process)
+        logger.info(f"Following processes removed from monitor: {', '.join(processes_to_unregister)}")
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

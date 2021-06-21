@@ -125,6 +125,8 @@ class ConnectionKeywords:
             self.stop_period.__name__,
             self.pause_monitor.__name__,
             self.resume_monitor.__name__,
+            self.add_to_plugin.__name__,
+            self.remove_from_plugin.__name__,
             self.set_mark.__name__,
             self.wait.__name__,
             self.register_kw.__name__,
@@ -260,6 +262,44 @@ class ConnectionKeywords:
         monitor: HostModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
+
+    @keyword("Add to Plugin")
+    def add_to_plugin(self, plugin_name, *args, **kwargs):
+        """
+        Add to Plugin - allow runtime modify (adding) plugin configuration
+
+        Arguments:
+        - plugin_name:
+        - alias:
+        - args: Plugin related unnamed arguments
+        - kwargs: Plugin related named arguments
+        """
+        alias = kwargs.get('alias', None)
+        monitor: HostModule = self._modules.get_connection(alias)
+        plugin = monitor.get_plugin(plugin_name)
+        assert len(plugin) > 0, f"Plugin '{plugin_name}' not started"
+        assert len(plugin) == 1, f"Ambiguous plugin search result; Expected 1, got {len(plugin)}"
+        plugin = plugin[0]
+        plugin.upgrade_plugin(*args, **kwargs)
+
+    @keyword("Remove from Plugin")
+    def remove_from_plugin(self, plugin_name, *args, **kwargs):
+        """
+        Remove from Plugin - allow runtime modify (reducing) plugin configuration
+
+         Arguments:
+        - plugin_name:
+        - alias:
+        - args: Plugin related unnamed arguments
+        - kwargs: Plugin related named arguments
+        """
+        alias = kwargs.get('alias', None)
+        monitor: HostModule = self._modules.get_connection(alias)
+        plugin = monitor.get_plugin(plugin_name)
+        assert len(plugin) > 0, f"Plugin '{plugin_name}' not started"
+        assert len(plugin) == 1, f"Ambiguous plugin search result; Expected 1, got {len(plugin)}"
+        plugin = plugin[0]
+        plugin.downgrade_plugin(*args, **kwargs)
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
