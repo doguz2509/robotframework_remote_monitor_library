@@ -69,9 +69,6 @@ class atop_process_level(model.PlugInTable):
         self.add_field(model.Field('RGROW', model.FieldType.Real))
         self.add_field(model.Field('RDDSK', model.FieldType.Real))
         self.add_field(model.Field('WRDSK', model.FieldType.Real))
-        self.add_field(model.Field('THR', model.FieldType.Int))
-        self.add_field(model.Field('S'))
-        self.add_field(model.Field('CPUNR', model.FieldType.Int))
         self.add_field(model.Field('CPU', model.FieldType.Int))
         self.add_field(model.Field('CMD'))
 
@@ -124,6 +121,9 @@ class aTopProcessLevelChart(ChartAbstract):
         for plugin, processes in ProcessMonitorRegistry().items():
             for process in [p for p in processes.keys()]:
                 data = [entry[0:6] for entry in query_results if process in entry[7]]
+                if len(data) == 0:
+                    logger.warn(f"Process '{process}' doesn't have monitor data")
+                    continue
                 result.append((process, self.x_axes(data), self.y_axes(), data))
         return result
 
@@ -246,7 +246,7 @@ class aTopSystem_DataUnit(db.services.DataUnit):
         return super().__call__(**updates)
 
 
-class aTopProcesses_DataUnit(db.services.DataUnit):
+class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
@@ -273,16 +273,15 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
     def _filter_controlled_processes(self, *process_lines):
         for line in process_lines:
             cells = self._line_to_cells(line)
-            if not self.is_process_monitored(cells[11]):
+            if not self.is_process_monitored(cells[-1]):
                 continue
             yield cells
 
-    def _generate_atop_process_level(self, input_text, *defaults):
+    def generate_atop_process_level(self, input_text, *defaults):
         process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
-        control_processes = self._filter_controlled_processes(*process_portion[1:])
 
-        for cells in control_processes:
-            process_name = self._normalise_process_name(f"{cells[11]}_{cells[0]}")
+        for cells in self._filter_controlled_processes(*process_portion[1:]):
+            process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
             yield self.table.template(*(list(defaults) +
                                         [cells[0],
                                          timestr_to_secs(cells[1], 2),
@@ -291,10 +290,7 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
                                          Size(cells[4]).set_format('M').number,
                                          Size(cells[5]).set_format('M').number,
                                          Size(cells[6]).set_format('M').number,
-                                         cells[7],
-                                         cells[8],
-                                         cells[9],
-                                         cells[10].replace('%', ''),
+                                         cells[-2].replace('%', ''),
                                          process_name
                                          ]
                                         )
@@ -302,13 +298,41 @@ class aTopProcesses_DataUnit(db.services.DataUnit):
 
     def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
         self._data = list(
-            self._generate_atop_process_level('\n'.join(self._lines), self._host_id, None)
+            self.generate_atop_process_level('\n'.join(self._lines), self._host_id, None)
         )
         return super().__call__(**updates)
 
 
+class aTopProcesses_Fedora_DataUnit(aTopProcesses_Debian_DataUnit):
+    def generate_atop_process_level(self, input_text, *defaults):
+        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
+
+        for cells in self._filter_controlled_processes(*process_portion[1:]):
+            process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
+            yield self.table.template(*(list(defaults) +
+                                        [cells[0],
+                                         timestr_to_secs(cells[1], 2),
+                                         timestr_to_secs(cells[2], 2),
+                                         Size(cells[4]).set_format('M').number,
+                                         Size(cells[5]).set_format('M').number,
+                                         Size(cells[6]).set_format('M').number,
+                                         Size(cells[7]).set_format('M').number,
+                                         cells[-2].replace('%', ''),
+                                         process_name
+                                         ]
+                                        )
+                                      )
+
+
+def process_data_unit_factory(os_family):
+    if os_family == 'debian':
+        return aTopProcesses_Debian_DataUnit
+    return aTopProcesses_Fedora_DataUnit
+
+
 class aTopParser(Parser):
     def __init__(self, plugin_id, **kwargs):
+        self._data_unit_class = kwargs.pop('data_unit')
         Parser.__init__(self, **kwargs)
         self.id = plugin_id
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
@@ -349,8 +373,8 @@ class aTopParser(Parser):
                     self._ts_cache.append(ts)
                     self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id, *lines))
                     if len(ProcessMonitorRegistry()[self.id]) > 0:
-                        self.data_handler(aTopProcesses_DataUnit(self.table['process'], self.host_id, *lines,
-                                                                 processes_id=self.id))
+                        self.data_handler(self._data_unit_class(self.table['process'], self.host_id, *lines,
+                                                                processes_id=self.id))
 
         except Exception as e:
             f, li = get_error_info()
@@ -409,7 +433,8 @@ class aTop(PlugInAPI):
                                                     'process': self.affiliated_tables()[1]
                                                 },
                                                 data_handler=self._data_handler, counter=self.iteration_counter,
-                                                interval=self.parameters.interval)))
+                                                interval=self.parameters.interval,
+                                                data_unit=process_data_unit_factory(self._os_name))))
 
         self.set_commands(FlowCommands.Teardown,
                           SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
@@ -473,6 +498,7 @@ class aTop(PlugInAPI):
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return aTopProcessLevelChart(), aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), \
                aTopSystemLevelChart('LVM'), aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
+
 
 # TODO: Add trace process flag allow error raising or collecting during monitoring if monitored processes disappearing
 #  from process list
