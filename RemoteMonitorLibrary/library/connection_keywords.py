@@ -268,6 +268,8 @@ class ConnectionKeywords:
         """
         Add to Plugin - allow runtime modify (adding) plugin configuration
 
+        Particular PlugIn's options see in `BuiltIn plugins`
+
         Arguments:
         - plugin_name:
         - alias:
@@ -286,6 +288,8 @@ class ConnectionKeywords:
     def remove_from_plugin(self, plugin_name, *args, **kwargs):
         """
         Remove from Plugin - allow runtime modify (reducing) plugin configuration
+
+        Particular PlugIn's options see in `BuiltIn plugins`
 
          Arguments:
         - plugin_name:
