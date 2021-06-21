@@ -276,13 +276,12 @@ class ConnectionKeywords:
         - args: Plugin related unnamed arguments
         - kwargs: Plugin related named arguments
         """
-        alias = kwargs.get('alias', None)
+        alias = kwargs.pop('alias', None)
         monitor: HostModule = self._modules.get_connection(alias)
-        plugin = monitor.get_plugin(plugin_name)
-        assert len(plugin) > 0, f"Plugin '{plugin_name}' not started"
-        assert len(plugin) == 1, f"Ambiguous plugin search result; Expected 1, got {len(plugin)}"
-        plugin = plugin[0]
-        plugin.upgrade_plugin(*args, **kwargs)
+        plugins = monitor.get_plugin(plugin_name)
+        assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
+        for plugin in plugins:
+            plugin.upgrade_plugin(*args, **kwargs)
 
     @keyword("Remove from Plugin")
     def remove_from_plugin(self, plugin_name, *args, **kwargs):
@@ -297,13 +296,12 @@ class ConnectionKeywords:
         - args: Plugin related unnamed arguments
         - kwargs: Plugin related named arguments
         """
-        alias = kwargs.get('alias', None)
+        alias = kwargs.pop('alias', None)
         monitor: HostModule = self._modules.get_connection(alias)
-        plugin = monitor.get_plugin(plugin_name)
-        assert len(plugin) > 0, f"Plugin '{plugin_name}' not started"
-        assert len(plugin) == 1, f"Ambiguous plugin search result; Expected 1, got {len(plugin)}"
-        plugin = plugin[0]
-        plugin.downgrade_plugin(*args, **kwargs)
+        plugins = monitor.get_plugin(plugin_name)
+        assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
+        for plugin in plugins:
+            plugin.downgrade_plugin(*args, **kwargs)
 
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
