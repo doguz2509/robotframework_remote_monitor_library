@@ -313,10 +313,10 @@ class aTopProcesses_Fedora_DataUnit(aTopProcesses_Debian_DataUnit):
                                         [cells[0],
                                          timestr_to_secs(cells[1], 2),
                                          timestr_to_secs(cells[2], 2),
-                                         Size(cells[4]).set_format('M').number,
-                                         Size(cells[5]).set_format('M').number,
-                                         Size(cells[6]).set_format('M').number,
-                                         Size(cells[7]).set_format('M').number,
+                                         Size(cells[4]).set_format('M').number if cells[4] != '-' else 0,
+                                         Size(cells[5]).set_format('M').number if cells[5] != '-' else 0,
+                                         Size(cells[6]).set_format('M').number if cells[6] != '-' else 0,
+                                         Size(cells[7]).set_format('M').number if cells[7] != '-' else 0,
                                          cells[-2].replace('%', ''),
                                          process_name
                                          ]
