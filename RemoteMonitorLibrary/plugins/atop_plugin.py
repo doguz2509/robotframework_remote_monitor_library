@@ -98,6 +98,14 @@ class ProcessMonitorRegistry(dict):
         data.update(active=False)
         self[plugin_id].update({name: data})
 
+    @property
+    def is_active(self):
+        for k, v in self.items():
+            for kk, vv in v.items():
+                if vv['active']:
+                    return True
+        return True
+
 
 class aTopProcessLevelChart(ChartAbstract):
     @property
@@ -277,19 +285,17 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
                 continue
             yield cells
 
-    def generate_atop_process_level(self, input_text, *defaults):
-        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
-
-        for cells in self._filter_controlled_processes(*process_portion[1:]):
+    def generate_atop_process_level(self, lines, *defaults):
+        for cells in self._filter_controlled_processes(*lines):
             process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
             yield self.table.template(*(list(defaults) +
                                         [cells[0],
                                          timestr_to_secs(cells[1], 2),
                                          timestr_to_secs(cells[2], 2),
-                                         Size(cells[3]).set_format('M').number,
-                                         Size(cells[4]).set_format('M').number,
-                                         Size(cells[5]).set_format('M').number,
-                                         Size(cells[6]).set_format('M').number,
+                                         Size(cells[3]).set_format('M').number if cells[3] != '-' else 0,
+                                         Size(cells[4]).set_format('M').number if cells[4] != '-' else 0,
+                                         Size(cells[5]).set_format('M').number if cells[5] != '-' else 0,
+                                         Size(cells[6]).set_format('M').number if cells[6] != '-' else 0,
                                          cells[-2].replace('%', ''),
                                          process_name
                                          ]
@@ -298,16 +304,14 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
 
     def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
         self._data = list(
-            self.generate_atop_process_level('\n'.join(self._lines), self._host_id, None)
+            self.generate_atop_process_level(self._lines, self._host_id, None)
         )
         return super().__call__(**updates)
 
 
 class aTopProcesses_Fedora_DataUnit(aTopProcesses_Debian_DataUnit):
-    def generate_atop_process_level(self, input_text, *defaults):
-        process_portion = ('PID\t' + input_text.split('PID')[1]).splitlines()
-
-        for cells in self._filter_controlled_processes(*process_portion[1:]):
+    def generate_atop_process_level(self, lines, *defaults):
+        for cells in self._filter_controlled_processes(*lines):
             process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
             yield self.table.template(*(list(defaults) +
                                         [cells[0],
@@ -327,7 +331,9 @@ class aTopProcesses_Fedora_DataUnit(aTopProcesses_Debian_DataUnit):
 def process_data_unit_factory(os_family):
     if os_family == 'debian':
         return aTopProcesses_Debian_DataUnit
-    return aTopProcesses_Fedora_DataUnit
+    elif os_family == 'fedora':
+        return aTopProcesses_Fedora_DataUnit
+    raise NotImplementedError(f"OS '{os_family}' not supported")
 
 
 class aTopParser(Parser):
@@ -369,11 +375,15 @@ class aTopParser(Parser):
                 lines = atop_portion.splitlines()
                 f_line = lines.pop(0)
                 ts = '_'.join(re.split(r'\s+', f_line)[2:4]) + f".{datetime.now().strftime('%S')}"
+                system_portion, process_portion = '\n'.join(lines).split('PID', 1)
+                process_portion = 'PID\t' + process_portion
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
-                    self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id, *lines))
-                    if len(ProcessMonitorRegistry()[self.id]) > 0:
-                        self.data_handler(self._data_unit_class(self.table['process'], self.host_id, *lines,
+                    self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id,
+                                                          *system_portion.splitlines()))
+                    if ProcessMonitorRegistry().is_active:
+                        self.data_handler(self._data_unit_class(self.table['process'], self.host_id,
+                                                                *process_portion.splitlines()[1:],
                                                                 processes_id=self.id))
 
         except Exception as e:
@@ -413,7 +423,7 @@ class aTop(PlugInAPI):
                                             sudo=self.sudo_expected,
                                             sudo_password=self.sudo_password_expected),
                           SSHLibraryCommand(SSHLibrary.start_command,
-                                            "{nohup} atop -w {folder}/{file} {interval} &".format(
+                                            "{nohup} atop -a -w {folder}/{file} {interval} &".format(
                                                 nohup='' if self.persistent else 'nohup',
                                                 folder=self.folder,
                                                 file=self.file,
