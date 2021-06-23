@@ -80,23 +80,22 @@ class ProcessMonitorRegistry(dict):
         self.setdefault(plugin_id, {})
         return super().__getitem__(plugin_id)
 
-    def register(self, plugin_id, name, control=False):
+    def register(self, plugin_id, name):
         if name in self.get(plugin_id).keys():
             logger.warn(f"Process '{name}' already registered in {plugin_id}")
             return
-        self[plugin_id].update({name: {'control': control, 'active': True}})
+        self[plugin_id].update({name: {}})
+        logger.debug(f"Process '{name}' registered in {plugin_id}")
 
-    def activate(self, plugin_id, name):
-        data = self[plugin_id].get(name, None)
-        assert data, f"Process '{name}' mot registered in '{plugin_id}"
-        data.update(active=True)
-        self[plugin_id].update({name: data})
+    def activate(self, plugin_id, name, control=False):
+        if not self[plugin_id].get(name, None):
+            self.register(plugin_id, name)
+        self[plugin_id][name].update(active=True, control=control)
 
     def deactivate(self, plugin_id, name):
-        data = self[plugin_id].get(name, None)
-        assert data, f"Process '{name}' mot registered in '{plugin_id}"
-        data.update(active=False)
-        self[plugin_id].update({name: data})
+        if not self[plugin_id].get(name, None):
+            self.register(plugin_id, name)
+        self[plugin_id][name].update(active=False)
 
     @property
     def is_active(self):
@@ -266,9 +265,9 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
         return [c for c in re.split(r'\s+', line) if c != '']
 
     def is_process_monitored(self, process):
-        for proc_name in ProcessMonitorRegistry()[self._processes_id].keys():
+        for proc_name, process_info in ProcessMonitorRegistry()[self._processes_id].items():
             if proc_name in process:
-                return True
+                return process_info.get('active', False)
         return False
 
     @staticmethod
@@ -283,7 +282,17 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
             cells = self._line_to_cells(line)
             if not self.is_process_monitored(cells[-1]):
                 continue
+                # yield -1, 0, 0, -1, -1, -1, -1, 0, cells[-1]
             yield cells
+
+    @staticmethod
+    def _format_size(size_, rate='M'):
+        if size_ == '-':
+            return 0
+        if size_ == -1:
+            return size_
+
+        return Size(size_).set_format(rate).number
 
     def generate_atop_process_level(self, lines, *defaults):
         for cells in self._filter_controlled_processes(*lines):
@@ -292,10 +301,10 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
                                         [cells[0],
                                          timestr_to_secs(cells[1], 2),
                                          timestr_to_secs(cells[2], 2),
-                                         Size(cells[3]).set_format('M').number if cells[3] != '-' else 0,
-                                         Size(cells[4]).set_format('M').number if cells[4] != '-' else 0,
-                                         Size(cells[5]).set_format('M').number if cells[5] != '-' else 0,
-                                         Size(cells[6]).set_format('M').number if cells[6] != '-' else 0,
+                                         self._format_size(cells[3]),
+                                         self._format_size(cells[4]),
+                                         self._format_size(cells[5]),
+                                         self._format_size(cells[6]),
                                          cells[-2].replace('%', ''),
                                          process_name
                                          ]
@@ -480,12 +489,9 @@ class aTop(PlugInAPI):
         """
         kwargs.update(**{arg: False for arg in args})
         for process, control in kwargs.items():
-            if process in ProcessMonitorRegistry()[self.id]:
-                logger.info(f"Process '{process}' already registered; Activating")
-                ProcessMonitorRegistry().activate(self.id, process)
-                continue
-            ProcessMonitorRegistry().register(self.id, process, control)
-        logger.info(f"Following processes added to be monitored: {', '.join([f'{k}={v}' for k, v in kwargs.items()])}")
+            ProcessMonitorRegistry().activate(self.id, process, control)
+            logger.debug(f"Process '{process}' activated")
+        logger.info(f"Start monitor following processes: {', '.join([f'{k}={v}' for k, v in kwargs.items()])}")
 
     def downgrade_plugin(self, *args, **kwargs):
         """
