@@ -11,13 +11,13 @@ Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${C
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-Suite Teardown   run keywords  close_all_host_monitors
-...             AND  generate module statistics
+Suite Teardown   run keywords  generate module statistics
+...             AND  Terminate all monitors
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
 ${PASSWORD}     ${EMPTY}
-${DURATION}  10s
+${DURATION}  20s
 ${INTERVAL}  2s
 ${PERSISTENT}  yes
 
@@ -50,24 +50,35 @@ Test demo attack
 Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
+#    Register KW  end_test  fatal error  StamFatal
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+    add to plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    remove from plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    add to plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+    remove from plugin  aTop  apache  kworker=True
+    wait  ${DURATION}
+
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
 #    expected=Killed
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
-    Start monitor plugin  Time  command=du -hc .  name=Compilation  interval=${INTERVAL}
+#    Start monitor plugin  Time  command=du -hc .  name=Du  interval=${INTERVAL}
+#    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
 #    wait  20s
 #    pause monitor  Pause_me
 #    wait  20s
 #    resume monitor  Pause_me
-    wait  ${DURATION}
+#    wait  ${DURATION}
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
-    generate module statistics  period=${TEST_NAME}  plugin=Time  name=Compilation
-#    generate module statistics  period=${TEST_NAME}  plugin=aTop
+#    generate module statistics  period=${TEST_NAME}  plugin=Time
+    generate module statistics  period=${TEST_NAME}  plugin=aTop
 
-#    [Teardown]  close_all_host_monitors
+#    [Teardown]  terminate_all_monitors
 
 #Test statistic
 #    [Tags]  systrace_test
@@ -85,6 +96,7 @@ Test Host monitor
 #     log  \nOutput got:\n${out}  console=yes
 
 *** Keywords ***
+
 Prepare bm
     open connection  ${HOST}
     login with public key  ${USER}  ${CERTIFICATE}

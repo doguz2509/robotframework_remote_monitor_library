@@ -17,9 +17,12 @@ __doc__ = """
     - user_options: regular SSHLibrary keyword arguments (See in [http://robotframework.org/SSHLibrary/SSHLibrary.html#library-documentation-top|RF SSHLibrary help])
 
     Plus optional three extra arguments allowed:
-    - rc:           str; Last command should return [*]
-    - expected:     str; Output should exist        [**]
-    - prohibited:   str; Output should not exists   [**]
+    - rc:         int; Last command should return [*]
+    - expected:   str; Output should exist        [**]
+    - prohibited: str; Output should not exists   [**]
+    - tolerance:  int; Count of errors allowed before test will be terminated (Default: 0)
+                        
+                        -1 - errors will be ignored, just logged 
     
     *   Support several values separated by '|'
     **  Support several values separated by '|' or '&' for OR and AND accordingly
@@ -53,6 +56,8 @@ class sshlibrary_monitor(model.PlugInTable):
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
         super().__init__(table=db.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
+        self._tolerance = self.options.get('tolerance')
+        self._tolerance_counter = 0
 
     def __call__(self, output: dict) -> bool:
         out = output.get('stdout', None)
@@ -95,7 +100,12 @@ class UserCommandParser(Parser):
         self.data_handler(du)
 
         if st != 'Pass':
-            raise RunnerError(f"{self}", msg)
+            if self._tolerance == -1:
+                pass
+            elif self._tolerance_counter == self._tolerance:
+                raise RunnerError(f"{self}: Error count reach tolerance ({self._tolerance})", msg)
+            else:
+                self._tolerance_counter += 1
 
         return True if st == 'Pass' else False
 
@@ -105,6 +115,7 @@ class SSHLibrary(PlugInAPI):
         self._command = command
         assert self._command, "Commands not provided"
         user_options.update({'name': user_options.get('name', self._command)})
+        user_options.update({'tolerance': int(user_options.get('tolerance', 0))})
         super().__init__(parameters, data_handler, **user_options)
 
         user_options = self.normalise_arguments(**user_options)

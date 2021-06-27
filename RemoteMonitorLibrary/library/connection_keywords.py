@@ -6,6 +6,7 @@ from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
 from RemoteMonitorLibrary.utils import get_error_info
@@ -19,7 +20,7 @@ class ConnectionKeywords:
     
     `Close host monitor`
     
-    `Close all host monitors`
+    `Terminate all monitors`
 
     === PlugIn's keywords ===
     
@@ -44,7 +45,7 @@ class ConnectionKeywords:
     | Library           BuiltIn
     | 
     | Suite Setup       Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
-    | Suite Teardown    close_all_host_monitors
+    | Suite Teardown    terminate_all_monitors
     |
     | ***** Variables *****
     | ${HOST}           ...
@@ -73,13 +74,21 @@ class ConnectionKeywords:
         self.location, self.file_name, self.cumulative = \
             rel_location, file_name, is_truthy(options.get('cumulative', False))
         self._log_to_db = options.get('log_to_db', False)
+        self.ROBOT_LIBRARY_LISTENER = AutoSignPeriodsListener()
+
         suite_start_kw = self._normalise_auto_mark(options.get('start_suite', None), 'start_period')
         suite_end_kw = self._normalise_auto_mark(options.get('start_suite', None), 'stop_period')
         test_start_kw = self._normalise_auto_mark(options.get('start_test', None), 'start_period')
         test_end_kw = self._normalise_auto_mark(options.get('end_test', None), 'stop_period')
 
-        self.ROBOT_LIBRARY_LISTENER = AutoSignPeriodsListener(start_suite=suite_start_kw, end_suite=suite_end_kw,
-                                                              start_test=test_start_kw, end_test=test_end_kw)
+        if suite_start_kw:
+            self.register_kw(AllowedHooks.start_suite, suite_start_kw)
+        if suite_end_kw:
+            self.register_kw(AllowedHooks.end_suite, suite_end_kw)
+        if test_start_kw:
+            self.register_kw(AllowedHooks.start_test, test_start_kw)
+        if test_end_kw:
+            self.register_kw(AllowedHooks.end_test, test_end_kw)
 
     @staticmethod
     def _normalise_auto_mark(custom_kw, default_kw):
@@ -109,15 +118,20 @@ class ConnectionKeywords:
         return [
             self.create_host_monitor.__name__,
             self.close_host_monitor.__name__,
-            self.close_all_host_monitors.__name__,
+            self.terminate_all_monitors.__name__,
             self.start_monitor_plugin.__name__,
             self.stop_monitor_plugin.__name__,
             self.start_period.__name__,
             self.stop_period.__name__,
             self.pause_monitor.__name__,
             self.resume_monitor.__name__,
+            self.add_to_plugin.__name__,
+            self.remove_from_plugin.__name__,
             self.set_mark.__name__,
-            self.wait.__name__
+            self.wait.__name__,
+            self.register_kw.__name__,
+            self.unregister_kw.__name__,
+            self.get_current_errors.__name__
         ]
 
     @keyword("Create host monitor")
@@ -187,14 +201,15 @@ class ConnectionKeywords:
         self._stop_period(alias)
         self._modules.stop_current()
 
-    @keyword("Close all host monitors")
-    def close_all_host_monitors(self):
+    @keyword("Terminate all monitors")
+    def terminate_all_monitors(self):
         """
-        Stop all active hosts plugins
+        Terminate all active hosts & running plugins
         """
         for module in self._modules:
             self._stop_period(module.alias)
         self._modules.close_all()
+        db.DataHandlerService().stop()
 
     @keyword("Start monitor plugin")
     def start_monitor_plugin(self, plugin_name, *args, alias=None, **options):
@@ -224,18 +239,79 @@ class ConnectionKeywords:
 
     @keyword("Pause monitor")
     def pause_monitor(self, reason, alias=None):
+        """
+        Pause monitor's plugins (Actual for host reboot or network restart tests)
+
+        Arguments:
+        - reason: Pause reason text
+        - alias: Desired monitor alias (Default: current)
+        """
         monitor = self._modules.get_connection(alias)
         monitor.pause_plugins()
         self._start_period(reason, alias)
 
     @keyword("Resume monitor")
     def resume_monitor(self, reason, alias=None):
+        """
+        Resume previously paused monitor (Actual for host reboot or network restart tests)
+
+        Arguments:
+        - reason: Pause reason text
+        - alias: Desired monitor alias (Default: current)
+        """
         monitor: HostModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
+    @keyword("Add to Plugin")
+    def add_to_plugin(self, plugin_name, *args, **kwargs):
+        """
+        Add to Plugin - allow runtime modify (adding) plugin configuration
+
+        Particular PlugIn's options see in `BuiltIn plugins`
+
+        Arguments:
+        - plugin_name:
+        - alias:
+        - args: Plugin related unnamed arguments
+        - kwargs: Plugin related named arguments
+        """
+        alias = kwargs.pop('alias', None)
+        monitor: HostModule = self._modules.get_connection(alias)
+        plugins = monitor.get_plugin(plugin_name)
+        assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
+        for plugin in plugins:
+            plugin.upgrade_plugin(*args, **kwargs)
+
+    @keyword("Remove from Plugin")
+    def remove_from_plugin(self, plugin_name, *args, **kwargs):
+        """
+        Remove from Plugin - allow runtime modify (reducing) plugin configuration
+
+        Particular PlugIn's options see in `BuiltIn plugins`
+
+         Arguments:
+        - plugin_name:
+        - alias:
+        - args: Plugin related unnamed arguments
+        - kwargs: Plugin related named arguments
+        """
+        alias = kwargs.pop('alias', None)
+        monitor: HostModule = self._modules.get_connection(alias)
+        plugins = monitor.get_plugin(plugin_name)
+        assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
+        for plugin in plugins:
+            plugin.downgrade_plugin(*args, **kwargs)
+
     @keyword("Start period")
     def start_period(self, period_name=None, alias=None):
+        """
+        Start period keyword
+
+        Arguments:
+        - period_name: Name of period to be stopped
+        - alias: Connection alias
+        """
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
@@ -248,6 +324,13 @@ class ConnectionKeywords:
 
     @keyword("Stop period")
     def stop_period(self, period_name=None, alias=None):
+        """
+        Stop period keyword
+
+        Arguments:
+        - period_name: Name of period to be stopped
+        - alias: Connection alias
+        """
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
@@ -285,3 +368,30 @@ class ConnectionKeywords:
         db.DataHandlerService().execute(update_sql(table.name, 'Mark',
                                                    HOST_REF=module.host_id, PointName=mark_name),
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
+
+    @keyword("Get Current RML Errors")
+    def get_current_errors(self):
+        return GlobalErrors()
+
+    @keyword("Register KW")
+    def register_kw(self, hook: AllowedHooks, kw_name, *args, **kwargs):
+        """
+        Register keyword to listener
+
+        Arguments:
+        - hook: one of start_suite, end_suite, start_test, end_test
+        - kw_name: Keyword name
+        - args: unnamed arguments
+        - kwargs: named arguments
+        """
+        self.ROBOT_LIBRARY_LISTENER.register(hook, kw_name, list(args) + [f"{k}={v}" for k, v in kwargs.items()])
+
+    @keyword("Unregister kw")
+    def unregister_kw(self, hook: AllowedHooks, kw_name):
+        """
+        Unregister keyword from listener
+        - hook: one of start_suite, end_suite, start_test, end_test
+        - kw_name: Keyword name
+        """
+        self.ROBOT_LIBRARY_LISTENER.unregister(hook, kw_name)
+

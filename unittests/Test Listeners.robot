@@ -8,7 +8,7 @@ Library  BuiltIn
 Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  timeout=10s
 #...         AND  Start monitor plugin  aTop  interval=1s  sudo=yes
 
-#Suite Teardown   run keywords  close_all_host_monitors
+#Suite Teardown   run keywords  terminate_all_monitors
 #...             AND  generate module statistics
 
 Force Tags  listener

@@ -170,7 +170,7 @@ class DataHandlerService:
     def queue(self):
         if self._event.isSet():
             logger.warn(f"Stop invoked; new data cannot be enqueued")
-            return
+            return self._queue.__class__()
         return self._queue
 
     def init(self, location=None, file_name=DEFAULT_DB_FILE, cumulative=False):
@@ -228,7 +228,7 @@ class DataHandlerService:
 
     def _data_handler(self):
         logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
-        while not self._event.isSet() or not self._queue.empty():
+        while True:
             if self.queue.empty():
                 if self._event.isSet():
                     break

@@ -9,8 +9,20 @@ class RunnerError(RobotError):
 
     def __str__(self):
         return "Plugin '{name}' error: {msg}\n\t{errors}".format(
-            name=self._name, msg=self._msg,
-            errors='\n\t'.join([f"{e}" for e in self._inner_errors]))
+            name=self.name, msg=self.msg,
+            errors='\n\t'.join([f"{e}" for e in self.inner_errors]))
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def msg(self):
+        return self._msg
+
+    @property
+    def inner_errors(self):
+        return self._inner_errors
 
 
 class PlugInError(RunnerError):

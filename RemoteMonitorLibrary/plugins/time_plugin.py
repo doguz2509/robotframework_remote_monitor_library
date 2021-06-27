@@ -97,8 +97,8 @@ cd {start_folder}
 
 while :
 do
-    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/time_data/.time_temp.txt {command} > {output}
-    mv ~/time_data/.time_temp.txt ~/time_data/time.txt
+    {time_command} -f \\"TimeStamp:\\$(date +'{date_format}'),{format}\\" -o ~/time_data/{title}/.time_{title}.txt {command} > {output}
+    mv ~/time_data/{title}/.time_{title}.txt ~/time_data/{title}/time_{title}.txt
     {mv_output}
     sleep {interval}
 done
@@ -106,9 +106,11 @@ done
 
 TIME_READ_SCRIPT = """
 #!/bin/bash
-cat ~/time_data/time.txt >&2
+cat ~/time_data/{title}/time_{title}.txt >&2
 {read_output}
 """
+
+TIME_NAME_CACHE = []
 
 
 class TimeMeasurement(model.PlugInTable):
@@ -260,7 +262,11 @@ class GetPIDList(Variable):
 class Time(PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
-        self._command_name = user_options.update({'name': user_options.get('name', self._command)})
+        user_options.update({'name': user_options.get('name', super().id)})
+        self._command_name = user_options.get('name')
+
+        assert self.id not in TIME_NAME_CACHE, f"Name '{self._command_name}' already exists"
+        TIME_NAME_CACHE.append(self.id)
         user_options.update({'persistent': user_options.get('persistent', 'no')})
 
         PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
@@ -292,22 +298,25 @@ class Time(PlugInAPI):
                 command=self._command,
                 interval=int(self.parameters.interval),
                 output='/dev/null',
-                # FIXME: ReturnStdout disabled due to performance issues
-                #        Pending fix in next releases
-                #        output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
-                mv_output='mv ~/time_data/.temp_output.txt ~/time_data/output.txt' if self.options.get('return_stdout', False) else '',
+                title=self.id,
+                # FIXME: ReturnStdout disabled due to performance issues; Pending fix in next releases
+                #  output='~/time_data/.temp_output.txt' if self.options.get('return_stdout', False) else '/dev/null',
+                mv_output='mv ~/time_data/{t}/.temp_{t}_output.txt ~/time_data/output_{t}.txt'.format(t=self.id)
+                if self.options.get('return_stdout', False) else '',
                 date_format=DB_DATETIME_FORMAT
             )
             time_read_script = TIME_READ_SCRIPT.format(
-                                  read_output='cat ~/time_data/output.txt >&1' if self.options.get('return_stdout', False) else ''
-                              )
+                title=self.id,
+                read_output='cat ~/time_data/{t}/output_{t}.txt >&1'.format(t=self.id)
+                if self.options.get('return_stdout', False) else ''
+            )
 
             pid_list = GetPIDList()
 
             self.set_commands(FlowCommands.Teardown,
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                "ps -ef|egrep 'time_write|"
-                                                "{}'|grep -v grep|awk '{{{{print$2}}}}'".format(self._command),
+                                                "ps -ef|egrep 'time_write_{}.sh|{}'|grep -v grep|"
+                                                "awk '{{{{print$2}}}}'".format(self.id, self._command),
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_password_expected,
                                                 return_stdout=True,
@@ -321,27 +330,28 @@ class Time(PlugInAPI):
             self.set_commands(FlowCommands.Setup,
                               self.teardown,
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                f"mkdir ~/time_data",
+                                                f"mkdir -p ~/time_data/{self.id}",
                                                 return_rc=True),
-                              SSHLibraryCommand(SSHLibrary.execute_command, "rm -rf ~/time_data/*",
+                              SSHLibraryCommand(SSHLibrary.execute_command, f"rm -rf ~/time_data/{self.id}/*",
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_password_expected,
                                                 return_rc=True,
                                                 return_stderr=True),
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                f"echo \"{time_write_script}\" > ~/time_data/time_write.sh",
+                                                f"echo \"{time_write_script}\" > ~/time_data/{self.id}/time_write_{self.id}.sh",
                                                 return_rc=True, parser=ParseRC()),
                               SSHLibraryCommand(SSHLibrary.execute_command,
-                                                f"echo \"{time_read_script}\" > ~/time_data/time_read.sh",
+                                                f"echo \"{time_read_script}\" > ~/time_data/{self.id}/time_read_{self.id}.sh",
                                                 return_rc=True, parser=ParseRC()),
-                              SSHLibraryCommand(SSHLibrary.execute_command, 'chmod +x ~/time_data/*time_*.sh',
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f'chmod +x ~/time_data/{self.id}/*.sh',
                                                 return_rc=True, parser=ParseRC()),
                               SSHLibraryCommand(SSHLibrary.start_command,
-                                                f'nohup ~/time_data/time_write.sh &')
+                                                f'nohup ~/time_data/{self.id}/time_write_{self.id}.sh &')
                               )
 
             self.set_commands(FlowCommands.Command,
-                              SSHLibraryCommand(SSHLibrary.execute_command, '~/time_data/time_read.sh',
+                              SSHLibraryCommand(SSHLibrary.execute_command, f'~/time_data/{self.id}/time_read_{self.id}.sh',
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_expected,
                                                 return_stderr=True,
@@ -350,6 +360,10 @@ class Time(PlugInAPI):
                                                                         table=self.affiliated_tables()[0],
                                                                         data_handler=self.data_handler,
                                                                         Command=self.name)))
+
+    @property
+    def id(self):
+        return f"{self.__class__.__name__}_{self._command_name}"
 
     def _verify_folder_exist(self):
         with self.inside_host() as ssh:
@@ -370,10 +384,6 @@ class Time(PlugInAPI):
         base_table = TimeMeasurement()
         return tuple(TimeChart(base_table, name, *[c.name for c in base_table.fields if c.name.startswith(name)])
                      for name in ('Time', 'Memory', 'IO'))
-
-    # @property
-    # def id(self):
-    #     return f"{super().id}: {self._command}"
 
 
 __all__ = [

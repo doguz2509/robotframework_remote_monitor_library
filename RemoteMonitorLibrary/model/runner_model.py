@@ -198,6 +198,12 @@ class plugin_integration_abstract(object):
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return []
 
+    def upgrade_plugin(self, *args, **kwargs):
+        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+
+    def downgrade_plugin(self, *args, **kwargs):
+        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+
     @property
     def id(self):
         return f"{self.__class__.__name__}_{id(self)}"

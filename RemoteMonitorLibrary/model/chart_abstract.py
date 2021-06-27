@@ -58,13 +58,12 @@ class ChartAbstract(ABC):
     def title(self):
         return self.__class__.__name__
 
-    @abstractmethod
     def y_axes(self, data: [Iterable[Iterable]]) -> Iterable[Any]:
         return [r[0] for r in data]
 
     @staticmethod
     def x_axes(data, time_columns=0, formatter=time_string_reformat_cb(INPUT_FMT, OUTPUT_FMT)) -> Iterable[Any]:
-        return [formatter(i[time_columns]) if formatter else i[0] for i in data]
+        return [formatter(i[time_columns]) if formatter else i[time_columns] for i in data]
 
     @staticmethod
     def data_area(data: [Iterable[Iterable]]) -> [Iterable[Iterable]]:

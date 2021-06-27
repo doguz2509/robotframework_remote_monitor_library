@@ -2,7 +2,7 @@ import json
 import re
 from collections import namedtuple, OrderedDict
 from datetime import datetime
-from typing import Iterable, Tuple, List, Any
+from typing import Iterable, Tuple, List, Any, AnyStr, Dict
 
 from robot.utils import timestr_to_secs
 
@@ -12,7 +12,7 @@ from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.utils import Size, get_error_info
+from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 
 __doc__ = """
 == aTop plugin overview == 
@@ -32,6 +32,11 @@ Reading atop statistics made with command
 !!! Pay attention: Ubuntu & CentOS supported only for now !!! 
 
 aTop Arguments:
+
+Not named:
+- processes names: provided process CPU & Memory data will be monitored
+    
+Named:
 - interval: can be define from keyword `Start monitor plugin` as key-value pair (Default: 1s) 
 
 Note: Support robot time format string (1s, 05m, etc.)
@@ -51,6 +56,83 @@ class atop_system_level(model.PlugInTable):
         self.add_field(model.Field('Col4', model.FieldType.Real))
         self.add_field(model.Field('Col5', model.FieldType.Real))
         self.add_field(model.Field('SUB_ID'))
+
+
+class atop_process_level(model.PlugInTable):
+    def __init__(self):
+        super().__init__(name='atop_process_level')
+        self.add_time_reference()
+        self.add_field(model.Field('PID', model.FieldType.Int))
+        self.add_field(model.Field('SYSCPU', model.FieldType.Real))
+        self.add_field(model.Field('USRCPU', model.FieldType.Real))
+        self.add_field(model.Field('VGROW', model.FieldType.Real))
+        self.add_field(model.Field('RGROW', model.FieldType.Real))
+        self.add_field(model.Field('RDDSK', model.FieldType.Real))
+        self.add_field(model.Field('WRDSK', model.FieldType.Real))
+        self.add_field(model.Field('CPU', model.FieldType.Int))
+        self.add_field(model.Field('CMD'))
+
+
+@Singleton
+class ProcessMonitorRegistry(dict):
+
+    def __getitem__(self, plugin_id):
+        self.setdefault(plugin_id, {})
+        return super().__getitem__(plugin_id)
+
+    def register(self, plugin_id, name):
+        if name in self.get(plugin_id).keys():
+            logger.warn(f"Process '{name}' already registered in {plugin_id}")
+            return
+        self[plugin_id].update({name: {}})
+        logger.debug(f"Process '{name}' registered in {plugin_id}")
+
+    def activate(self, plugin_id, name, control=False):
+        if not self[plugin_id].get(name, None):
+            self.register(plugin_id, name)
+        self[plugin_id][name].update(active=True, control=control)
+
+    def deactivate(self, plugin_id, name):
+        if not self[plugin_id].get(name, None):
+            self.register(plugin_id, name)
+        self[plugin_id][name].update(active=False)
+
+    @property
+    def is_active(self):
+        for k, v in self.items():
+            for kk, vv in v.items():
+                if vv['active']:
+                    return True
+        return True
+
+
+class aTopProcessLevelChart(ChartAbstract):
+    @property
+    def get_sql_query(self) -> str:
+        return f"""SELECT t.TimeStamp, p.SYSCPU as SYSCPU, p.USRCPU, p.VGROW, p.RDDSK, p.WRDSK, p.CPU, p.CMD
+            FROM atop_process_level p
+            JOIN TraceHost h ON p.HOST_REF = h.HOST_ID
+            JOIN TimeLine t ON p.TL_REF = t.TL_ID 
+            WHERE h.HostName = '{{host_name}}'"""
+
+    @property
+    def file_name(self) -> str:
+        return "process_{name}.png"
+
+    def y_axes(self, data: [Iterable[Iterable]] = None) -> Iterable[Any]:
+        return ['SYSCPU', 'USRCPU', 'VGROW', 'RDDSK', 'WRDSK', 'CPU']
+
+    def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) -> \
+            Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
+        result = []
+        for plugin, processes in ProcessMonitorRegistry().items():
+            for process in [p for p in processes.keys()]:
+                data = [entry[0:6] for entry in query_results if process in entry[7]]
+                if len(data) == 0:
+                    logger.warn(f"Process '{process}' doesn't have monitor data")
+                    continue
+                result.append((process, self.x_axes(data), self.y_axes(), data))
+        return result
 
 
 class aTopSystemLevelChart(ChartAbstract):
@@ -101,7 +183,7 @@ class aTopSystemLevelChart(ChartAbstract):
         return result
 
 
-class aTopDataUnit(db.services.DataUnit):
+class aTopSystem_DataUnit(db.services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
@@ -171,9 +253,103 @@ class aTopDataUnit(db.services.DataUnit):
         return super().__call__(**updates)
 
 
+class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
+    def __init__(self, table, host_id, *lines, **kwargs):
+        super().__init__(table, **kwargs)
+        self._lines = lines
+        self._host_id = host_id
+        self._processes_id = kwargs.get('processes_id', {})
+
+    @staticmethod
+    def _line_to_cells(line):
+        return [c for c in re.split(r'\s+', line) if c != '']
+
+    def is_process_monitored(self, process):
+        for proc_name, process_info in ProcessMonitorRegistry()[self._processes_id].items():
+            if proc_name in process:
+                return process_info.get('active', False)
+        return False
+
+    @staticmethod
+    def _normalise_process_name(pattern: str, replacement='.'):
+        replaces = [r'/', '\\']
+        for r in replaces:
+            pattern = pattern.replace(r, replacement)
+        return pattern
+
+    def _filter_controlled_processes(self, *process_lines):
+        for line in process_lines:
+            cells = self._line_to_cells(line)
+            if not self.is_process_monitored(cells[-1]):
+                continue
+                # yield -1, 0, 0, -1, -1, -1, -1, 0, cells[-1]
+            yield cells
+
+    @staticmethod
+    def _format_size(size_, rate='M'):
+        if size_ == '-':
+            return 0
+        if size_ == -1:
+            return size_
+
+        return Size(size_).set_format(rate).number
+
+    def generate_atop_process_level(self, lines, *defaults):
+        for cells in self._filter_controlled_processes(*lines):
+            process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
+            yield self.table.template(*(list(defaults) +
+                                        [cells[0],
+                                         timestr_to_secs(cells[1], 2),
+                                         timestr_to_secs(cells[2], 2),
+                                         self._format_size(cells[3]),
+                                         self._format_size(cells[4]),
+                                         self._format_size(cells[5]),
+                                         self._format_size(cells[6]),
+                                         cells[-2].replace('%', ''),
+                                         process_name
+                                         ]
+                                        )
+                                      )
+
+    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+        self._data = list(
+            self.generate_atop_process_level(self._lines, self._host_id, None)
+        )
+        return super().__call__(**updates)
+
+
+class aTopProcesses_Fedora_DataUnit(aTopProcesses_Debian_DataUnit):
+    def generate_atop_process_level(self, lines, *defaults):
+        for cells in self._filter_controlled_processes(*lines):
+            process_name = self._normalise_process_name(f"{cells[-1]}_{cells[0]}")
+            yield self.table.template(*(list(defaults) +
+                                        [cells[0],
+                                         timestr_to_secs(cells[1], 2),
+                                         timestr_to_secs(cells[2], 2),
+                                         Size(cells[4]).set_format('M').number if cells[4] != '-' else 0,
+                                         Size(cells[5]).set_format('M').number if cells[5] != '-' else 0,
+                                         Size(cells[6]).set_format('M').number if cells[6] != '-' else 0,
+                                         Size(cells[7]).set_format('M').number if cells[7] != '-' else 0,
+                                         cells[-2].replace('%', ''),
+                                         process_name
+                                         ]
+                                        )
+                                      )
+
+
+def process_data_unit_factory(os_family):
+    if os_family == 'debian':
+        return aTopProcesses_Debian_DataUnit
+    elif os_family == 'fedora':
+        return aTopProcesses_Fedora_DataUnit
+    raise NotImplementedError(f"OS '{os_family}' not supported")
+
+
 class aTopParser(Parser):
-    def __init__(self, **kwargs):
+    def __init__(self, plugin_id, **kwargs):
+        self._data_unit_class = kwargs.pop('data_unit')
         Parser.__init__(self, **kwargs)
+        self.id = plugin_id
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
 
     @staticmethod
@@ -208,9 +384,16 @@ class aTopParser(Parser):
                 lines = atop_portion.splitlines()
                 f_line = lines.pop(0)
                 ts = '_'.join(re.split(r'\s+', f_line)[2:4]) + f".{datetime.now().strftime('%S')}"
+                system_portion, process_portion = '\n'.join(lines).split('PID', 1)
+                process_portion = 'PID\t' + process_portion
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
-                    self.data_handler(aTopDataUnit(self.table, self.host_id, *lines))
+                    self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id,
+                                                          *system_portion.splitlines()))
+                    if ProcessMonitorRegistry().is_active:
+                        self.data_handler(self._data_unit_class(self.table['process'], self.host_id,
+                                                                *process_portion.splitlines()[1:],
+                                                                processes_id=self.id))
 
         except Exception as e:
             f, li = get_error_info()
@@ -227,8 +410,8 @@ class aTop(PlugInAPI):
         'fedora': '%Y%m%d%H%M'
     }
 
-    def __init__(self, parameters, data_handler, *args, **user_options):
-        PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+    def __init__(self, parameters, data_handler, *monitor_processes, **user_options):
+        PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
 
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
@@ -238,6 +421,7 @@ class aTop(PlugInAPI):
             self._os_name = self._get_os_name(ssh)
 
         self._name = f"{self.name}-{self._os_name}"
+
         self.set_commands(FlowCommands.Setup,
                           SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
                                             sudo=self.sudo_expected,
@@ -248,7 +432,7 @@ class aTop(PlugInAPI):
                                             sudo=self.sudo_expected,
                                             sudo_password=self.sudo_password_expected),
                           SSHLibraryCommand(SSHLibrary.start_command,
-                                            "{nohup} atop -w {folder}/{file} {interval} &".format(
+                                            "{nohup} atop -a -w {folder}/{file} {interval} &".format(
                                                 nohup='' if self.persistent else 'nohup',
                                                 folder=self.folder,
                                                 file=self.file,
@@ -261,9 +445,15 @@ class aTop(PlugInAPI):
                               SSHLibrary.execute_command,
                               f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                               sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
-                              parser=aTopParser(host_id=self.host_id, table=self.affiliated_tables()[0],
+                              parser=aTopParser(self.id,
+                                                host_id=self.host_id,
+                                                table={
+                                                    'system': self.affiliated_tables()[0],
+                                                    'process': self.affiliated_tables()[1]
+                                                },
                                                 data_handler=self._data_handler, counter=self.iteration_counter,
-                                                interval=self.parameters.interval)))
+                                                interval=self.parameters.interval,
+                                                data_unit=process_data_unit_factory(self._os_name))))
 
         self.set_commands(FlowCommands.Teardown,
                           SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
@@ -287,15 +477,47 @@ class aTop(PlugInAPI):
         logger.debug(f"OS resolved: {out}")
         return out
 
+    def upgrade_plugin(self, *args, **kwargs):
+        """
+        Upgrade aTop plugin: add processes for monitor during execution
+
+        Arguments:
+        - args:     process names
+
+        Future features:
+        - kwargs:   process names following boolean flag (Default: False; If True error will raise if process diappearing)
+        """
+        kwargs.update(**{arg: False for arg in args})
+        for process, control in kwargs.items():
+            ProcessMonitorRegistry().activate(self.id, process, control)
+            logger.debug(f"Process '{process}' activated")
+        logger.info(f"Start monitor following processes: {', '.join([f'{k}={v}' for k, v in kwargs.items()])}")
+
+    def downgrade_plugin(self, *args, **kwargs):
+        """
+        Downgrade aTop plugin: remove processes for monitor during execution
+
+        Arguments:
+        - args:     process names
+        - kwargs:   kept process names only
+        """
+        processes_to_unregister = list(args) + list(kwargs.keys())
+        for process in processes_to_unregister:
+            ProcessMonitorRegistry().deactivate(self.id, process)
+        logger.info(f"Following processes removed from monitor: {', '.join(processes_to_unregister)}")
+
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
-        return atop_system_level(),
+        return atop_system_level(), atop_process_level()
 
     @staticmethod
     def affiliated_charts() -> Iterable[ChartAbstract]:
-        return aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), aTopSystemLevelChart(
-            'LVM'), \
-               aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
+        return aTopProcessLevelChart(), aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), \
+               aTopSystemLevelChart('LVM'), aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
+
+
+# TODO: Add trace process flag allow error raising or collecting during monitoring if monitored processes disappearing
+#  from process list
 
 
 __all__ = [
