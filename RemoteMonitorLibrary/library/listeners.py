@@ -29,10 +29,10 @@ class Hook:
 
     def __call__(self):
         try:
-            if len(self._args) > 0:
-                BuiltIn().run_keyword(self._kw, *self._args)
-            else:
-                BuiltIn().run_keyword(self._kw)
+            # if len(self._args) > 0:
+            #     BuiltIn().run_keyword(self._kw, *self._args)
+            # else:
+            BuiltIn().run_keyword(self._kw)
         except HandlerExecutionFailed:
             logger.warn(f"Connections still not ready")
 
