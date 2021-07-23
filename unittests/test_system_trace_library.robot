@@ -53,13 +53,15 @@ Test Host monitor
 #    Register KW  end_test  fatal error  StamFatal
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  apache  kworker=True
+    pause monitor  Pause1
     wait  ${DURATION}
-    remove from plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
-    add to plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
-    remove from plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
+    resume monitor  Pause1
+#    remove from plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
+#    add to plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
+#    remove from plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
 
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
