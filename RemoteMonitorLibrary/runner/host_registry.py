@@ -131,9 +131,12 @@ class HostModule:
     def pause_plugins(self):
         for name, plugin in self._active_plugins.items():
             try:
+                assert plugin is not None
                 plugin.stop()
+            except AssertionError:
+                logger.info(f"Plugin '{name}' already stopped")
             except Exception as e:
-                logger.warn(f"Plugin '{name}' pause error: {e}")
+                logger.warn(f"Plugin '{name}:{plugin}' pause error: {e}")
             else:
                 logger.info(f"Plugin '{name}' paused", also_console=True)
 
