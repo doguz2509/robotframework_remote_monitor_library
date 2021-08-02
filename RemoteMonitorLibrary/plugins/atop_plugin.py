@@ -391,9 +391,10 @@ class aTopParser(Parser):
                     self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id,
                                                           *system_portion.splitlines()))
                     if ProcessMonitorRegistry().is_active:
-                        self.data_handler(self._data_unit_class(self.table['process'], self.host_id,
-                                                                *process_portion.splitlines()[1:],
-                                                                processes_id=self.id))
+                        data_portion = self._data_unit_class(self.table['process'], self.host_id,
+                                                             *process_portion.splitlines()[1:],
+                                                             processes_id=self.id)
+                        self.data_handler(data_portion)
 
         except Exception as e:
             f, li = get_error_info()
@@ -404,20 +405,20 @@ class aTopParser(Parser):
         return False
 
 
-class aTop(PlugInAPI):
+class aTop(SSH_PlugInAPI):
     OS_DATE_FORMAT = {
         'debian': '%H:%M',
         'fedora': '%Y%m%d%H%M'
     }
 
     def __init__(self, parameters, data_handler, *monitor_processes, **user_options):
-        PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
+        SSH_PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
 
         self.file = 'atop.dat'
         self.folder = '~/atop_temp'
         self._time_delta = None
         self._os_name = None
-        with self.inside_host() as ssh:
+        with self.on_connection() as ssh:
             self._os_name = self._get_os_name(ssh)
 
         self._name = f"{self.name}-{self._os_name}"

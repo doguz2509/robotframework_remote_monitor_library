@@ -259,7 +259,7 @@ class GetPIDList(Variable):
         self.result = {'pid_list': output.replace('\n', ' ')}
 
 
-class Time(PlugInAPI):
+class Time(SSH_PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         self._command = user_options.pop('command', None)
         user_options.update({'name': user_options.get('name', super().id)})
@@ -269,7 +269,7 @@ class Time(PlugInAPI):
         TIME_NAME_CACHE.append(self.id)
         user_options.update({'persistent': user_options.get('persistent', 'no')})
 
-        PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+        SSH_PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
         self._time_cmd = user_options.get('time_cmd', DEFAULT_TIME_COMMAND)
@@ -366,7 +366,7 @@ class Time(PlugInAPI):
         return f"{self.__class__.__name__}_{self._command_name}"
 
     def _verify_folder_exist(self):
-        with self.inside_host() as ssh:
+        with self.on_connection() as ssh:
             if self._start_in_folder.startswith('~'):
                 _path = self._start_in_folder
                 user_home = ssh.execute_command('echo $HOME').strip()

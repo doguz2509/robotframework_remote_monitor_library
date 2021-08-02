@@ -1,9 +1,14 @@
-from abc import ABC
+from contextlib import contextmanager
 from enum import Enum
+from threading import RLock, Thread, Event
 from typing import Iterable, Callable, Mapping, AnyStr, Any
 
+from robot.utils import is_truthy, timestr_to_secs
+
+from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import db_schema as model
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
 class _ExecutionResult:
@@ -106,7 +111,7 @@ class FlowCommands(Enum):
 
 
 class plugin_runner_abstract:
-    def __init__(self, data_handler: Callable, *args, **kwargs):
+    def __init__(self, parameters, data_handler: Callable, *args, **kwargs):
         self._stored_shell = {}
         self.variables = {}
         self._data_handler = data_handler
@@ -116,6 +121,70 @@ class plugin_runner_abstract:
         self._user_args = args
         self._user_options = kwargs
         self._commands = {}
+        self._lock = RLock()
+        self._is_logged_in = False
+        self.parameters = parameters
+        self._interval = self.parameters.interval
+        self._internal_event = Event()
+        self._fault_tolerance = self.parameters.fault_tolerance
+        self._session_errors = []
+        assert self._host_id, "Host ID cannot be empty"
+        self._persistent = is_truthy(kwargs.get('persistent', 'yes'))
+        self._thread: Thread = None
+
+    @property
+    def host_alias(self):
+        return self.parameters.alias
+
+    def __repr__(self):
+        return f"{self.id}"
+
+    def __str__(self):
+        return f"{self.id}::{self.host_alias}"
+
+    @property
+    def info(self):
+        _str = f"{self.__class__.__name__} on host {self.host_alias} ({self.id}) :"
+        for set_ in FlowCommands:
+            commands = getattr(self, set_.value, ())
+            _str += f"\n{set_.name}:"
+            if len(commands) > 0:
+                _str += '\n\t{}'.format('\n\t'.join([f"{c}" for c in getattr(self, set_.value, ())]))
+            else:
+                _str += f' N/A'
+        return _str
+
+    def start(self):
+        self._set_worker()
+        self._thread.start()
+
+    def stop(self, timeout=None):
+        timeout = timeout or '20s'
+        timeout = timestr_to_secs(timeout)
+        self._internal_event.set()
+        self._thread.join(timeout)
+        self._thread = None
+
+    @property
+    def is_alive(self):
+        if self._thread:
+            return self._thread.is_alive()
+        return False
+
+    def _set_worker(self):
+        if self.persistent:
+            target = self._persistent_worker
+        else:
+            target = self._non_persistent_worker
+        self._thread = Thread(name=self.id, target=target, daemon=True)
+
+    @property
+    def type(self):
+        return f"{self.__class__.__name__}"
+
+    @property
+    def id(self):
+        return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
 
     @staticmethod
     def _normalise_commands(*commands):
@@ -179,8 +248,37 @@ class plugin_runner_abstract:
     def teardown(self):
         return self._commands.get(FlowCommands.Teardown, ())
 
-    def inside_host(self):
-        raise NotImplementedError()
+    @contextmanager
+    def on_connection(self):
+        try:
+            with self._lock:
+                self.login()
+                assert self._ssh is not None, "Probably connection failed"
+                yield self._ssh
+        except RunnerError as e:
+            self._session_errors.append(e)
+            logger.warn(
+                "Non critical error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+                    name=self.host_alias,
+                    error=e,
+                    real=len(self._session_errors),
+                    allowed=self._fault_tolerance,
+                ))
+        except Exception as e:
+            logger.error("Critical Error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+                name=self.host_alias,
+                error=e,
+                real=len(self._session_errors),
+                allowed=self._fault_tolerance,
+            ))
+            GlobalErrors().append(e)
+        else:
+            if len(self._session_errors):
+                logger.debug(
+                    f"Host '{self}': Runtime errors occurred during tolerance period cleared")
+            self._session_errors.clear()
+        finally:
+            self.exit()
 
     def login(self):
         raise NotImplementedError()

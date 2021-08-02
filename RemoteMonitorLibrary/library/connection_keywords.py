@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
+from typing import Optional
 
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs
@@ -175,6 +176,9 @@ class ConnectionKeywords:
         | end_test
 
         """
+
+        module: Optional[HostModule] = None
+
         if not db.DataHandlerService().is_active:
             self._init()
         try:

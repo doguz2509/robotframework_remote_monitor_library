@@ -11,8 +11,7 @@ Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${C
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 #Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-Suite Teardown   run keywords  generate module statistics
-...             AND  Terminate all monitors
+Suite Teardown   Terminate all monitors
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
@@ -53,9 +52,9 @@ Test Host monitor
 #    Register KW  end_test  fatal error  StamFatal
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  apache  kworker=True
-    pause monitor  Pause1
+#    pause monitor  Pause1
     wait  ${DURATION}
-    resume monitor  Pause1
+#    resume monitor  Pause1
 #    remove from plugin  aTop  apache  kworker=True
 #    wait  ${DURATION}
 #    add to plugin  aTop  apache  kworker=True
