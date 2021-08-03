@@ -412,53 +412,57 @@ class aTop(SSH_PlugInAPI):
     }
 
     def __init__(self, parameters, data_handler, *monitor_processes, **user_options):
-        SSH_PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
+        try:
+            SSH_PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
 
-        self.file = 'atop.dat'
-        self.folder = '~/atop_temp'
-        self._time_delta = None
-        self._os_name = None
-        with self.on_connection() as ssh:
-            self._os_name = self._get_os_name(ssh)
+            self.file = 'atop.dat'
+            self.folder = '~/atop_temp'
+            self._time_delta = None
+            self._os_name = None
+            with self.on_connection() as ssh:
+                self._os_name = self._get_os_name(ssh)
 
-        self._name = f"{self.name}-{self._os_name}"
+            self._name = f"{self.name}-{self._os_name}"
 
-        self.set_commands(FlowCommands.Setup,
-                          SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
-                                            sudo=self.sudo_expected,
-                                            sudo_password=self.sudo_password_expected),
-                          SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
-                                            sudo_password=True),
-                          SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}',
-                                            sudo=self.sudo_expected,
-                                            sudo_password=self.sudo_password_expected),
-                          SSHLibraryCommand(SSHLibrary.start_command,
-                                            "{nohup} atop -a -w {folder}/{file} {interval} &".format(
-                                                nohup='' if self.persistent else 'nohup',
-                                                folder=self.folder,
-                                                file=self.file,
-                                                interval=int(self.interval)),
-                                            sudo=self.sudo_expected,
-                                            sudo_password=self.sudo_password_expected))
+            self.set_commands(FlowCommands.Setup,
+                              SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected),
+                              SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
+                                                sudo_password=True),
+                              SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}',
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected),
+                              SSHLibraryCommand(SSHLibrary.start_command,
+                                                "{nohup} atop -a -w {folder}/{file} {interval} &".format(
+                                                    nohup='' if self.persistent else 'nohup',
+                                                    folder=self.folder,
+                                                    file=self.file,
+                                                    interval=int(self.interval)),
+                                                sudo=self.sudo_expected,
+                                                sudo_password=self.sudo_password_expected))
 
-        self.set_commands(FlowCommands.Command,
-                          SSHLibraryCommand(
-                              SSHLibrary.execute_command,
-                              f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
-                              sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
-                              parser=aTopParser(self.id,
-                                                host_id=self.host_id,
-                                                table={
-                                                    'system': self.affiliated_tables()[0],
-                                                    'process': self.affiliated_tables()[1]
-                                                },
-                                                data_handler=self._data_handler, counter=self.iteration_counter,
-                                                interval=self.parameters.interval,
-                                                data_unit=process_data_unit_factory(self._os_name))))
+            self.set_commands(FlowCommands.Command,
+                              SSHLibraryCommand(
+                                  SSHLibrary.execute_command,
+                                  f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
+                                  sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
+                                  parser=aTopParser(self.id,
+                                                    host_id=self.host_id,
+                                                    table={
+                                                        'system': self.affiliated_tables()[0],
+                                                        'process': self.affiliated_tables()[1]
+                                                    },
+                                                    data_handler=self._data_handler, counter=self.iteration_counter,
+                                                    interval=self.parameters.interval,
+                                                    data_unit=process_data_unit_factory(self._os_name))))
 
-        self.set_commands(FlowCommands.Teardown,
-                          SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
-                                            sudo=True, sudo_password=True))
+            self.set_commands(FlowCommands.Teardown,
+                              SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+                                                sudo=True, sudo_password=True))
+        except Exception as e:
+            f, l = get_error_info()
+            raise type(e)(f"{e}; File: {f}:{l}")
 
     @property
     def os_name(self):

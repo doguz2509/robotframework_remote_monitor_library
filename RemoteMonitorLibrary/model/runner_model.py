@@ -1,6 +1,8 @@
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from enum import Enum
 from threading import RLock, Thread, Event
+from time import sleep
 from typing import Iterable, Callable, Mapping, AnyStr, Any
 
 from robot.utils import is_truthy, timestr_to_secs
@@ -8,6 +10,8 @@ from robot.utils import is_truthy, timestr_to_secs
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import db_schema as model
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
+from RemoteMonitorLibrary.model.errors import RunnerError, EmptyCommandSet, PlugInError
+from RemoteMonitorLibrary.utils import evaluate_duration
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
@@ -166,25 +170,20 @@ class plugin_runner_abstract:
         self._thread = None
 
     @property
-    def is_alive(self):
-        if self._thread:
-            return self._thread.is_alive()
-        return False
-
-    def _set_worker(self):
-        if self.persistent:
-            target = self._persistent_worker
-        else:
-            target = self._non_persistent_worker
-        self._thread = Thread(name=self.id, target=target, daemon=True)
+    def interval(self):
+        return self._interval
 
     @property
-    def type(self):
-        return f"{self.__class__.__name__}"
+    def persistent(self):
+        return self._persistent
 
-    @property
-    def id(self):
-        return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
+    @staticmethod
+    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
+        for k in kwargs.keys():
+            v = kwargs.get(k)
+            if k.startswith(prefix):
+                kwargs.update({k: func(v)})
+        return kwargs
 
     @staticmethod
     def _normalise_commands(*commands):
@@ -197,6 +196,39 @@ class plugin_runner_abstract:
 
     def set_commands(self, type_: FlowCommands, *commands):
         self._commands.setdefault(type_, []).extend(tuple(self._normalise_commands(*commands)))
+
+    @property
+    def is_alive(self):
+        if self._thread:
+            return self._thread.is_alive()
+        return False
+
+    def _set_worker(self):
+        if self.persistent:
+            target = self._persistent_worker
+        else:
+            target = self._non_persistent_worker
+        self._thread = Thread(name=self.id, target=target, daemon=True)
+
+    def _evaluate_tolerance(self):
+        if len(self._session_errors) == self._fault_tolerance:
+            e = PlugInError(f"{self}",
+                            "PlugIn stop invoked; Errors count arrived to limit ({})".format(
+                                self.host_alias,
+                                self._fault_tolerance,
+                            ), *self._session_errors)
+            logger.error(f"{e}")
+            GlobalErrors().append(e)
+            return False
+        return True
+
+    @property
+    def type(self):
+        return f"{self.__class__.__name__}"
+
+    @property
+    def id(self):
+        return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
 
     def store_variable(self, variable_name):
         def _(value):
@@ -253,8 +285,8 @@ class plugin_runner_abstract:
         try:
             with self._lock:
                 self.login()
-                assert self._ssh is not None, "Probably connection failed"
-                yield self._ssh
+
+                yield self.content_object
         except RunnerError as e:
             self._session_errors.append(e)
             logger.warn(
@@ -280,11 +312,113 @@ class plugin_runner_abstract:
         finally:
             self.exit()
 
+    @property
+    def content_object(self):
+        """
+        Active executable module
+        """
+        raise NotImplementedError()
+
     def login(self):
         raise NotImplementedError()
 
     def exit(self):
         raise NotImplementedError()
+
+    @property
+    def is_continue_expected(self):
+        if not self._evaluate_tolerance():
+            self.parameters.event.set()
+            logger.error(f"Stop requested due of critical error")
+            return False
+        if self.parameters.event.isSet():
+            logger.info(f"Stop requested by external source")
+            return False
+        if self._internal_event.isSet():
+            logger.info(f"Stop requested internally")
+            return False
+        return True
+
+    def _run_command(self, context_object, flow: Enum):
+        total_output = ''
+        try:
+            flow_values = getattr(self, flow.value)
+            if len(flow_values) == 0:
+                raise EmptyCommandSet()
+            logger.debug(f"Iteration {flow.name} started")
+            for i, cmd in enumerate(flow_values):
+                run_status = cmd(context_object, **self.parameters)
+                total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
+                sleep(0.05)
+        except EmptyCommandSet:
+            logger.warn(f"Iteration {flow.name} ignored")
+        except Exception as e:
+            raise RunnerError(f"{self}", f"Command set '{flow.name}' failed", e)
+        else:
+            logger.info(f"Iteration {flow.name} completed\n{total_output}")
+
+    def _persistent_worker(self):
+        logger.info(f"\nPlugIn '{self}' started")
+        while self.is_continue_expected:
+            with self.on_connection() as context:
+                self._run_command(context, self.flow_type.Setup)
+                logger.info(f"Host {self}: Setup completed", also_console=True)
+                while self.is_continue_expected:
+                    try:
+                        start_ts = datetime.now()
+                        _timedelta = timedelta(seconds=self.parameters.interval) \
+                            if self.parameters.interval is not None else timedelta(seconds=0)
+                        next_ts = start_ts + _timedelta
+                        self._run_command(context, self.flow_type.Command)
+                        if self.parameters.interval is not None:
+                            evaluate_duration(start_ts, next_ts, self.host_alias)
+                        while datetime.now() < next_ts:
+                            if not self.is_continue_expected:
+                                break
+                            sleep(0.5)
+                    except RunnerError as e:
+                        self._session_errors.append(e)
+                        logger.warn(
+                            "Error execute on: {name}; Reason: {error} (Attempt {real} from {allowed})".format(
+                                name=str(self),
+                                error=e,
+                                real=len(self._session_errors),
+                                allowed=self._fault_tolerance,
+                            ))
+                    else:
+                        if len(self._session_errors):
+                            logger.debug(
+                                f"Host '{self}': Runtime errors occurred during tolerance period cleared")
+                            self._session_errors.clear()
+                sleep(2)
+                self._run_command(context, self.flow_type.Teardown)
+                logger.info(f"Host {self}: Teardown completed", also_console=True)
+        sleep(2)
+        logger.info(f"PlugIn '{self}' stopped")
+
+    def _non_persistent_worker(self):
+        logger.info(f"\nPlugIn '{self}' started")
+        with self.on_connection() as ssh:
+            self._run_command(ssh, self.flow_type.Setup)
+            logger.info(f"Host {self}: Setup completed", also_console=True)
+        while self.is_continue_expected:
+            with self.on_connection() as ssh:
+                # try:
+                start_ts = datetime.now()
+                _timedelta = timedelta(seconds=self.parameters.interval) \
+                    if self.parameters.interval is not None else timedelta(seconds=0)
+                next_ts = start_ts + _timedelta
+                self._run_command(ssh, self.flow_type.Command)
+                if self.parameters.interval is not None:
+                    evaluate_duration(start_ts, next_ts, self.host_alias)
+            while datetime.now() < next_ts:
+                if not self.is_continue_expected:
+                    break
+                sleep(0.5)
+        with self.on_connection() as ssh:
+            self._run_command(ssh, self.flow_type.Teardown)
+            logger.info(f"Host {self}: Teardown completed", also_console=True)
+        logger.info(f"PlugIn '{self}' stopped")
 
 
 class plugin_integration_abstract(object):

@@ -53,7 +53,7 @@ Test Host monitor
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  apache  kworker=True
 #    pause monitor  Pause1
-    wait  ${DURATION}
+    wait  ${DURATION}  reminder=10s
 #    resume monitor  Pause1
 #    remove from plugin  aTop  apache  kworker=True
 #    wait  ${DURATION}

@@ -32,6 +32,7 @@ class ParseRC(Parser):
 
 
 __all__ = ['SSH_PlugInAPI',
+           'Common_PlugInAPI',
            'FlowCommands',
            SSHLibraryCommand.__name__,
            'extract_method_arguments',
