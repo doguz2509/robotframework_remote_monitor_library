@@ -182,9 +182,8 @@ class ConnectionKeywords:
         if not db.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit, host, username, password, port,
-                                alias,
-                                certificate, timeout)
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit,
+                                host, username, password, port, alias, certificate, timeout)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
             _alias = self._modules.register(module, module.alias)

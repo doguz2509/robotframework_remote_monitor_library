@@ -15,6 +15,7 @@ def _get_y_limit(data):
 def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None, **marks):
     try:
         errors = []
+        title = ''
         for data in chart.generate_chart_data(sql_data):
             try:
                 title, x, y, chart_data = data
@@ -45,7 +46,7 @@ def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None,
                 yield title.upper(), file_path
             except Exception as e:
                 f, li = get_error_info()
-                errors.append(type(e)(f"{title}, {prefix}; Error: {e}; File: {f}:{li}"))
+                errors.append(f"{e}; File; {f}:{li}")
     except Exception as e:
         f, l = get_error_info()
         raise RuntimeError(f"Probably SQL query failed; Reason: {e}; File: {f}:{l}")

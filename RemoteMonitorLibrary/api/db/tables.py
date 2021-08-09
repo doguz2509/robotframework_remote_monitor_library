@@ -3,8 +3,9 @@ from RemoteMonitorLibrary.model.db_schema import Table, Field, FieldType, Primar
 
 class TraceHost(Table):
     def __init__(self):
-        super().__init__(name='TraceHost',
-                         fields=[Field('HOST_ID', FieldType.Int, PrimaryKeys(True)), Field('HostName')])
+        super().__init__(name='TraceHost')
+        self.add_field(Field('HOST_ID', FieldType.Int, PrimaryKeys(True)))
+        self.add_field(Field('HostName', FieldType.Text, PrimaryKeys(True)))
 
 
 class Points(Table):
