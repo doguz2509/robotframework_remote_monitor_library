@@ -110,7 +110,13 @@ class UserCommandParser(Parser):
         return True if st == 'Pass' else False
 
 
-class SSHLibrary(PlugInAPI):
+class SSHLibrary(SSH_PlugInAPI):
+    def upgrade_plugin(self, *args, **kwargs):
+        pass
+
+    def downgrade_plugin(self, *args, **kwargs):
+        pass
+
     def __init__(self, parameters, data_handler, command, **user_options):
         self._command = command
         assert self._command, "Commands not provided"

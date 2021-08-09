@@ -28,7 +28,7 @@ class Employment(model.Table):
         ])
 
 
-class my_address(plugins.PlugInAPI):
+class my_address(plugins.SSH_PlugInAPI):
     @staticmethod
     def affiliated_tables() -> Tuple[model.Table]:
         return Address(), Employment()
@@ -44,7 +44,7 @@ class my_address(plugins.PlugInAPI):
         data_handler(Employment().template('Morphisec', 'BsH', '09.2020', None))
 
 
-class my_job(plugins.PlugInAPI):
+class my_job(plugins.SSH_PlugInAPI):
     @staticmethod
     def affiliated_tables() -> Tuple[model.Table]:
         return Employment(),

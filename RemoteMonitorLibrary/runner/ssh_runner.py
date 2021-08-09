@@ -83,6 +83,7 @@ class SSHLibraryCommand:
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         self._start_in_folder = user_options.pop('start_in_folder', None)
+        # self._alias = user_options.pop('alias', None)
         self._ssh_options = dict(_normalize_method_arguments(method.__name__, **user_options))
         self._result_template = _ExecutionResult(**self._ssh_options)
         if self.parser:
@@ -110,6 +111,7 @@ class SSHLibraryCommand:
                f"{'; Parser: '.format(self.parser) if self.parser else ''}"
 
     def __call__(self, ssh_client: SSHLibrary, **runtime_options) -> Any:
+        # ssh_client.switch_connection(str(ssh_client))
         if self._command is not None:
             command = self.command_template.format(**runtime_options)
             logger.debug(
@@ -129,81 +131,15 @@ class SSHLibraryCommand:
 
 class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     def __init__(self, parameters: DotDict, data_handler, *user_args, **user_options):
-        # self._uuid = uuid.uuid4()
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
-        super().__init__(data_handler, *user_args, **user_options)
-
+        super().__init__(parameters, data_handler, *user_args, **user_options)
         self._execution_counter = 0
         self._ssh = SSHLibrary()
-        self._lock = RLock()
-        self._is_logged_in = False
-        self.parameters = parameters
-        self._interval = self.parameters.interval
-        self._internal_event = Event()
-        self._fault_tolerance = self.parameters.fault_tolerance
-        self._session_errors = []
-        assert self._host_id, "Host ID cannot be empty"
-        self._persistent = is_truthy(user_options.get('persistent', 'yes'))
-        self._thread: Thread = None
-
-    def _set_worker(self):
-        if self.persistent:
-            target = self._persistent_worker
-        else:
-            target = self._non_persistent_worker
-        self._thread = Thread(name=self.id, target=target, daemon=True)
 
     @property
-    def host_alias(self):
-        return self.parameters.alias
-
-    @property
-    def type(self):
-        return f"{self.__class__.__name__}"
-
-    # @property
-    # def uuid(self):
-    #     return self._uuid
-
-    # @property
-    # def id(self):
-    #     return f"{self.type}{f'-{self.name}' if self.type != self.name else ''}"
-
-    def __repr__(self):
-        return f"{self.id}"
-
-    def __str__(self):
-        return f"{self.id}::{self.host_alias}"
-
-    @property
-    def info(self):
-        _str = f"{self.__class__.__name__} on host {self.host_alias} ({self.id}) :"
-        for set_ in FlowCommands:
-            commands = getattr(self, set_.value, ())
-            _str += f"\n{set_.name}:"
-            if len(commands) > 0:
-                _str += '\n\t{}'.format('\n\t'.join([f"{c}" for c in getattr(self, set_.value, ())]))
-            else:
-                _str += f' N/A'
-        return _str
-
-    def start(self):
-        self._set_worker()
-        self._thread.start()
-
-    def stop(self, timeout=None):
-        timeout = timeout or '20s'
-        timeout = timestr_to_secs(timeout)
-        self._internal_event.set()
-        self._thread.join(timeout)
-        self._thread = None
-
-    @property
-    def is_alive(self):
-        if self._thread:
-            return self._thread.is_alive()
-        return False
+    def content_object(self):
+        return self._ssh
 
     @property
     def sudo_expected(self):
@@ -212,22 +148,6 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
     @property
     def sudo_password_expected(self):
         return self._sudo_password_expected
-
-    @property
-    def interval(self):
-        return self._interval
-
-    @property
-    def persistent(self):
-        return self._persistent
-
-    @staticmethod
-    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
-        for k in kwargs.keys():
-            v = kwargs.get(k)
-            if k.startswith(prefix):
-                kwargs.update({k: func(v)})
-        return kwargs
 
     def _close_ssh_library_connection_from_thread(self):
         try:
@@ -299,139 +219,3 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
         else:
             logger.info(f"Host '{self.id}::{self.host_alias}': Connection close not required (not opened)")
 
-    @contextmanager
-    def inside_host(self):
-        try:
-            with self._lock:
-                self.login()
-                assert self._ssh is not None, "Probably connection failed"
-                yield self._ssh
-        except RunnerError as e:
-            self._session_errors.append(e)
-            logger.warn(
-                "Non critical error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
-                    name=self.host_alias,
-                    error=e,
-                    real=len(self._session_errors),
-                    allowed=self._fault_tolerance,
-                ))
-        except Exception as e:
-            logger.error("Critical Error {name}; Reason: {error} (Attempt {real} from {allowed})".format(
-                name=self.host_alias,
-                error=e,
-                real=len(self._session_errors),
-                allowed=self._fault_tolerance,
-            ))
-            GlobalErrors().append(e)
-        else:
-            if len(self._session_errors):
-                logger.debug(
-                    f"Host '{self}': Runtime errors occurred during tolerance period cleared")
-            self._session_errors.clear()
-        finally:
-            self.exit()
-
-    @property
-    def is_continue_expected(self):
-        if not self._evaluate_tolerance():
-            self.parameters.event.set()
-            logger.error(f"Stop requested due of critical error")
-            return False
-        if self.parameters.event.isSet():
-            logger.info(f"Stop requested by external source")
-            return False
-        if self._internal_event.isSet():
-            logger.info(f"Stop requested internally")
-            return False
-        return True
-
-    def _run_command(self, ssh_client: SSHLibrary, flow: Enum):
-        total_output = ''
-        try:
-            ssh_client.switch_connection(repr(self))
-            flow_values = getattr(self, flow.value)
-            if len(flow_values) == 0:
-                raise EmptyCommandSet()
-            logger.debug(f"Iteration {flow.name} started")
-            for i, cmd in enumerate(flow_values):
-                run_status = cmd(ssh_client, **self.parameters)
-                total_output += ('\n' if len(total_output) > 0 else '') + "{} [Result: {}]".format(cmd, run_status)
-                sleep(0.05)
-        except EmptyCommandSet:
-            logger.warn(f"Iteration {flow.name} ignored")
-        except Exception as e:
-            raise RunnerError(f"{self}", f"Command set '{flow.name}' failed", e)
-        else:
-            logger.info(f"Iteration {flow.name} completed\n{total_output}")
-
-    def _persistent_worker(self):
-        logger.info(f"\nPlugIn '{self}' started")
-        while self.is_continue_expected:
-            with self.inside_host() as ssh:
-                self._run_command(ssh, self.flow_type.Setup)
-                logger.info(f"Host {self}: Setup completed", also_console=True)
-                while self.is_continue_expected:
-                    try:
-                        start_ts = datetime.now()
-                        _timedelta = timedelta(seconds=self.parameters.interval) \
-                            if self.parameters.interval is not None else timedelta(seconds=0)
-                        next_ts = start_ts + _timedelta
-                        self._run_command(ssh, self.flow_type.Command)
-                        if self.parameters.interval is not None:
-                            evaluate_duration(start_ts, next_ts, self.host_alias)
-                        while datetime.now() < next_ts:
-                            if not self.is_continue_expected:
-                                break
-                            sleep(0.5)
-                    except RunnerError as e:
-                        self._session_errors.append(e)
-                        logger.warn(
-                            "Error execute on: {name}; Reason: {error} (Attempt {real} from {allowed})".format(
-                                name=str(self),
-                                error=e,
-                                real=len(self._session_errors),
-                                allowed=self._fault_tolerance,
-                            ))
-                    else:
-                        if len(self._session_errors):
-                            logger.debug(
-                                f"Host '{self}': Runtime errors occurred during tolerance period cleared")
-                            self._session_errors.clear()
-                sleep(2)
-                self._run_command(ssh, self.flow_type.Teardown)
-                logger.info(f"Host {self}: Teardown completed", also_console=True)
-        sleep(2)
-        logger.info(f"PlugIn '{self}' stopped")
-
-    def _non_persistent_worker(self):
-        logger.info(f"\nPlugIn '{self}' started")
-        with self.inside_host() as ssh:
-            self._run_command(ssh, self.flow_type.Setup)
-            logger.info(f"Host {self}: Setup completed", also_console=True)
-        while self.is_continue_expected:
-            with self.inside_host() as ssh:
-                # try:
-                start_ts = datetime.now()
-                _timedelta = timedelta(seconds=self.parameters.interval) \
-                    if self.parameters.interval is not None else timedelta(seconds=0)
-                next_ts = start_ts + _timedelta
-                self._run_command(ssh, self.flow_type.Command)
-                if self.parameters.interval is not None:
-                    evaluate_duration(start_ts, next_ts, self.host_alias)
-                # except RunnerError as e:
-                #     self._session_errors.append(e)
-                #     logger.warn(
-                #         "Error connection to {name}; Reason: {error} (Attempt {real} from {allowed})".format(
-                #             name=self.host_alias,
-                #             error=e,
-                #             real=len(self._session_errors),
-                #             allowed=self._fault_tolerance,
-                #         ))
-            while datetime.now() < next_ts:
-                if not self.is_continue_expected:
-                    break
-                sleep(0.5)
-        with self.inside_host() as ssh:
-            self._run_command(ssh, self.flow_type.Teardown)
-            logger.info(f"Host {self}: Teardown completed", also_console=True)
-        logger.info(f"PlugIn '{self}' stopped")

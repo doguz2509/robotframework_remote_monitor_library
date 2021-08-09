@@ -2,24 +2,27 @@
 Documentation    Suite description
 
 #Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
-Library  RemoteMonitorLibrary.RemoteMonitorLibrary  start_test=yes  end_test=yes  log_to_db=yes
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary  ${OUTPUT DIR}/logs
+...     log_to_db=yes
+...     cumulative=yes
+
 Library  SSHLibrary
 Library  BuiltIn
 
 Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
 
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
-#Test Setup   Start period  ${TEST_NAME}
+Test Setup   Start period  ${TEST_NAME}
 #Test Teardown  generate module statistics  ${TEST_NAME}
-Suite Teardown   run keywords  generate module statistics
-...             AND  Terminate all monitors
+Suite Teardown   Terminate all monitors
 
 *** Variables ***
 ${CERTIFICATE}  ${EMPTY}
 ${PASSWORD}     ${EMPTY}
-${DURATION}  20s
-${INTERVAL}  2s
-${PERSISTENT}  yes
+${DURATION}     20s
+${INTERVAL}     2s
+${PERSISTENT}   yes
+${CHART_FOR}     ${EMPTY}
 
 *** Test Cases ***
 Test own keywords
@@ -53,13 +56,15 @@ Test Host monitor
 #    Register KW  end_test  fatal error  StamFatal
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
-    remove from plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
-    add to plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
-    remove from plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
+#    pause monitor  Pause1
+    wait  ${DURATION}  reminder=10s
+#    resume monitor  Pause1
+#    remove from plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
+#    add to plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
+#    remove from plugin  aTop  apache  kworker=True
+#    wait  ${DURATION}
 
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  return_rc=yes  name=demo_attack
 #    ...     return_stderr=yes  rc=137|128|127
@@ -79,6 +84,13 @@ Test Host monitor
     generate module statistics  period=${TEST_NAME}  plugin=aTop
 
 #    [Teardown]  terminate_all_monitors
+Generate charts
+    [Tags]  ChartsOnly
+    run keyword if  '${CHART_FOR}' == '${EMPTY}'  fail  Test name not provided
+    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+    add to plugin  aTop  mlplogd  mlpdbd  mlpgwd  mlpagent  kworker  systemd  atop
+    Terminate all monitors
+    generate module statistics  ${CHART_FOR}  plugin=aTop
 
 #Test statistic
 #    [Tags]  systrace_test

@@ -1,9 +1,10 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
+from typing import Optional
 
 from robot.api.deco import keyword
-from robot.utils import is_truthy, timestr_to_secs
+from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
@@ -175,12 +176,14 @@ class ConnectionKeywords:
         | end_test
 
         """
+
+        module: Optional[HostModule] = None
+
         if not db.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit, host, username, password, port,
-                                alias,
-                                certificate, timeout)
+            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit,
+                                host, username, password, port, alias, certificate, timeout)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
             _alias = self._modules.register(module, module.alias)
@@ -342,21 +345,27 @@ class ConnectionKeywords:
                                         datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Wait")
-    def wait(self, timeout, reason=None):
+    def wait(self, timeout, reason=None, reminder='1h'):
         """
         Wait are native replacement for keyword 'sleep' from BuiltIn library
         Difference: wait exit in case Any global errors occurred within active Plugins
 
         Arguments:
-        - timeout: String in robot format (20, 1s, 1h, etc.)
-        - reason:  Any string to indicate exit if no errors occurred
+        - timeout:  String in robot format (20, 1s, 1h, etc.)
+        - reason:   Any string to indicate exit if no errors occurred
+        - reminder: Log out remain time each <remind> period
         """
         timeout_sec = timestr_to_secs(timeout)
         end_time = datetime.now() + timedelta(seconds=timeout_sec)
-
+        next_reminder_time = datetime.now() + timedelta(seconds=timestr_to_secs(reminder))
+        BuiltIn().log(f"Waiting {timeout} ({timeout_sec}sec.) till {end_time.strftime('%F %H:%H:%S')}", console=True)
         while datetime.now() <= end_time:
             if len(GlobalErrors()) > 0:
                 BuiltIn().fail("Global error occurred: {}".format('\n\t'.join([f"{e}" for e in GlobalErrors()])))
+            elif datetime.now() >= next_reminder_time:
+                BuiltIn().log(f"Remain {secs_to_timestr((end_time - datetime.now()).total_seconds(), compact=True)}",
+                              console=True)
+                next_reminder_time = datetime.now() + timedelta(seconds=timestr_to_secs(reminder))
             sleep(1)
         if reason:
             BuiltIn().log(reason)
