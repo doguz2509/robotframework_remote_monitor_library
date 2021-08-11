@@ -173,7 +173,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             return False
         return True
 
-    def login(self):
+    def open_connection(self):
         host = self.parameters.host
         port = self.parameters.port
         username = self.parameters.username
@@ -210,7 +210,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                     raise TimeoutError(
                         f"Cannot connect to '{self.host_alias}' during {self.parameters.timeout}s")
 
-    def exit(self):
+    def close_connection(self):
         if self._is_logged_in:
             self._ssh.switch_connection(repr(self))
             self._close_ssh_library_connection_from_thread()

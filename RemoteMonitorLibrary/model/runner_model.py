@@ -284,7 +284,7 @@ class plugin_runner_abstract:
     def on_connection(self):
         try:
             with self._lock:
-                self.login()
+                self.open_connection()
 
                 yield self.content_object
         except RunnerError as e:
@@ -310,7 +310,7 @@ class plugin_runner_abstract:
                     f"Host '{self}': Runtime errors occurred during tolerance period cleared")
             self._session_errors.clear()
         finally:
-            self.exit()
+            self.close_connection()
 
     @property
     def content_object(self):
@@ -319,10 +319,10 @@ class plugin_runner_abstract:
         """
         raise NotImplementedError()
 
-    def login(self):
+    def open_connection(self):
         raise NotImplementedError()
 
-    def exit(self):
+    def close_connection(self):
         raise NotImplementedError()
 
     @property
@@ -431,10 +431,10 @@ class plugin_integration_abstract(object):
         return []
 
     def upgrade_plugin(self, *args, **kwargs):
-        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+        logger.warn(f"PlugIn '{self.__class__.__name__}' doesn't have upgradable items")
 
     def downgrade_plugin(self, *args, **kwargs):
-        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+        logger.warn(f"PlugIn '{self.__class__.__name__}' doesn't have downgradable items")
 
     @property
     def id(self):
