@@ -1,5 +1,7 @@
 from abc import ABC
 
+from robot.utils import is_truthy
+
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.model.configuration import Configuration
 from RemoteMonitorLibrary.model.runner_model import Parser, plugin_integration_abstract, plugin_runner_abstract,\
@@ -14,7 +16,14 @@ class SSH_PlugInAPI(ABC, SSHLibraryPlugInWrapper, plugin_integration_abstract):
     Output collecting during execution and sending to parsing and loading to data handler
     On connection interrupting command session restarting and output collecting continue
     """
-    pass
+
+    @staticmethod
+    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
+        for k in kwargs.keys():
+            v = kwargs.get(k)
+            if k.startswith(prefix):
+                kwargs.update({k: func(v)})
+        return kwargs
 
 
 class Common_PlugInAPI(ABC, plugin_integration_abstract, plugin_runner_abstract):

@@ -2,6 +2,8 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
+from robot.utils import is_truthy
+
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, db
@@ -111,11 +113,6 @@ class UserCommandParser(Parser):
 
 
 class SSHLibrary(SSH_PlugInAPI):
-    def upgrade_plugin(self, *args, **kwargs):
-        pass
-
-    def downgrade_plugin(self, *args, **kwargs):
-        pass
 
     def __init__(self, parameters, data_handler, command, **user_options):
         self._command = command

@@ -178,14 +178,6 @@ class plugin_runner_abstract:
         return self._persistent
 
     @staticmethod
-    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
-        for k in kwargs.keys():
-            v = kwargs.get(k)
-            if k.startswith(prefix):
-                kwargs.update({k: func(v)})
-        return kwargs
-
-    @staticmethod
     def _normalise_commands(*commands):
         for command in commands:
             if isinstance(command, (list, tuple)):
