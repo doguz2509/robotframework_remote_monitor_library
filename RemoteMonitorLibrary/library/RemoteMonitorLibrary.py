@@ -4,15 +4,14 @@ import re
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from RemoteMonitorLibrary.utils.logger_helper import logger
-
 from RemoteMonitorLibrary import plugins
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
-from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract
 from RemoteMonitorLibrary.utils import load_modules, print_plugins_table
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.version import VERSION
 
 DEFAULT_SYSTEM_TRACE_LOG = 'logs'
@@ -67,7 +66,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
             current_dir = ''
 
         plugin_modules = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
-                                      base_path=current_dir, base_class=SSHLibraryPlugInWrapper)
+                                      base_path=current_dir, base_class=plugin_runner_abstract)
         db.PlugInService().update(**plugin_modules)
         print_plugins_table(db.PlugInService())
         doc_path = self._get_doc_link()
