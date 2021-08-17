@@ -30,7 +30,7 @@ def filter_class_by(classes_, filter_class):
 
 def load_classes_from_module_from_dir(path, base_class=None):
     result = {}
-    for file in [f for f in os.listdir(path) if f.endswith('.py')]:
+    for file in [f for f in os.listdir(path) if f.endswith('__init__.py')]:
         result.update(load_classes_from_module_by_name(path, file, base_class))
     return result
 
