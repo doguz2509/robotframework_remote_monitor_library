@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from enum import Enum
@@ -11,6 +12,7 @@ from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import db_schema as model
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.model.errors import RunnerError, EmptyCommandSet, PlugInError
+from RemoteMonitorLibrary.model.registry_model import RegistryModule
 from RemoteMonitorLibrary.utils import evaluate_duration
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
@@ -421,6 +423,11 @@ class plugin_integration_abstract(object):
     @staticmethod
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return []
+
+    @staticmethod
+    @abstractmethod
+    def affiliated_modules():
+        raise NotImplemented()
 
     def upgrade_plugin(self, *args, **kwargs):
         logger.warn(f"PlugIn '{self.__class__.__name__}' doesn't have upgradable items")

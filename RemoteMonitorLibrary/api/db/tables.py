@@ -5,7 +5,7 @@ class TraceHost(Table):
     def __init__(self):
         super().__init__(name='TraceHost')
         self.add_field(Field('HOST_ID', FieldType.Int, PrimaryKeys(True)))
-        self.add_field(Field('HostName', FieldType.Text, unique=True))
+        self.add_field(Field('HostName', FieldType.Text, not_null=True, unique=True))
 
 
 class Points(Table):

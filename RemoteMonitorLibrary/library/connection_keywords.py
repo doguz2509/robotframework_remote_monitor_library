@@ -9,10 +9,11 @@ from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
-from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
+from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
 
 
 class ConnectionKeywords:
@@ -136,60 +137,23 @@ class ConnectionKeywords:
         ]
 
     @keyword("Create host monitor")
-    def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None,
-                            timeout=None):
-        """
-        Create basic host connection module used for trace host
-        Last created connection handled as 'current'
-        In case tracing required for one host only, alias can be ignored
-
-        Connection arguments:
-        - host: IP address, DNS name,
-        - username
-        - password
-        - port          : 22 if omitted
-        - certificate   : key file (.pem) Optional
-
-        Extra arguments:
-        - alias: 'username@host:port' if omitted
-        - timeout       : connection & command timeout
-        - log_to_db     : logger will store logs into db (table: log; Will cause db file size size growing)
-
-        Examples:
-        |  KW                       |  Host     | Username | Password       | Port  | Alias             | Comments              |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |                   | Default port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |                   | Custom port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name}       | Custom port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name} | Default port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  certificate=key_file.pem | Certificate file will be assigned  |
-
-        === Auto start/stop periods ===
-        By default keyword `Start period`, `Stop period` assigned for start/end test accordingly following by test name
-
-        Can be overwritten by key value pairs
-        | listener method=keyword name
-
-        Where listener are one of:
-        | start_suite
-        | end_suite
-        | start_test
-        | end_test
-
-        """
-
-        module: Optional[HostModule] = None
+    def create_host_monitor(self, module_type: Modules, alias=None, **module_options):
+        """Following modules supporting monitoring:
+            - {n1}:
+              {d1} 
+        """.format(n1=Modules.SSH.name, d1=Modules.SSH.value.__doc__)
 
         if not db.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit,
-                                host, username, password, port, alias, certificate, timeout)
+            module = module_type.value(db.PlugInService(), db.DataHandlerService().add_data_unit,
+                                       alias=alias, **module_options)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
             _alias = self._modules.register(module, module.alias)
             self._start_period(alias=module.alias)
         except Exception as e:
-            BuiltIn().fatal_error(f"Cannot start module '{module}; Reason: {e}")
+            BuiltIn().fatal_error(f"Cannot start module '{module_type.name}; Reason: {e}")
         else:
             return module.alias
 
@@ -228,7 +192,7 @@ class ConnectionKeywords:
 
         """
         try:
-            monitor: HostModule = self._modules.get_connection(alias)
+            monitor: SSHHostModule = self._modules.get_connection(alias)
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
@@ -262,7 +226,7 @@ class ConnectionKeywords:
         - reason: Pause reason text
         - alias: Desired monitor alias (Default: current)
         """
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: SSHHostModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
@@ -280,7 +244,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: SSHHostModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -300,7 +264,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: SSHHostModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -318,7 +282,7 @@ class ConnectionKeywords:
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
+        module: SSHHostModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         db.DataHandlerService().execute(insert_sql(table.name, table.columns),
                                         module.host_id, period_name or module.alias,
@@ -337,7 +301,7 @@ class ConnectionKeywords:
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
+        module: SSHHostModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         point_name = rf"{period_name or module.alias}"
         db.DataHandlerService().execute(update_sql(table.name, 'End',
@@ -372,7 +336,7 @@ class ConnectionKeywords:
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
+        module: SSHHostModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         db.DataHandlerService().execute(update_sql(table.name, 'Mark',
                                                    HOST_REF=module.host_id, PointName=mark_name),
@@ -403,4 +367,3 @@ class ConnectionKeywords:
         - kw_name: Keyword name
         """
         self.ROBOT_LIBRARY_LISTENER.unregister(hook, kw_name)
-

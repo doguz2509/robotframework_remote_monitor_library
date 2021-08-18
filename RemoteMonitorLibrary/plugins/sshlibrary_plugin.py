@@ -2,13 +2,13 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
-from robot.utils import is_truthy
-
-from RemoteMonitorLibrary.utils.logger_helper import logger
 
 from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
+from RemoteMonitorLibrary.model.registry_model import RegistryModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 __doc__ = """
     == SSHLibrary PlugIn ==
@@ -138,6 +138,10 @@ class SSHLibrary(SSH_PlugInAPI):
                                             **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
                                                                             **self.options)))
                           )
+
+    @staticmethod
+    def affiliated_modules():
+        return SSHHostModule
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

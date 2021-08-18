@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import sqlite3
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from queue import Queue
@@ -52,12 +53,15 @@ class DataUnit:
                 data[i] = table.template(**_temp)
         return data
 
-    def get_insert_data(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+    def get_insert_data(self, **updates):
         data = self._update_data(self._table, self._data, **updates)
         self._data = [tuple(r) for r in data]
 
     def __str__(self):
         return insert_sql(self._table.name, self._table.columns)
+
+    def __len__(self):
+        return len(self._data)
 
     @staticmethod
     def _raise_timeout(msg):
@@ -104,13 +108,13 @@ class DataRowUnitWithOutput(DataUnit):
         self._output = kwargs.get('output', None)
         assert self._output, "Output not provided"
 
-    def __call__(self, **updates) -> Tuple[str, Iterable[Iterable]]:
+    def __call__(self, **updates):
         output_ref = CacheLines().upload(self._output)
         for i in range(0, len(self._data)):
             _template = DotDict(self._data[i]._asdict())
             _template.update({'OUTPUT_REF': output_ref})
             self._data[i] = self.table.template(*list(_template.values()))
-        return super().__call__(**updates)
+        super().__call__(**updates)
 
 
 def data_factory(table, *data, **kwargs) -> DataUnit:
@@ -168,7 +172,7 @@ class DataHandlerService:
 
     @property
     def queue(self):
-        if self._event.isSet():
+        if self._event.is_set():
             logger.warn(f"Stop invoked; new data cannot be enqueued")
             return self._queue.__class__()
         return self._queue
@@ -177,16 +181,16 @@ class DataHandlerService:
         self._db = sql_engine.SQL_DB(location, file_name, cumulative)
 
     def start(self, event=Event()):
-        if self._db.is_new:
-            for name, table in TableSchemaService().tables.items():
-                try:
-                    assert not self._db.table_exist(table.name), f"Table '{name}' already exists"
-                    self._db.execute(sql_engine.create_table_sql(table.name, table.fields, table.foreign_keys))
-                except AssertionError as e:
-                    logger.warn(f"{e}")
-                except Exception as e:
-                    logger.error(f"Cannot create table '{name}' -> Error: {e}")
-                    raise
+        # if self._db.is_new:
+        for name, table in TableSchemaService().tables.items():
+            try:
+                assert not self._db.table_exist(table.name)
+                self._db.execute(sql_engine.create_table_sql(table.name, table.fields, table.foreign_keys))
+            except AssertionError:
+                logger.info( f"Table '{name}' already exists")
+            except Exception as e:
+                logger.error(f"Cannot create table '{name}' -> Error: {e}")
+                raise
         self._event = event
 
         dh = Thread(name='DataHandler', target=self._data_handler, daemon=True)
@@ -207,8 +211,10 @@ class DataHandlerService:
     def execute(self, sql_text, *rows):
         try:
             return self._db.execute(sql_text, *rows)
+        except sqlite3.IntegrityError:
+            raise
         except Exception as e:
-            logger.error("DB execute error: {}\n{}\n{}".format(e, sql_text, '\n\t'.join([r for r in rows])))
+            logger.error("DB execute error: {}\n{}\n{}".format(e, sql_text, '\n\t'.join([f"{r}" for r in rows])))
             raise
 
     @property
@@ -216,6 +222,9 @@ class DataHandlerService:
         return self._db.get_last_row_id
 
     def add_data_unit(self, item: DataUnit):
+        # if len(item) == 0:
+        #     logger.warn(f"Empty data unit arrived: {item}")
+        #     return
         if isinstance(item.table, PlugInTable):
             last_tl_id = cache_timestamp(item.timestamp)
             item(TL_ID=last_tl_id)
@@ -230,19 +239,22 @@ class DataHandlerService:
         logger.debug(f"{self.__class__.__name__} Started with event {id(self._event)}")
         while True:
             if self.queue.empty():
-                if self._event.isSet():
+                if self._event.is_set():
                     break
                 else:
                     continue
-
-            item = self.queue.get()
+            item = None
             try:
+                item = self.queue.get()
                 logger.debug(f"Deque item: '{item}' (Current queue size {self.queue.qsize()})")
                 insert_sql_str, rows = item.sql_data
+                assert len(rows) > 0, "Empty data unit arrived"
                 result = self.execute(insert_sql_str, rows) if rows else self.execute(insert_sql_str)
                 item.result = result
                 logger.debug("Insert item: {}\n\t{}\n\t{}".format(type(item).__name__, insert_sql_str,
                                                                   '\n\t'.join([str(r) for r in rows])))
+            except AssertionError as e:
+                logger.warn(f"{e}")
             except Exception as e:
                 f, l = get_error_info()
                 logger.error(f"Unexpected error occurred on {type(item).__name__}: {e}; File: {f}:{l}")

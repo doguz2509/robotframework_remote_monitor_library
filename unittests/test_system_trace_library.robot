@@ -9,7 +9,7 @@ Library  RemoteMonitorLibrary.RemoteMonitorLibrary  ${OUTPUT DIR}/logs
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
+Suite Setup  Create host monitor  SSH  host=${HOST}  username=${USER}  password=${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
 
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 Test Setup   Start period  ${TEST_NAME}

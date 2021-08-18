@@ -2,17 +2,17 @@ import json
 import re
 from collections import namedtuple, OrderedDict
 from datetime import datetime
-from typing import Iterable, Tuple, List, Any, AnyStr, Dict
-
-from robot.utils import timestr_to_secs
+from typing import Iterable, Tuple, List, Any
 
 from SSHLibrary import SSHLibrary
-
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
+from RemoteMonitorLibrary.model.registry_model import RegistryModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
 from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 __doc__ = """
 == aTop plugin overview == 
@@ -287,11 +287,10 @@ class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
 
     @staticmethod
     def _format_size(size_, rate='M'):
-        if size_ == '-':
+        if '-' in size_:
             return 0
         if size_ == -1:
             return size_
-
         return Size(size_).set_format(rate).number
 
     def generate_atop_process_level(self, lines, *defaults):
@@ -388,13 +387,14 @@ class aTopParser(Parser):
                 process_portion = 'PID\t' + process_portion
                 if ts not in self._ts_cache:
                     self._ts_cache.append(ts)
-                    self.data_handler(aTopSystem_DataUnit(self.table['system'], self.host_id,
-                                                          *system_portion.splitlines()))
+                    du_system = aTopSystem_DataUnit(self.table['system'], self.host_id,
+                                                    *system_portion.splitlines())
+                    self.data_handler(du_system)
                     if ProcessMonitorRegistry().is_active:
-                        data_portion = self._data_unit_class(self.table['process'], self.host_id,
-                                                             *process_portion.splitlines()[1:],
-                                                             processes_id=self.id)
-                        self.data_handler(data_portion)
+                        du_process = self._data_unit_class(self.table['process'], self.host_id,
+                                                           *process_portion.splitlines()[1:],
+                                                           processes_id=self.id)
+                        self.data_handler(du_process)
 
         except Exception as e:
             f, li = get_error_info()
@@ -406,6 +406,7 @@ class aTopParser(Parser):
 
 
 class aTop(SSH_PlugInAPI):
+
     OS_DATE_FORMAT = {
         'debian': '%H:%M',
         'fedora': '%Y%m%d%H%M'
@@ -510,6 +511,10 @@ class aTop(SSH_PlugInAPI):
         for process in processes_to_unregister:
             ProcessMonitorRegistry().deactivate(self.id, process)
         logger.info(f"Following processes removed from monitor: {', '.join(processes_to_unregister)}")
+
+    @staticmethod
+    def affiliated_modules():
+        return SSHHostModule
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
