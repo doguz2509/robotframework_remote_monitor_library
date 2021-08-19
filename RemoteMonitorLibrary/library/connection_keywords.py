@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Optional
 
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
@@ -9,11 +8,11 @@ from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
+from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
 from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
-from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
 
 
 class ConnectionKeywords:
@@ -46,7 +45,8 @@ class ConnectionKeywords:
     | Library           RemoteMonitorLibrary 
     | Library           BuiltIn
     | 
-    | Suite Setup       Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+    | Suite Setup    run keyword   Create host monitor  SSH  host=${HOST}  username=${USER}  password=${PASSWORD}  ...
+    | ...           AND  Create host monitor  WEB  url=${URL}  user=${USER}  password=${PASSWORD}  ...
     | Suite Teardown    terminate_all_monitors
     |
     | ***** Variables *****
@@ -57,12 +57,26 @@ class ConnectionKeywords:
     | ${PERSISTENT}     yes
     | ${DURATION}       1h
     |
+    | ${URL}            ...
+    | ${W_USER}         ...
+    | ${W_PASSWORD}     ...
+    | ${UUID}           ...
     | ***** Tests *****
     | Test Host monitor
-    |   [Tags]  monitor
+    |   [Tags]  ssh  monitor
     |   Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
     |   Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
     |   ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    |   sleep  ${DURATION}  make something here
+    |   Stop monitor plugin  Time  name=Complilation
+    |   [Teardown]  run keywords  generate module statistics  plugin=Time  name=Compilation
+    |   ...         AND  generate module statistics  plugin=aTop
+    |
+    | Test WEB monitor
+    |   [Tags]  web  monitor
+    |   Start monitor plugin  API  interval=${INTERVAL}  persistent=${PERSISTENT}  protectorUuid=${UUID}  
+    |   ...                         protectorStatus=CONNECTED  
+    |   
     |   sleep  ${DURATION}  make something here
     |   Stop monitor plugin  Time  name=Complilation
     |   [Teardown]  run keywords  generate module statistics  plugin=Time  name=Compilation
@@ -138,10 +152,48 @@ class ConnectionKeywords:
 
     @keyword("Create host monitor")
     def create_host_monitor(self, module_type: Modules, alias=None, **module_options):
-        """Following modules supporting monitoring:
-            - {n1}:
-              {d1} 
-        """.format(n1=Modules.SSH.name, d1=Modules.SSH.value.__doc__)
+        """Create basic host connection module used for trace host
+        Last created connection handled as 'current'
+        In case tracing required for one host only, alias can be ignored
+
+        # Arguments:
+        - alias: 'username@host:port' if omitted
+        - timeout       : connection & command timeout
+
+
+        == Supported modules ==
+        === SSH ===
+        Connection arguments:
+            - host: IP address, DNS name,
+            - username
+            - password
+            - port          : 22 if omitted
+            - certificate   : key file (.pem) Optional
+
+        === SSH Examples ===
+        |  KW                    | Module   |  Arguments             | Comments              |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password=any_password  | Default port; No alias |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  port=2243        | Custom port; No alias |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  alias=<name>     | Custom port; Alias    |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  alias=${my_name} | Default port; Alias    |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  certificate=key_file.pem | Certificate file will be assigned  |
+
+        === WEB Examples ===
+        |  KW                    | Module   |  Arguments             | Comments              |
+        |  Create host monitor   | WEB  | url=www.d.com  user=any_user  password=any_password  | Default port; No alias |
+
+        === Auto start/stop periods ===
+        By default keyword `Start period`, `Stop period` assigned for start/end test accordingly following by test name
+
+        Can be overwritten by key value pairs
+        | listener method=keyword name
+
+        Where listener are one of:
+        | start_suite
+        | end_suite
+        | start_test
+        | end_test
+        """
 
         if not db.DataHandlerService().is_active:
             self._init()

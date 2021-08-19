@@ -426,7 +426,7 @@ class plugin_integration_abstract(object):
 
     @staticmethod
     @abstractmethod
-    def affiliated_modules():
+    def affiliated_module():
         raise NotImplemented()
 
     def upgrade_plugin(self, *args, **kwargs):

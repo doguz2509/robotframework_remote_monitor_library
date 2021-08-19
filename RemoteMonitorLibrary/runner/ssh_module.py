@@ -2,73 +2,25 @@ from sqlite3 import IntegrityError
 from threading import Event
 from typing import Callable, Dict, AnyStr, Tuple
 
-from robot.utils import timestr_to_secs
-
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.model.registry_model import RegistryModule
 from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, select_sql
 
-DEFAULT_INTERVAL = 1
-DEFAULT_CONNECTION_INTERVAL = 60
-DEFAULT_FAULT_TOLERANCE = 10
-
 schema: Dict[AnyStr, Tuple] = {
-    'alias': (True, None, str, str),
     'host': (True, None, str, str),
     'username': (True, None, str, str),
     'password': (False, '', str, str),
     'port': (False, 22, int, int),
     'certificate': (False, None, str, str),
-    'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
-    'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
-    'event': (False, Event(), Event, Event),
-    'timeout': (True, DEFAULT_CONNECTION_INTERVAL, timestr_to_secs, (int, float))
 }
 
 
 class SSHHostModule(RegistryModule):
-    __doc__ = """Create basic host connection module used for trace host
-        Last created connection handled as 'current'
-        In case tracing required for one host only, alias can be ignored
-
-        Connection arguments:
-        - host: IP address, DNS name,
-        - username
-        - password
-        - port          : 22 if omitted
-        - certificate   : key file (.pem) Optional
-
-        Extra arguments:
-        - alias: 'username@host:port' if omitted
-        - timeout       : connection & command timeout
-        - log_to_db     : logger will store logs into db (table: log; Will cause db file size size growing)
-
-        Examples:
-        |  KW                       |  Host     | Username | Password       | Port  | Alias             | Comments              |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |                   | Default port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |                   | Custom port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name}       | Custom port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name} | Default port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  certificate=key_file.pem | Certificate file will be assigned  |
-
-        === Auto start/stop periods ===
-        By default keyword `Start period`, `Stop period` assigned for start/end test accordingly following by test name
-
-        Can be overwritten by key value pairs
-        | listener method=keyword name
-
-        Where listener are one of:
-        | start_suite
-        | end_suite
-        | start_test
-        | end_test
-    """
-
     def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
                  port=None, alias=None, certificate=None, timeout=None, interval=None):
         super().__init__(plugin_registry, data_handler, schema,
-                         alias or f"{username}@{host}:{port}",
+                         alias or "SSH",
                          host=host, username=username, password=password,
                          port=port, certificate=certificate, event=None,
                          timeout=timeout, interval=interval)
@@ -107,7 +59,7 @@ class SSHHostModule(RegistryModule):
         plugin_conf = self.config.clone()
         tail = plugin_conf.update(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
-        assert plugin.affiliated_modules() == type(self), f"Module '{plugin_name}' not affiliated with module '{self}'"
+        assert plugin.affiliated_module() == type(self), f"Module '{plugin_name}' not affiliated with module '{self}'"
         try:
             assert plugin, f"Plugin '{plugin_name}' not registered"
             plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)

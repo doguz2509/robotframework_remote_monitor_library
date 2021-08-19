@@ -1,28 +1,46 @@
 from abc import ABCMeta, abstractmethod
+from threading import Event
 from typing import Callable, Dict, AnyStr, Tuple, Any
+
+from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import Configuration
 
 _REGISTERED = -1
+DEFAULT_INTERVAL = 1
+
+DEFAULT_CONNECTION_INTERVAL = 60
+DEFAULT_FAULT_TOLERANCE = 10
 
 
-def get_register_id():
+def _get_register_id():
     global _REGISTERED
     _REGISTERED += 1
     return _REGISTERED
 
 
 class RegistryModule(metaclass=ABCMeta):
+    schema: Dict[AnyStr, Tuple] = {
+        'alias': (True, None, str, str),
+        'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
+        'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
+        'event': (False, Event(), Event, Event),
+        'timeout': (True, DEFAULT_CONNECTION_INTERVAL, timestr_to_secs, (int, float)),
+        'level': (False, 'INFO', str, str)
+    }
 
-    def __init__(self, plugin_registry, data_handler: Callable, schema: Dict[AnyStr, Tuple[bool, Any, Callable, Any]],
+    def __init__(self, plugin_registry, data_handler: Callable, addon_to_schema: Dict[AnyStr, Tuple[bool, Any, Callable, Any]],
                  alias=None, **options):
-        self._configuration = Configuration(schema, alias=alias, **options)
+
+        self.schema.update(**addon_to_schema)
         self._plugin_registry = plugin_registry
         self._data_handler = data_handler
         self._active_plugins = {}
 
-        self._host_id = get_register_id()
+        self._host_id = _get_register_id()
+        alias = alias or self.__class__.__name__.lower()
+        self._configuration = Configuration(self.schema, alias=f"{alias}_{self.host_id:02d}", **options)
         self._errors = GlobalErrors()
 
     @abstractmethod

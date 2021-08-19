@@ -9,8 +9,7 @@ from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.model.registry_model import RegistryModule
-from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
+from RemoteMonitorLibrary.runner import SSHHostModule
 from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 from RemoteMonitorLibrary.utils import logger
 
@@ -513,7 +512,7 @@ class aTop(SSH_PlugInAPI):
         logger.info(f"Following processes removed from monitor: {', '.join(processes_to_unregister)}")
 
     @staticmethod
-    def affiliated_modules():
+    def affiliated_module():
         return SSHHostModule
 
     @staticmethod

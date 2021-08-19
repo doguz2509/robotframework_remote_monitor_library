@@ -32,6 +32,7 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         For current phase only data presentation in charts available.
         
         == Keywords & Usage ==
+        - log_to_db     : logger will store logs into db (table: log; Will cause db file size size growing)
         
         {}
 

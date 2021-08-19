@@ -377,7 +377,7 @@ class Time(SSH_PlugInAPI):
             ssh.directory_should_exist(os.path.expanduser(self._start_in_folder))
 
     @staticmethod
-    def affiliated_modules():
+    def affiliated_module():
         return SSHHostModule
 
     @staticmethod
