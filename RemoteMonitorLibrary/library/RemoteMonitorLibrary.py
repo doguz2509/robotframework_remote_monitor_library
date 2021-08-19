@@ -11,7 +11,7 @@ from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract
 from RemoteMonitorLibrary.utils import load_modules, print_plugins_table
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.version import VERSION
 
 DEFAULT_SYSTEM_TRACE_LOG = 'logs'

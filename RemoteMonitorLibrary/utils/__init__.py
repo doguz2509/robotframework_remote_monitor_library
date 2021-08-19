@@ -49,7 +49,7 @@ class Counter:
 __all__ = [
     'Singleton',
     'logger_extension',
-    'logging',
+    'logger',
     'Size',
     'sql',
     'get_error_info',

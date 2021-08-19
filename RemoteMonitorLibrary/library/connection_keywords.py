@@ -11,7 +11,7 @@ from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
 from RemoteMonitorLibrary.utils import get_error_info
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
 

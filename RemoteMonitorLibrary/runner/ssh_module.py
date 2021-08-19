@@ -6,7 +6,7 @@ from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.model.registry_model import RegistryModule
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, select_sql
 
 DEFAULT_INTERVAL = 1

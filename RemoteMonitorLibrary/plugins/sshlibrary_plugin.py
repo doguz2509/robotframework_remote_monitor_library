@@ -8,7 +8,7 @@ from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
 from RemoteMonitorLibrary.model.registry_model import RegistryModule
 from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
     == SSHLibrary PlugIn ==
