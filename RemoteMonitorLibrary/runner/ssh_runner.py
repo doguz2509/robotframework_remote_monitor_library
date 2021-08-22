@@ -10,7 +10,7 @@ from robot.utils import DotDict, is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model.errors import PlugInError
-from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser, Variable
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, Parser, Variable, ExecutionResult
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
@@ -78,7 +78,7 @@ class SSHLibraryCommand:
         self._start_in_folder = user_options.pop('start_in_folder', None)
         # self._alias = user_options.pop('alias', None)
         self._ssh_options = dict(_normalize_method_arguments(method.__name__, **user_options))
-        self._result_template = _ExecutionResult(**self._ssh_options)
+        self._result_template = ExecutionResult(**self._ssh_options)
         if self.parser:
             assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
         self._method = method

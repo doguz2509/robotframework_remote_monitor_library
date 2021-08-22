@@ -4,14 +4,14 @@ from robot.utils import ConnectionCache
 
 from .chart_generator import generate_charts
 from .ssh_runner import SSHLibraryPlugInWrapper
-from .ssh_module import SSHHostModule
-from . import webapi_module
+from .ssh_module import SSHModule
+from . import web_module
 from ..utils import Singleton, logger
 
 
 class Modules(Enum):
-    SSH = SSHHostModule
-    WEB = webapi_module.WebAPI_Module
+    SSH = SSHModule
+    WEB = web_module.WEB_Module
 
 
 @Singleton
@@ -46,6 +46,6 @@ __all__ = [
     'generate_charts',
     'SSHLibraryPlugInWrapper',
     'Modules',
-    'SSHHostModule',
-    'webapi_module'
+    'SSHModule',
+    'web_module.py'
 ]

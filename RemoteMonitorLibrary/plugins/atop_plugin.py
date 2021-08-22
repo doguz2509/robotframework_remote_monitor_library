@@ -9,7 +9,7 @@ from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.api import model, tools, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.runner import SSHHostModule
+from RemoteMonitorLibrary.runner import SSHModule
 from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 from RemoteMonitorLibrary.utils import logger
 
@@ -513,7 +513,7 @@ class aTop(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSHHostModule
+        return SSHModule
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

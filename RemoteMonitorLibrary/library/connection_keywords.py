@@ -9,7 +9,7 @@ from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
 from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
-from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHModule
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
@@ -244,7 +244,7 @@ class ConnectionKeywords:
 
         """
         try:
-            monitor: SSHHostModule = self._modules.get_connection(alias)
+            monitor: SSHModule = self._modules.get_connection(alias)
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
@@ -278,7 +278,7 @@ class ConnectionKeywords:
         - reason: Pause reason text
         - alias: Desired monitor alias (Default: current)
         """
-        monitor: SSHHostModule = self._modules.get_connection(alias)
+        monitor: SSHModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
@@ -296,7 +296,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: SSHHostModule = self._modules.get_connection(alias)
+        monitor: SSHModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -316,7 +316,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: SSHHostModule = self._modules.get_connection(alias)
+        monitor: SSHModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -334,7 +334,7 @@ class ConnectionKeywords:
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
-        module: SSHHostModule = self._modules.get_connection(alias)
+        module: SSHModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         db.DataHandlerService().execute(insert_sql(table.name, table.columns),
                                         module.host_id, period_name or module.alias,
@@ -353,7 +353,7 @@ class ConnectionKeywords:
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
-        module: SSHHostModule = self._modules.get_connection(alias)
+        module: SSHModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         point_name = rf"{period_name or module.alias}"
         db.DataHandlerService().execute(update_sql(table.name, 'End',
@@ -388,7 +388,7 @@ class ConnectionKeywords:
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
-        module: SSHHostModule = self._modules.get_connection(alias)
+        module: SSHModule = self._modules.get_connection(alias)
         table = db.TableSchemaService().tables.Points
         db.DataHandlerService().execute(update_sql(table.name, 'Mark',
                                                    HOST_REF=module.host_id, PointName=mark_name),

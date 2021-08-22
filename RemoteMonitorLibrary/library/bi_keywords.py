@@ -11,7 +11,7 @@ from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
 
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
-from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHModule
 from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
@@ -70,7 +70,7 @@ class BIKeywords:
         if not os.path.exists(self._image_path):
             os.makedirs(self._image_path, exist_ok=True)
 
-        module: SSHHostModule = HostRegistryCache().get_connection(alias)
+        module: SSHModule = HostRegistryCache().get_connection(alias)
         chart_plugins = module.get_plugin(plugin, **options)
         chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
         marks = _get_period_marks(period, module.host_id) if period else {}

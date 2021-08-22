@@ -12,12 +12,11 @@ from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import db_schema as model
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.model.errors import RunnerError, EmptyCommandSet, PlugInError
-from RemoteMonitorLibrary.model.registry_model import RegistryModule
 from RemoteMonitorLibrary.utils import evaluate_duration
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
-class _ExecutionResult:
+class ExecutionResult:
     def __init__(self, **kwargs):
         self._return_stdout = kwargs.get('return_stdout', True)
         self._return_stderr = kwargs.get('return_stderr', False)

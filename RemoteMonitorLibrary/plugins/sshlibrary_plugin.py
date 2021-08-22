@@ -6,7 +6,7 @@ from SSHLibrary import SSHLibrary as RSSHLibrary
 from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
-from RemoteMonitorLibrary.runner.ssh_module import SSHHostModule
+from RemoteMonitorLibrary.runner.ssh_module import SSHModule
 from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
@@ -140,7 +140,7 @@ class SSHLibrary(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSHHostModule
+        return SSHModule
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
