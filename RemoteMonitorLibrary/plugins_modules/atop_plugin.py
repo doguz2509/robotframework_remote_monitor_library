@@ -7,8 +7,8 @@ from typing import Iterable, Tuple, List, Any
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
+from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.api import model, tools, db, plugins, services
-from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 from RemoteMonitorLibrary.utils import logger
 
@@ -511,7 +511,7 @@ class aTop(plugins.SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSH
+        return plugins_modules.SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

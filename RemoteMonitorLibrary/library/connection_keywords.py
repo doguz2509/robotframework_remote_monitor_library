@@ -214,7 +214,7 @@ class ConnectionKeywords:
     @keyword("Close host monitor")
     def close_host_monitor(self, alias=None):
         """
-        Stop all plugins related to host by its alias
+        Stop all plugins_modules related to host by its alias
 
         Arguments:
         - alias: 'Current' used if omitted
@@ -225,7 +225,7 @@ class ConnectionKeywords:
     @keyword("Terminate all monitors")
     def terminate_all_monitors(self):
         """
-        Terminate all active hosts & running plugins
+        Terminate all active hosts & running plugins_modules
         """
         for module in self._modules:
             self._stop_period(module.alias)
@@ -242,7 +242,7 @@ class ConnectionKeywords:
         - alias: host monitor alias (Default: Current if omitted)
         - options: interval=... , persistent=yes/no,
 
-        extra parameters relevant for particular plugin can be found in `BuiltIn plugins` section
+        extra parameters relevant for particular plugin can be found in `BuiltIn plugins_modules` section
 
         """
         try:
@@ -261,7 +261,7 @@ class ConnectionKeywords:
     @keyword("Pause monitor")
     def pause_monitor(self, reason, alias=None):
         """
-        Pause monitor's plugins (Actual for host reboot or network restart tests)
+        Pause monitor's plugins_modules (Actual for host reboot or network restart tests)
 
         Arguments:
         - reason: Pause reason text
@@ -289,7 +289,7 @@ class ConnectionKeywords:
         """
         Add to Plugin - allow runtime modify (adding) plugin configuration
 
-        Particular PlugIn's options see in `BuiltIn plugins`
+        Particular PlugIn's options see in `BuiltIn plugins_modules`
 
         Arguments:
         - plugin_name:
@@ -309,7 +309,7 @@ class ConnectionKeywords:
         """
         Remove from Plugin - allow runtime modify (reducing) plugin configuration
 
-        Particular PlugIn's options see in `BuiltIn plugins`
+        Particular PlugIn's options see in `BuiltIn plugins_modules`
 
          Arguments:
         - plugin_name:

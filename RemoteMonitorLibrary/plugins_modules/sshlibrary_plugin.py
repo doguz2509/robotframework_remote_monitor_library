@@ -2,11 +2,10 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
-
+from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.api import model, db, services
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
-from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
@@ -141,7 +140,7 @@ class SSHLibrary(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSH
+        return plugins_modules.SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

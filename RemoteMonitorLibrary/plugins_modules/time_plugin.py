@@ -21,8 +21,10 @@ from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import logger
+
+from .ssh_module import SSHModule as SSH
+
 
 __doc__ = """
 == Time plugin overview ==

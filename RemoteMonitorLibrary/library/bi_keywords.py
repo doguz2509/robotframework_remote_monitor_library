@@ -11,7 +11,7 @@ from RemoteMonitorLibrary.api import services
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
 
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
-from RemoteMonitorLibrary.modules import SSH
+from RemoteMonitorLibrary.plugins_modules import SSH
 from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT

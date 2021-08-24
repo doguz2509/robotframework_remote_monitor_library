@@ -4,7 +4,7 @@ from threading import Event
 from unittest import TestCase
 from shutil import rmtree
 
-from RemoteMonitorLibrary.api.db import CacheLines, DataHandlerService
+from RemoteMonitorLibrary.api.services import CacheLines, DataHandlerService
 
 
 class TestCacheLines(TestCase):

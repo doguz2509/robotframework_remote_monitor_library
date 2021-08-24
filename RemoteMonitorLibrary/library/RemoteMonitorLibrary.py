@@ -4,7 +4,7 @@ import re
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from RemoteMonitorLibrary import plugins, modules
+from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.api import services
 from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
@@ -22,10 +22,10 @@ DEFAULT_SYSTEM_LOG_FILE = 'RemoteMonitorLibrary.log'
 class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
     def __init__(self, location=DEFAULT_SYSTEM_TRACE_LOG, file_name=DEFAULT_SYSTEM_LOG_FILE,
-                 custom_plugins='', custom_modules='', **kwargs):
+                 custom_plugins='', **kwargs):
         self.__doc__ = """
         
-        Remote Monitor CPU (wirth aTop), & Process (with Time) or any other data on linux hosts with custom plugins
+        Remote Monitor CPU (wirth aTop), & Process (with Time) or any other data on linux hosts with custom plugins_modules
         
         Allow periodical execution of commands set on one or more linux hosts with collecting data within SQL db following with some BI activity
         
@@ -38,9 +38,9 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
         {}
         
-        == BuiltIn plugins ==
+        == BuiltIn plugins_modules ==
         
-        System support following plugins:
+        System support following plugins_modules:
         
         {}
         
@@ -51,9 +51,9 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         {}
         """.format(ConnectionKeywords.__doc__,
                    BIKeywords.__doc__,
-                   plugins.atop_plugin.__doc__,
-                   plugins.sshlibrary_plugin.__doc__,
-                   plugins.time_plugin.__doc__,
+                   plugins_modules.atop_plugin.__doc__,
+                   plugins_modules.sshlibrary_plugin.__doc__,
+                   plugins_modules.time_plugin.__doc__,
                    robotframework_portal_addon.__doc__
                    )
 
@@ -66,10 +66,10 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         except RobotNotRunningError:
             current_dir = ''
 
-        custom_plugins = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
+        custom_plugins_list = load_modules(plugins_modules, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=plugin_runner_abstract)
-        services.PlugInService().update(**custom_plugins)
-        custom_modules = load_modules(modules, *[pl for pl in re.split(r'\s*,\s*', custom_modules) if pl != ''],
+        services.PlugInService().update(**custom_plugins_list)
+        custom_modules = load_modules(plugins_modules, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=services.RegistryModule)
         services.ModulesRegistryService().update(**custom_modules)
 

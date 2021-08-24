@@ -5,9 +5,9 @@ from unittest import TestCase
 from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import plugins
-from RemoteMonitorLibrary.api.db import *
+from RemoteMonitorLibrary.api.services import *
 from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract
-from RemoteMonitorLibrary import plugins
+from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.utils import load_modules
 
 parameters = DotDict(host='192.168.27.141', username='vagrant', port=22, certificate=None,
@@ -17,7 +17,7 @@ parameters = DotDict(host='192.168.27.141', username='vagrant', port=22, certifi
 
 
 class Test_aTop(TestCase):
-    plugin: plugins.aTop = None
+    plugin: plugins_modules.aTop = None
 
     @classmethod
     def setUpClass(cls):
