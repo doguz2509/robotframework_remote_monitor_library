@@ -77,15 +77,6 @@ class log(PlugInTable):
             f, t = self.FIELDS_TYPES[i]
             self.add_field(Field(f.capitalize(), t))
 
-    # initial_sql = """CREATE TABLE IF NOT EXISTS log(TimeStamp TEXT, Source TEXT, LogLevel INT, LogLevelName TEXT,
-    #                                                 Message TEXT, Module TEXT, FuncName TEXT, LineNo INT,
-    #                                                 Exception TEXT, Process INT, Thread TEXT, ThreadName TEXT)"""
-    # insertion_sql = """INSERT INTO log(TimeStamp, Source, LogLevel, LogLevelName, Message, Module, FuncName, LineNo,
-    #                         Exception, Process, Thread, ThreadName)
-    #                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-    #                    """
-    #
-
     @staticmethod
     def format_record(record):
         _result_record = []

@@ -5,11 +5,10 @@ from typing import Callable, Dict, AnyStr, Tuple, Any
 
 from robot.utils import timestr_to_secs
 
-from RemoteMonitorLibrary.api.db import *
-from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.model import Configuration
 from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, select_sql
+from RemoteMonitorLibrary.api import services, tools
 
 _REGISTERED = -1
 DEFAULT_INTERVAL = 1
@@ -45,7 +44,7 @@ class RegistryModule(metaclass=ABCMeta):
         self._host_id = _get_register_id()
         alias = alias or self.__class__.__name__.lower()
         self._configuration = Configuration(self.schema, alias=f"{alias}_{self.host_id:02d}", **options)
-        self._errors = GlobalErrors()
+        self._errors = tools.GlobalErrors()
 
     @abstractmethod
     def __str__(self):
@@ -53,12 +52,12 @@ class RegistryModule(metaclass=ABCMeta):
 
     def start(self):
         self._configuration.update({'event': Event()})
-        table = TableSchemaService().tables.TraceHost
+        table = services.TableSchemaService().tables.TraceHost
         try:
-            DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
-            self._host_id = DataHandlerService().get_last_row_id
+            services.DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
+            self._host_id = services.DataHandlerService().get_last_row_id
         except IntegrityError:
-            host_id = DataHandlerService().execute(select_sql(table.name, 'HOST_ID', HostName=self.alias))
+            host_id = services.DataHandlerService().execute(select_sql(table.name, 'HOST_ID', HostName=self.alias))
             assert host_id, f"Cannot occur host id for alias '{self.alias}'"
             self._host_id = host_id[0][0]
 

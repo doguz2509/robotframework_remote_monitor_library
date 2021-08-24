@@ -19,9 +19,9 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.api import model
+from RemoteMonitorLibrary.api import model, db
 from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.runner.ssh_module import SSHModule
+from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
@@ -114,7 +114,7 @@ cat ~/time_data/{title}/time_{title}.txt >&2
 TIME_NAME_CACHE = []
 
 
-class TimeMeasurement(model.PlugInTable):
+class TimeMeasurement(db.PlugInTable):
     def __init__(self):
         super().__init__('TimeMeasurement')
         self.add_time_reference()
@@ -378,7 +378,7 @@ class Time(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSHModule
+        return SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

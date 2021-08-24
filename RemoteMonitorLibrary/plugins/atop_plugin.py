@@ -7,9 +7,8 @@ from typing import Iterable, Tuple, List, Any
 from SSHLibrary import SSHLibrary
 from robot.utils import timestr_to_secs
 
-from RemoteMonitorLibrary.api import model, tools, db
-from RemoteMonitorLibrary.api.plugins import *
-from RemoteMonitorLibrary.runner import SSHModule
+from RemoteMonitorLibrary.api import model, tools, db, plugins, services
+from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import Size, get_error_info, Singleton
 from RemoteMonitorLibrary.utils import logger
 
@@ -43,7 +42,7 @@ Note: Support robot time format string (1s, 05m, etc.)
 """
 
 
-class atop_system_level(model.PlugInTable):
+class atop_system_level(db.PlugInTable):
     def __init__(self):
         super().__init__(name='atop_system_level')
         self.add_time_reference()
@@ -57,7 +56,7 @@ class atop_system_level(model.PlugInTable):
         self.add_field(model.Field('SUB_ID'))
 
 
-class atop_process_level(model.PlugInTable):
+class atop_process_level(db.PlugInTable):
     def __init__(self):
         super().__init__(name='atop_process_level')
         self.add_time_reference()
@@ -105,7 +104,7 @@ class ProcessMonitorRegistry(dict):
         return True
 
 
-class aTopProcessLevelChart(ChartAbstract):
+class aTopProcessLevelChart(plugins.ChartAbstract):
     @property
     def get_sql_query(self) -> str:
         return f"""SELECT t.TimeStamp, p.SYSCPU as SYSCPU, p.USRCPU, p.VGROW, p.RDDSK, p.WRDSK, p.CPU, p.CMD
@@ -134,10 +133,10 @@ class aTopProcessLevelChart(ChartAbstract):
         return result
 
 
-class aTopSystemLevelChart(ChartAbstract):
+class aTopSystemLevelChart(plugins.ChartAbstract):
     def __init__(self, *sections):
         self._sections = sections
-        ChartAbstract.__init__(self, *sections)
+        plugins.ChartAbstract.__init__(self, *sections)
 
     @property
     def sections(self):
@@ -182,7 +181,7 @@ class aTopSystemLevelChart(ChartAbstract):
         return result
 
 
-class aTopSystem_DataUnit(db.services.DataUnit):
+class aTopSystem_DataUnit(services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
@@ -252,7 +251,7 @@ class aTopSystem_DataUnit(db.services.DataUnit):
         return super().__call__(**updates)
 
 
-class aTopProcesses_Debian_DataUnit(db.services.DataUnit):
+class aTopProcesses_Debian_DataUnit(services.DataUnit):
     def __init__(self, table, host_id, *lines, **kwargs):
         super().__init__(table, **kwargs)
         self._lines = lines
@@ -343,10 +342,10 @@ def process_data_unit_factory(os_family):
     raise NotImplementedError(f"OS '{os_family}' not supported")
 
 
-class aTopParser(Parser):
+class aTopParser(plugins.Parser):
     def __init__(self, plugin_id, **kwargs):
         self._data_unit_class = kwargs.pop('data_unit')
-        Parser.__init__(self, **kwargs)
+        plugins.Parser.__init__(self, **kwargs)
         self.id = plugin_id
         self._ts_cache = tools.CacheList(int(600 / timestr_to_secs(kwargs.get('interval', '1x'))))
 
@@ -404,8 +403,7 @@ class aTopParser(Parser):
         return False
 
 
-class aTop(SSH_PlugInAPI):
-
+class aTop(plugins.SSH_PlugInAPI):
     OS_DATE_FORMAT = {
         'debian': '%H:%M',
         'fedora': '%Y%m%d%H%M'
@@ -413,7 +411,7 @@ class aTop(SSH_PlugInAPI):
 
     def __init__(self, parameters, data_handler, *monitor_processes, **user_options):
         try:
-            SSH_PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
+            plugins.SSH_PlugInAPI.__init__(self, parameters, data_handler, *monitor_processes, **user_options)
 
             self.file = 'atop.dat'
             self.folder = '~/atop_temp'
@@ -424,26 +422,26 @@ class aTop(SSH_PlugInAPI):
 
             self._name = f"{self.name}-{self._os_name}"
 
-            self.set_commands(FlowCommands.Setup,
-                              SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
-                                                sudo=self.sudo_expected,
-                                                sudo_password=self.sudo_password_expected),
-                              SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
-                                                sudo_password=True),
-                              SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}',
-                                                sudo=self.sudo_expected,
-                                                sudo_password=self.sudo_password_expected),
-                              SSHLibraryCommand(SSHLibrary.start_command,
-                                                "{nohup} atop -a -w {folder}/{file} {interval} &".format(
-                                                    nohup='' if self.persistent else 'nohup',
-                                                    folder=self.folder,
-                                                    file=self.file,
-                                                    interval=int(self.interval)),
-                                                sudo=self.sudo_expected,
-                                                sudo_password=self.sudo_password_expected))
+            self.set_commands(plugins.FlowCommands.Setup,
+                              plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+                                                        sudo=self.sudo_expected,
+                                                        sudo_password=self.sudo_password_expected),
+                              plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'rm -rf {self.folder}', sudo=True,
+                                                        sudo_password=True),
+                              plugins.SSHLibraryCommand(SSHLibrary.execute_command, f'mkdir -p {self.folder}',
+                                                        sudo=self.sudo_expected,
+                                                        sudo_password=self.sudo_password_expected),
+                              plugins.SSHLibraryCommand(SSHLibrary.start_command,
+                                                        "{nohup} atop -a -w {folder}/{file} {interval} &".format(
+                                                            nohup='' if self.persistent else 'nohup',
+                                                            folder=self.folder,
+                                                            file=self.file,
+                                                            interval=int(self.interval)),
+                                                        sudo=self.sudo_expected,
+                                                        sudo_password=self.sudo_password_expected))
 
-            self.set_commands(FlowCommands.Command,
-                              SSHLibraryCommand(
+            self.set_commands(plugins.FlowCommands.Command,
+                              plugins.SSHLibraryCommand(
                                   SSHLibrary.execute_command,
                                   f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                                   sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
@@ -457,8 +455,8 @@ class aTop(SSH_PlugInAPI):
                                                     interval=self.parameters.interval,
                                                     data_unit=process_data_unit_factory(self._os_name))))
 
-            self.set_commands(FlowCommands.Teardown,
-                              SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
+            self.set_commands(plugins.FlowCommands.Teardown,
+                              plugins.SSHLibraryCommand(SSHLibrary.execute_command, 'killall -9 atop',
                                                 sudo=True, sudo_password=True))
         except Exception as e:
             f, l = get_error_info()
@@ -513,14 +511,14 @@ class aTop(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSHModule
+        return SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
         return atop_system_level(), atop_process_level()
 
     @staticmethod
-    def affiliated_charts() -> Iterable[ChartAbstract]:
+    def affiliated_charts() -> Iterable[plugins.ChartAbstract]:
         return aTopProcessLevelChart(), aTopSystemLevelChart('CPU'), aTopSystemLevelChart('CPL', 'MEM', 'PRC', 'PAG'), \
                aTopSystemLevelChart('LVM'), aTopSystemLevelChart('DSK', 'SWP'), aTopSystemLevelChart('NET')
 

@@ -1,13 +1,26 @@
 
+import json
+import logging
 from enum import Enum, IntEnum
-from typing import Optional
+from threading import RLock
 
 import requests
 import requests.packages.urllib3
-import json
-import logging
+from robot.utils import is_truthy
 
-from RemoteMonitorLibrary.utils import logger
+from RemoteMonitorLibrary.model.registry_model import *
+
+
+RETRY_COUNT = 5
+
+
+schema: Dict[AnyStr, Tuple] = {
+    'url': (True, None, str, str),
+    'user': (True, None, str, str),
+    'password': (False, '', str, str),
+    'port': (False, 22, int, int),
+    'keep_alive': (False, True, is_truthy, (bool, str))
+}
 
 
 class HTTPMethod(Enum):
@@ -119,6 +132,7 @@ class WebBaseSession:
 
         self._session = None
         self._auth_token = ''
+        self._lock = RLock()
 
     @property
     def session(self):
@@ -126,18 +140,22 @@ class WebBaseSession:
             self._session = requests.Session()
         return self._session
 
-    def login(self, path):
-        try:
-            auth = (self.user, self.password)
-            resp = HTTPMethod.POST.session_callback(self.session)(self.base_url + path, auth=auth, verify=False)
-            assert resp.status_code == 200, f"Server respond with error: {resp.status_code}\n{resp.text}"
-            assert 'Authorization' in resp.headers, f"Response doesn't contain header 'Authorization'"
-            self._auth_token = resp.headers['Authorization']
-        except Exception as e:
-            logger.error(f"Connect To Server Error: {e}")
-            raise
-        else:
-            logger.debug(f"Login successful (Bearer token: {self._auth_token})")
+    def login(self, path='/'):
+        with self._lock:
+            try:
+                auth = (self.user, self.password)
+                resp = HTTPMethod.POST.session_callback(self.session)(self.base_url + path, auth=auth, verify=False)
+                assert resp.status_code == 200, f"Server respond with error: {resp.status_code}\n{resp.text}"
+                assert 'Authorization' in resp.headers, f"Response doesn't contain header 'Authorization'"
+            except AssertionError as e:
+                logger.error(f"Authentication to Server failed: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Server connection error: {e}")
+                raise
+            else:
+                logger.debug(f"Login successful (Bearer token: {resp.headers['Authorization']})")
+                return resp.headers['Authorization']
 
     @property
     def base_url(self):
@@ -171,10 +189,18 @@ class WebBaseSession:
 
     def single_request(self, method: HTTPMethod, path: str, **kwargs) -> ResponseTextSerializer:
         serializer: ResponseTextSerializer = kwargs.get('serializer', ResponseTextSerializer())
+
         logger.debug(f'Request: {method.__name__.upper()} {self.base_url}{path}; Headers: {self.headers}')
         result = method.session_callback(self._session)(
             self.base_url + path, headers=self.headers, verify=kwargs.pop('verify', False))
-        serializer(result)
+        try:
+            serializer(result)
+        except AssertionError:
+            attempt = kwargs.pop('attempt', 0)
+            if attempt >= RETRY_COUNT:
+                raise Exception(f"Login retries expired")
+            self.login()
+            self.single_request(method, path, attempt=(attempt + 1), **kwargs)
         return serializer
 
     def __call__(self, method: HTTPMethod, path: str, **kwargs):
@@ -187,3 +213,24 @@ class WebBaseSession:
     def close(self):
         self._auth_token = None
         self._session = None
+
+
+class WEB_Module(RegistryModule):
+    def __init__(self, plugin_registry, data_handler, alias=None, **options):
+        super().__init__(plugin_registry, data_handler, schema,
+                         alias=alias or "WEB",
+                         **options)
+        self._session = None
+
+    def __str__(self):
+        return f"{self.config.alias}:{self.config.url}"
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = WebBaseSession(**self.config)
+        return self._session
+
+    def plugin_start(self, plugin_name, *args, **options):
+        super().plugin_start(plugin_name, *args, session=self.session, **options)
+

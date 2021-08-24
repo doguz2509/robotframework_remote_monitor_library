@@ -5,11 +5,10 @@ from time import sleep
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
 
-from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api import db, services
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
-from RemoteMonitorLibrary.runner import Modules, HostRegistryCache
-from RemoteMonitorLibrary.runner.ssh_module import SSHModule
+from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
@@ -116,7 +115,8 @@ class ConnectionKeywords:
 
     def _init(self):
         output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
-        db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
+        services.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name,
+                                           self.cumulative)
 
         level = BuiltIn().get_variable_value('${LOG LEVEL}')
         logger.setLevel(level)
@@ -125,9 +125,9 @@ class ConnectionKeywords:
 
         logger.set_file_handler(abs_log_file_path)
         if is_truthy(self._log_to_db):
-            db.TableSchemaService().register_table(db.tables.log())
-            logger.addHandler(db.services.SQLiteHandler())
-        db.DataHandlerService().start()
+            services.TableSchemaService().register_table(db.log())
+            logger.addHandler(services.SQLiteHandler())
+        services.DataHandlerService().start()
         logger.warn(f'<a href="{rel_log_file_path}">{self.file_name}</a>', html=True)
 
     def get_keyword_names(self):
@@ -151,7 +151,7 @@ class ConnectionKeywords:
         ]
 
     @keyword("Create host monitor")
-    def create_host_monitor(self, module_type: Modules, alias=None, **module_options):
+    def create_host_monitor(self, module_name, alias=None, **module_options):
         """Create basic host connection module used for trace host
         Last created connection handled as 'current'
         In case tracing required for one host only, alias can be ignored
@@ -195,17 +195,19 @@ class ConnectionKeywords:
         | end_test
         """
 
-        if not db.DataHandlerService().is_active:
+        assert module_name in services.ModulesRegistryService().keys(), f"Module '{module_name}' not registered"
+        module_type = services.ModulesRegistryService().get(module_name)
+        if not services.DataHandlerService().is_active:
             self._init()
         try:
-            module = module_type.value(db.PlugInService(), db.DataHandlerService().add_data_unit,
-                                       alias=alias, **module_options)
+            module = module_type(services.PlugInService(), services.DataHandlerService().add_data_unit,
+                                 alias=alias, **module_options)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
             _alias = self._modules.register(module, module.alias)
             self._start_period(alias=module.alias)
         except Exception as e:
-            BuiltIn().fatal_error(f"Cannot start module '{module_type.name}; Reason: {e}")
+            BuiltIn().fatal_error(f"Cannot start module '{module_name}; Reason: {e}")
         else:
             return module.alias
 
@@ -228,7 +230,7 @@ class ConnectionKeywords:
         for module in self._modules:
             self._stop_period(module.alias)
         self._modules.close_all()
-        db.DataHandlerService().stop()
+        services.DataHandlerService().stop()
 
     @keyword("Start monitor plugin")
     def start_monitor_plugin(self, plugin_name, *args, alias=None, **options):
@@ -244,7 +246,7 @@ class ConnectionKeywords:
 
         """
         try:
-            monitor: SSHModule = self._modules.get_connection(alias)
+            monitor: services.RegistryModule = self._modules.get_connection(alias)
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
@@ -278,7 +280,7 @@ class ConnectionKeywords:
         - reason: Pause reason text
         - alias: Desired monitor alias (Default: current)
         """
-        monitor: SSHModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
@@ -296,7 +298,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: SSHModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -316,7 +318,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: SSHModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -328,18 +330,18 @@ class ConnectionKeywords:
         Start period keyword
 
         Arguments:
-        - period_name: Name of period to be stopped
+        - period_name: Name of period to be started
         - alias: Connection alias
         """
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
-        module: SSHModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
-        db.DataHandlerService().execute(insert_sql(table.name, table.columns),
-                                        module.host_id, period_name or module.alias,
-                                        datetime.now().strftime(DB_DATETIME_FORMAT),
-                                        None)
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
+        services.DataHandlerService().execute(insert_sql(table.name, table.columns),
+                                              module.host_id, period_name or module.alias,
+                                              datetime.now().strftime(DB_DATETIME_FORMAT),
+                                              None)
 
     @keyword("Stop period")
     def stop_period(self, period_name=None, alias=None):
@@ -353,12 +355,12 @@ class ConnectionKeywords:
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
-        module: SSHModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
         point_name = rf"{period_name or module.alias}"
-        db.DataHandlerService().execute(update_sql(table.name, 'End',
-                                                   HOST_REF=module.host_id, PointName=point_name),
-                                        datetime.now().strftime(DB_DATETIME_FORMAT))
+        services.DataHandlerService().execute(update_sql(table.name, 'End',
+                                                         HOST_REF=module.host_id, PointName=point_name),
+                                              datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Wait")
     def wait(self, timeout, reason=None, reminder='1h'):
@@ -388,11 +390,11 @@ class ConnectionKeywords:
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
-        module: SSHModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
-        db.DataHandlerService().execute(update_sql(table.name, 'Mark',
-                                                   HOST_REF=module.host_id, PointName=mark_name),
-                                        datetime.now().strftime(DB_DATETIME_FORMAT))
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
+        services.DataHandlerService().execute(update_sql(table.name, 'Mark',
+                                                         HOST_REF=module.host_id, PointName=mark_name),
+                                              datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Get Current RML Errors")
     def get_current_errors(self):

@@ -3,10 +3,10 @@ from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
 
-from RemoteMonitorLibrary.api import model, db
+from RemoteMonitorLibrary.api import model, db, services
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
-from RemoteMonitorLibrary.runner.ssh_module import SSHModule
+from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
@@ -44,7 +44,7 @@ __doc__ = """
     """
 
 
-class sshlibrary_monitor(model.PlugInTable):
+class sshlibrary_monitor(db.PlugInTable):
     def __init__(self):
         super().__init__('sshlibrary_monitor')
         self.add_time_reference()
@@ -56,7 +56,7 @@ class sshlibrary_monitor(model.PlugInTable):
 
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
-        super().__init__(table=db.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
+        super().__init__(table=services.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
         self._tolerance = self.options.get('tolerance')
         self._tolerance_counter = 0
 
@@ -95,9 +95,10 @@ class UserCommandParser(Parser):
         else:
             st = 'Pass'
             msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))
-        output_ref = db.CacheLines().upload(msg)
-        du = model.data_factory(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
-                                                                output_ref))
+        output_ref = services.CacheLines().upload(msg)
+        du = services.data_factory(self.table,
+                                   self.table.template(self.host_id, None, self.options.get('command'), rc, st,
+                                                       output_ref))
         self.data_handler(du)
 
         if st != 'Pass':
@@ -140,7 +141,7 @@ class SSHLibrary(SSH_PlugInAPI):
 
     @staticmethod
     def affiliated_module():
-        return SSHModule
+        return SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

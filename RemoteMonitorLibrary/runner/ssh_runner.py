@@ -1,5 +1,4 @@
 from abc import ABCMeta
-from abc import ABCMeta
 from datetime import datetime
 from typing import Callable, Any
 
@@ -9,8 +8,9 @@ from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
+from RemoteMonitorLibrary.model.commandunit import CommandUnit
 from RemoteMonitorLibrary.model.errors import PlugInError
-from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, Parser, Variable, ExecutionResult
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, ExecutionResult
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
@@ -64,23 +64,15 @@ def extract_method_arguments(method_name, **kwargs):
     return {name: value for name, value in kwargs.items() if name in SSHLibraryArgsMapping.get(method_name, []).keys()}
 
 
-class SSHLibraryCommand:
+class SSHLibraryCommand(CommandUnit):
     def __init__(self, method: Callable, command=None, **user_options):
-        self.variable_setter = user_options.pop('variable_setter', None)
-        if self.variable_setter:
-            assert isinstance(self.variable_setter, Variable), "Variable setter type error"
-        self.variable_getter = user_options.pop('variable_getter', None)
-        if self.variable_getter:
-            assert isinstance(self.variable_getter, Variable), "Variable getter vtype error"
-        self.parser: Parser = user_options.pop('parser', None)
+        super().__init__(user_options)
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         self._start_in_folder = user_options.pop('start_in_folder', None)
         # self._alias = user_options.pop('alias', None)
         self._ssh_options = dict(_normalize_method_arguments(method.__name__, **user_options))
         self._result_template = ExecutionResult(**self._ssh_options)
-        if self.parser:
-            assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
         self._method = method
         self._command = command
 
@@ -115,10 +107,7 @@ class SSHLibraryCommand:
             logger.debug(f"Executing: {self._method.__name__}"
                          f"({', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, **self._ssh_options)
-        if self.parser:
-            return self.parser(dict(self._result_template(output)))
-        if self.variable_setter:
-            self.variable_setter(output)
+        self.parse(dict(self._result_template(output)))
         return output
 
 

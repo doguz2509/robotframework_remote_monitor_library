@@ -4,8 +4,8 @@ import re
 from robot.api.deco import library
 from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
-from RemoteMonitorLibrary import plugins
-from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary import plugins, modules
+from RemoteMonitorLibrary.api import services
 from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
@@ -21,8 +21,8 @@ DEFAULT_SYSTEM_LOG_FILE = 'RemoteMonitorLibrary.log'
 @library(scope='GLOBAL', version=VERSION)
 class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
-    def __init__(self, location=DEFAULT_SYSTEM_TRACE_LOG, file_name=DEFAULT_SYSTEM_LOG_FILE, custom_plugins='',
-                 **kwargs):
+    def __init__(self, location=DEFAULT_SYSTEM_TRACE_LOG, file_name=DEFAULT_SYSTEM_LOG_FILE,
+                 custom_plugins='', custom_modules='', **kwargs):
         self.__doc__ = """
         
         Remote Monitor CPU (wirth aTop), & Process (with Time) or any other data on linux hosts with custom plugins
@@ -66,10 +66,14 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         except RobotNotRunningError:
             current_dir = ''
 
-        plugin_modules = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
+        custom_plugins = load_modules(plugins, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
                                       base_path=current_dir, base_class=plugin_runner_abstract)
-        db.PlugInService().update(**plugin_modules)
-        print_plugins_table(db.PlugInService())
+        services.PlugInService().update(**custom_plugins)
+        custom_modules = load_modules(modules, *[pl for pl in re.split(r'\s*,\s*', custom_modules) if pl != ''],
+                                      base_path=current_dir, base_class=services.RegistryModule)
+        services.ModulesRegistryService().update(**custom_modules)
+
+        print_plugins_table(services.PlugInService())
         doc_path = self._get_doc_link()
         logger.warn(f'{self.__class__.__name__} <a href="{doc_path}">LibDoc</a>', html=True)
 

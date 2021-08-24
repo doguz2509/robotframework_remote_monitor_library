@@ -8,6 +8,7 @@ from RemoteMonitorLibrary.model.runner_model import Parser, plugin_integration_a
     FlowCommands, Variable
 from RemoteMonitorLibrary.runner.ssh_runner import SSHLibraryPlugInWrapper, SSHLibraryCommand, \
     extract_method_arguments
+from RemoteMonitorLibrary.model.registry_model import RegistryModule
 
 
 class SSH_PlugInAPI(ABC, SSHLibraryPlugInWrapper, plugin_integration_abstract):
@@ -49,5 +50,6 @@ __all__ = ['SSH_PlugInAPI',
            Variable.__name__,
            ParseRC.__name__,
            ChartAbstract.__name__,
-           Configuration.__name__
+           Configuration.__name__,
+           RegistryModule.__name__
            ]

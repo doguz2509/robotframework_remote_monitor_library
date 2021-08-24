@@ -6,22 +6,22 @@ from datetime import datetime
 from queue import Queue
 from threading import Timer, Thread, Event, RLock
 from time import sleep
-from typing import Tuple, Iterable, Mapping, AnyStr, List
+from typing import Mapping, AnyStr, List
 
 from robot.utils import DotDict
-from RemoteMonitorLibrary.utils.logger_helper import logger
 
+from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.model.registry_model import RegistryModule
 from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
-from RemoteMonitorLibrary.utils import Singleton, collections, sql_engine, flat_iterator, get_error_info
+from RemoteMonitorLibrary.utils import Singleton, sql_engine, get_error_info
+from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
-from .tables import *
-from .tables import log
 
 DEFAULT_DB_FILE = 'RemoteMonitorLibrary.db'
 
 
 class DataUnit:
-    def __init__(self, table: Table, *data, **kwargs):
+    def __init__(self, table: db.Table, *data, **kwargs):
         self._table = table
         self._ts = kwargs.get('datetime', None) or datetime.now().strftime(kwargs.get('format', DB_DATETIME_FORMAT))
         self._timeout = kwargs.get('timeout', None)
@@ -129,15 +129,20 @@ def data_factory(table, *data, **kwargs) -> DataUnit:
 class TableSchemaService:
     def __init__(self):
         self._tables = DotDict()
-        for builtin_table in (TraceHost(), TimeLine(), Points(), LinesCache(), LinesCacheMap()):
+        for builtin_table in (db.TraceHost(), db.TimeLine(), db.Points(), db.LinesCache(), db.LinesCacheMap()):
             self.register_table(builtin_table)
 
     @property
     def tables(self):
         return self._tables
 
-    def register_table(self, table: Table):
+    def register_table(self, table: db.Table):
         self._tables[table.name] = table
+
+
+@Singleton
+class ModulesRegistryService(dict, Mapping[AnyStr, RegistryModule]):
+    pass
 
 
 @Singleton
@@ -225,7 +230,7 @@ class DataHandlerService:
         # if len(item) == 0:
         #     logger.warn(f"Empty data unit arrived: {item}")
         #     return
-        if isinstance(item.table, PlugInTable):
+        if isinstance(item.table, db.PlugInTable):
             last_tl_id = cache_timestamp(item.timestamp)
             item(TL_ID=last_tl_id)
             logger.debug(f"Item updated: {item.sql_data}")
@@ -359,7 +364,18 @@ class SQLiteHandler(logging.StreamHandler):
     """
     Thread-safe logging handler for SQLite.
     """
-    _table = log()
+    _table = db.log()
 
     def emit(self, record):
-        DataHandlerService().execute(insert_sql(self._table.name, self._table.columns), *log.format_record(record))
+        DataHandlerService().execute(insert_sql(self._table.name, self._table.columns), *db.log.format_record(record))
+
+
+__all__ = [
+    'DB_DATETIME_FORMAT',
+    'DataHandlerService',
+    'TableSchemaService',
+    'ModulesRegistryService',
+    'RegistryModule',
+    'PlugInService',
+    'CacheLines',
+]

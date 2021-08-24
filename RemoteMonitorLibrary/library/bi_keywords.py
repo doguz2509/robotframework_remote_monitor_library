@@ -7,22 +7,22 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
-from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api import services
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
 
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
-from RemoteMonitorLibrary.runner.ssh_module import SSHModule
+from RemoteMonitorLibrary.modules import SSH
 from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
 def _get_period_marks(period, module_id):
-    points = db.TableSchemaService().tables.Points
-    start = db.DataHandlerService().execute(
+    points = services.TableSchemaService().tables.Points
+    start = services.DataHandlerService().execute(
         points.queries.select_state('Start', module_id, period))
     start = None if start == [] else start[0][0]
-    end = db.DataHandlerService().execute(
+    end = services.DataHandlerService().execute(
         points.queries.select_state('End', module_id, period))
     end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
     return dict(start_mark=start, end_mark=end)
@@ -70,7 +70,7 @@ class BIKeywords:
         if not os.path.exists(self._image_path):
             os.makedirs(self._image_path, exist_ok=True)
 
-        module: SSHModule = HostRegistryCache().get_connection(alias)
+        module: SSH = HostRegistryCache().get_connection(alias)
         chart_plugins = module.get_plugin(plugin, **options)
         chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
         marks = _get_period_marks(period, module.host_id) if period else {}
@@ -81,7 +81,7 @@ class BIKeywords:
                 try:
                     sql_query = chart.compose_sql_query(host_name=plugin.host_alias, **marks)
                     logger.debug("{}{}\n{}".format(plugin.type, f'_{period}' if period is not None else '', sql_query))
-                    sql_data = db.DataHandlerService().execute(sql_query)
+                    sql_data = services.DataHandlerService().execute(sql_query)
                     for picture_name, file_path in generate_charts(chart, sql_data, self._image_path, prefix=chart_title):
                         relative_image_path = os.path.relpath(file_path, os.path.normpath(
                             os.path.join(self._output_dir, self._log_path)))
