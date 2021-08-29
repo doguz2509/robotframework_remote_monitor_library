@@ -4,7 +4,6 @@ from robot.utils import ConnectionCache
 
 from .chart_generator import generate_charts
 from .ssh_runner import SSHLibraryPlugInWrapper
-from .web_module import WEB_Module
 from ..utils import Singleton, logger
 
 
@@ -38,8 +37,5 @@ class HostRegistryCache(ConnectionCache):
 __all__ = [
     'HostRegistryCache',
     'generate_charts',
-    'SSHLibraryPlugInWrapper',
-    'Modules',
-    'SSHModule',
-    'WEB_Module'
+    'SSHLibraryPlugInWrapper'
 ]
