@@ -1,4 +1,5 @@
 import os
+import re
 from inspect import isclass, ismodule
 from os.path import join as path_join
 from typing import Mapping, Any
@@ -9,7 +10,7 @@ from robot.utils import Importer
 from RemoteMonitorLibrary.version import VERSION
 
 
-def get_class_from_module(module, filter_by_class=None, deep=1) -> Mapping[str, Any]:
+def get_class_from_module(module, filter_by_class=(), deep=1) -> Mapping[str, Any]:
     print(f"{deep}: {module}")
     result = {}
     for n, m in module.__dict__.items():
@@ -28,14 +29,14 @@ def filter_class_by(classes_, filter_class):
     return {nn: tt for nn, tt in classes_.items() if issubclass(tt, filter_class)}
 
 
-def load_classes_from_module_from_dir(path, base_class=None):
+def load_classes_from_module_from_dir(path, base_class=()):
     result = {}
     for file in [f for f in os.listdir(path) if f.endswith('__init__.py')]:
         result.update(load_classes_from_module_by_name(path, file, base_class))
     return result
 
 
-def load_classes_from_module_by_name(path, module_name, base_class=None):
+def load_classes_from_module_by_name(path, module_name, base_class=()):
     importer = Importer("RemoteMonitorLibrary")
     abs_path = path_join(path, module_name)
     logger.debug(f"[ 'RemoteMonitorLibrary' ] Load Module: {abs_path}")
@@ -44,20 +45,20 @@ def load_classes_from_module_by_name(path, module_name, base_class=None):
 
 
 def load_modules(*modules, **options):
-    base_class = options.get('base_class', None)
+    base_classes = options.get('base_class', '')
     base_path = options.get('base_path', os.getcwd())
 
     result_modules = {}
     for module_ in [m for m in modules if m is not None]:
         if isinstance(module_, str):
             if os.path.isfile(os.path.normpath(os.path.join(base_path, module_))):
-                result_modules.update(load_classes_from_module_by_name(base_path, module_, base_class))
+                result_modules.update(load_classes_from_module_by_name(base_path, module_, base_classes))
             else:
                 result_modules.update(
                     load_classes_from_module_from_dir(os.path.normpath(os.path.join(base_path, module_)),
-                                                      base_class))
+                                                      base_classes))
         elif ismodule(module_):
-            for name, class_ in get_class_from_module(module_, base_class).items():
+            for name, class_ in get_class_from_module(module_, base_classes).items():
                 if name in result_modules.keys():
                     logger.warn(f"Module '{result_modules[name]}' overloaded with '{class_}'")
                 result_modules.update({name: class_})

@@ -6,6 +6,7 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.api import services
+from RemoteMonitorLibrary.api.services import RegistryModule
 from RemoteMonitorLibrary.library import robotframework_portal_addon
 from RemoteMonitorLibrary.library.bi_keywords import BIKeywords
 from RemoteMonitorLibrary.library.connection_keywords import ConnectionKeywords
@@ -66,12 +67,16 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
         except RobotNotRunningError:
             current_dir = ''
 
-        custom_plugins_list = load_modules(plugins_modules, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
-                                      base_path=current_dir, base_class=plugin_runner_abstract)
-        services.PlugInService().update(**custom_plugins_list)
-        custom_modules = load_modules(plugins_modules, *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
-                                      base_path=current_dir, base_class=services.RegistryModule)
-        services.ModulesRegistryService().update(**custom_modules)
+        custom_plugins_list = load_modules(plugins_modules,
+                                           *[pl for pl in re.split(r'\s*,\s*', custom_plugins) if pl != ''],
+                                           base_path=current_dir, base_class=(plugin_runner_abstract, RegistryModule))
+
+        services.PlugInService().update(
+            **{k: v for k, v in custom_plugins_list.items() if issubclass(v, plugin_runner_abstract)}
+        )
+        services.ModulesRegistryService().update(
+            **{k: v for k, v in custom_plugins_list.items() if issubclass(v, RegistryModule)}
+        )
 
         print_plugins_table(services.PlugInService())
         doc_path = self._get_doc_link()
@@ -86,5 +91,3 @@ class RemoteMonitorLibrary(ConnectionKeywords, BIKeywords):
 
     def get_keyword_names(self):
         return ConnectionKeywords.get_keyword_names(self) + BIKeywords.get_keyword_names(self)
-
-
