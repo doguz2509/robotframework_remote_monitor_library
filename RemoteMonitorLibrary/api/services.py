@@ -378,4 +378,6 @@ __all__ = [
     'RegistryModule',
     'PlugInService',
     'CacheLines',
+    'DataUnit',
+    'DataRowUnitWithOutput'
 ]
