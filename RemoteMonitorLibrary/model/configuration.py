@@ -10,10 +10,8 @@ class Configuration:
         self.schema = schema
         self._parameters = DotDict()
         err = []
-        attr_list = set(list(kwargs.keys()) + list(self.schema.keys()))
-        for attr in attr_list:
+        for attr, (mandatory, _, _, _) in self.schema.items():
             try:
-                mandatory, _, _, _ = self.schema.get(attr, (False, None, None, None))
                 if mandatory:
                     assert attr in kwargs.keys(), f"Mandatory parameter '{attr}' missing"
                 self._set_parameter(attr, kwargs.get(attr, None))

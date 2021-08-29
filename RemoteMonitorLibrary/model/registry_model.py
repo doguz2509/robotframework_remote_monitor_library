@@ -42,8 +42,8 @@ class RegistryModule(metaclass=ABCMeta):
         self._active_plugins = {}
 
         self._host_id = _get_register_id()
-        alias = alias or self.__class__.__name__.lower()
-        self._configuration = Configuration(self.schema, alias=f"{alias}_{self.host_id:02d}", **options)
+        alias = alias or f"{self.__class__.__name__.lower()}_{self.host_id:02d}"
+        self._configuration = Configuration(self.schema, alias=alias, **options)
         self._errors = tools.GlobalErrors()
 
     @abstractmethod

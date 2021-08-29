@@ -164,6 +164,7 @@ class plugin_runner_abstract:
         self._thread.start()
 
     def stop(self, timeout=None):
+        assert self._thread is not None
         timeout = timeout or '20s'
         timeout = timestr_to_secs(timeout)
         self._internal_event.set()
@@ -327,7 +328,7 @@ class plugin_runner_abstract:
         if self.parameters.event.isSet():
             logger.info(f"Stop requested by external source")
             return False
-        if self._internal_event.isSet():
+        if self._internal_event.is_set():
             logger.info(f"Stop requested internally")
             return False
         return True
