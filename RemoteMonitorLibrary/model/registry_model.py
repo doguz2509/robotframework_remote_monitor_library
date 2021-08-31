@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from sqlite3 import IntegrityError
 from threading import Event
 from typing import Callable, Dict, AnyStr, Tuple, Any
-
+from copy import copy
 from robot.utils import timestr_to_secs
 
 from RemoteMonitorLibrary.model import Configuration
@@ -15,6 +15,14 @@ DEFAULT_INTERVAL = 1
 
 DEFAULT_CONNECTION_INTERVAL = 60
 DEFAULT_FAULT_TOLERANCE = 10
+DEFAULT_SCHEMA: Dict[AnyStr, Tuple] = {
+        'alias': (True, None, str, str),
+        'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
+        'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
+        'event': (False, Event(), Event, Event),
+        'timeout': (True, DEFAULT_CONNECTION_INTERVAL, timestr_to_secs, (int, float)),
+        'level': (False, 'INFO', str, str)
+    }
 
 
 def _get_register_id():
@@ -24,18 +32,10 @@ def _get_register_id():
 
 
 class RegistryModule(metaclass=ABCMeta):
-    schema: Dict[AnyStr, Tuple] = {
-        'alias': (True, None, str, str),
-        'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
-        'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
-        'event': (False, Event(), Event, Event),
-        'timeout': (True, DEFAULT_CONNECTION_INTERVAL, timestr_to_secs, (int, float)),
-        'level': (False, 'INFO', str, str)
-    }
-
     def __init__(self, plugin_registry, data_handler: Callable, addon_to_schema: Dict[AnyStr, Tuple[bool, Any, Callable, Any]],
                  alias=None, **options):
 
+        self.schema = copy(DEFAULT_SCHEMA)
         self.schema.update(**addon_to_schema)
         self._plugin_registry = plugin_registry
         self._data_handler = data_handler
