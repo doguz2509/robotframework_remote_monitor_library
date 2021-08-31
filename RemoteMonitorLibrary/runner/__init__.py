@@ -33,6 +33,9 @@ class HostRegistryCache(ConnectionCache):
 
         self.current = self.get_connection(last_connection) if last_connection > 0 else self._no_current
 
+    def get_all_connections(self):
+        return self._connections
+
 
 __all__ = [
     'HostRegistryCache',
