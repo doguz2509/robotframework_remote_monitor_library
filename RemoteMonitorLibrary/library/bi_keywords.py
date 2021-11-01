@@ -49,12 +49,13 @@ class BIKeywords:
 
     @staticmethod
     def _create_chart_title(period, plugin, alias, **options):
-        _str = '_'.join([name for name in [period, plugin, alias] + [f"{n}-{v}" for n, v in options.items()]
-                               if name is not None])
+        list_ = [name for name in [period, plugin, alias] if name]
+        list_.extend([f"{n}-{v}" for n, v in options.items()])
+        _str = '_'.join(list_)
         return re.sub(r'\s+|@|:', '_', _str).replace('__', '_')
 
     @keyword("Generate Module Statistics")
-    def generate_module_statistics(self, period=None, plugin=None, alias=None, **options):
+    def generate_module_statistics(self, period=None, plugin_name=None, alias=None, **options):
         """
         Generate Chart for present monitor data in visual style
 
@@ -72,8 +73,8 @@ class BIKeywords:
 
         modules = (HostRegistryCache().get_connection(alias), ) if alias else HostRegistryCache().get_all_connections()
         for module in modules:
-            chart_plugins = module.get_plugin(plugin, **options)
-            chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
+            chart_plugins = module.get_plugin(plugin_name, **options)
+            chart_title = self._create_chart_title(period, plugin_name, f"{module}", **options)
             marks = _get_period_marks(period, module.host_id) if period else {}
             body_data = []
             for plugin in chart_plugins:

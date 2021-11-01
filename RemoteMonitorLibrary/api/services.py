@@ -12,7 +12,7 @@ from robot.utils import DotDict
 
 from RemoteMonitorLibrary.api import db
 from RemoteMonitorLibrary.model.registry_model import RegistryModule
-from RemoteMonitorLibrary.runner import SSHLibraryPlugInWrapper
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract
 from RemoteMonitorLibrary.utils import Singleton, sql_engine, get_error_info
 from RemoteMonitorLibrary.utils.logger_helper import logger
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT, insert_sql
@@ -146,7 +146,7 @@ class ModulesRegistryService(dict, Mapping[AnyStr, RegistryModule]):
 
 
 @Singleton
-class PlugInService(dict, Mapping[AnyStr, SSHLibraryPlugInWrapper]):
+class PlugInService(dict, Mapping[AnyStr, plugin_runner_abstract]):
     def update(self, **plugin_modules):
         _registered_plugins = ''
         for plugin in plugin_modules.values():

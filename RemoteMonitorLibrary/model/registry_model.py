@@ -46,9 +46,8 @@ class RegistryModule(metaclass=ABCMeta):
         self._configuration = Configuration(self.schema, alias=alias, **options)
         self._errors = tools.GlobalErrors()
 
-    @abstractmethod
     def __str__(self):
-        raise NotADirectoryError()
+        return f"{self.config.alias}"
 
     def start(self):
         self._configuration.update({'event': Event()})

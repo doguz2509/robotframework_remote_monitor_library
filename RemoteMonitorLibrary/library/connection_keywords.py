@@ -17,29 +17,29 @@ from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DAT
 class ConnectionKeywords:
     __doc__ = """=== Connections keywords ===
     `Create host monitor`
-    
+
     `Close host monitor`
-    
+
     `Terminate all monitors`
 
     === PlugIn's keywords ===
-    
+
     `Start monitor plugin`
-    
+
     `Stop monitor plugin`
-    
+
     === Flow control ===
-    
+
     `Start period`
-    
+
     `Stop period`
-    
+
     `Wait`
-    
+
     `Set mark` - TBD
-    
+
     === Examples ===
-    
+
     | ***** Settings ***** 
     | Library           RemoteMonitorLibrary 
     | Library           BuiltIn
