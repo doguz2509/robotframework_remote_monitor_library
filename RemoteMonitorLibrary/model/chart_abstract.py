@@ -74,11 +74,10 @@ class ChartAbstract(ABC):
         return [r[1:] for r in data]
 
     def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) \
-            -> Iterable[Tuple[str, Iterable, Iterable, float, Iterable[Iterable]]]:
+            -> Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
         title = self.title + (f'_{extension}' if extension else '')
         return (title,
                 self.x_axes(query_results),
                 self.y_axes(query_results),
-                self.get_y_limit(query_results),
                 self.data_area(query_results)),
 

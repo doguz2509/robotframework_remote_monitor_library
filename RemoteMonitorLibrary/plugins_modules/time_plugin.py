@@ -19,11 +19,18 @@ from typing import Iterable, Any, Tuple
 from SSHLibrary import SSHLibrary
 from robot.utils import DotDict
 
-from RemoteMonitorLibrary.api import model, db
+from RemoteMonitorLibrary.api import model, db, services
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.utils import logger
 
 from .ssh_module import SSHModule as SSH
+
+
+from RemoteMonitorLibrary.model.errors import RunnerError
+
+from RemoteMonitorLibrary.utils import get_error_info
+from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
+
 
 __doc__ = """
 == Time plugin overview ==
@@ -59,10 +66,6 @@ __doc__ = """
 
 """
 
-from RemoteMonitorLibrary.model.errors import RunnerError
-
-from RemoteMonitorLibrary.utils import get_error_info
-from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
 
@@ -193,7 +196,8 @@ class TimeParser(Parser):
             logger.info(f"Command: {row_dict.get('Command')} [Rc: {row_dict.get('Rc')}]")
 
             row = self.table.template(self.host_id, None, *tuple(list(row_dict.values()) + [-1]))
-            du = model.data_factory(self.table, row, output=command_out, datetime=datetime)
+            du = services.DataUnit(self.table, row, output=command_out, datetime=datetime)
+            # du = self.data_handler(self.table, row, output=command_out, datetime=datetime)
 
             self.data_handler(du)
             return True

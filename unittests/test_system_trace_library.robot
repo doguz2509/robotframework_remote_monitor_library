@@ -54,16 +54,16 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
 #    Register KW  end_test  fatal error  StamFatal
-    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
-    add to plugin  aTop  apache  kworker=True
+#    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+#    add to plugin  aTop  apache  kworker=True
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  name=demo_attack
 #    ...     rc=0  return_rc=yes
 #    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes
-    pause monitor  Pause1
-    wait  1m  reminder=10s
-    resume monitor  Pause1
+#    pause monitor  Pause1
+#    wait  1m  reminder=10s
+#    resume monitor  Pause1
 #    remove from plugin  aTop  apache  kworker=True
-    wait  ${DURATION}
+#    wait  ${DURATION}
 #    add to plugin  aTop  apache  kworker=True
 #    wait  ${DURATION}
 #    remove from plugin  aTop  apache  kworker=True
@@ -75,8 +75,8 @@ Test Host monitor
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
 #    Start monitor plugin  Time  command=du -hc .  name=Du  interval=${INTERVAL}
-#    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
-#    wait  20s
+    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
+    wait  20s
 #    pause monitor  Pause_me
 #    wait  20s
 #    resume monitor  Pause_me

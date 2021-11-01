@@ -48,8 +48,8 @@ class BIKeywords:
         return [self.generate_module_statistics.__name__]
 
     @staticmethod
-    def _create_chart_title(period, plugin, alias, **options):
-        list_ = [name for name in [period, plugin, alias] if name]
+    def _create_chart_title(*args, **options):
+        list_ = [name for name in args if name]
         list_.extend([f"{n}-{v}" for n, v in options.items()])
         _str = '_'.join(list_)
         return re.sub(r'\s+|@|:', '_', _str).replace('__', '_')
