@@ -145,7 +145,7 @@ class plugin_runner_abstract:
         return f"{self.id}"
 
     def __str__(self):
-        return f"{self.id}::{self.host_alias}"
+        return f"{self.name}::{self.host_alias}"
 
     @property
     def info(self):
