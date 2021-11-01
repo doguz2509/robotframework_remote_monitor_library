@@ -18,7 +18,7 @@ class SSHModule(RegistryModule):
         super().__init__(plugin_registry, data_handler, schema, **options)
 
     def __str__(self):
-        return self.config.parameters.host
+        return f"{super().__str__()}:{self.config.parameters.host}"
 
 
 
