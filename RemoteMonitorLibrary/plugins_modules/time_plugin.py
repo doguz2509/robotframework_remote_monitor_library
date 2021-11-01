@@ -25,7 +25,6 @@ from RemoteMonitorLibrary.utils import logger
 
 from .ssh_module import SSHModule as SSH
 
-
 __doc__ = """
 == Time plugin overview ==
     Wrap linux /usr/bin/time utility for periodical execution and monitor of customer command for process io, memory, cpu, etc
@@ -39,7 +38,7 @@ __doc__ = """
     Time plugin arguments:
 
     - command: str -> command to be executed and measured by time (Mandatory)
-    
+
     | Note: Pay attention not to redirect command stderr to stdout (avoid '2>&1'); 
     | Time write to stderr by itself and it send to parser
 
@@ -50,14 +49,14 @@ __doc__ = """
     - sudo_password: True if password required for sudo, False if omitted (Optional)
 
       On plugin start sudo and sudo_password will be replace with sudo password provided for connection module
-    
+
     Examples:
     |       Flags |  What really executed |
     | <command> | /usr/bin/time -f "..." 'command' > /dev/null |
     | <command> start_in_folder=<folder> | cd <folder> ; /usr/bin/time -f "..." command > /dev/null |
     | <command> start_in_folder=<folder> return_stdout=yes |  cd <folder> ;/usr/bin/time -f "..." command |
     | <command> start_in_folder=<folder> return_stdout=yes sudo=yes |  cd <folder> ;sudo /usr/bin/time -f "..." command |
-    
+
 """
 
 from RemoteMonitorLibrary.model.errors import RunnerError
@@ -264,27 +263,27 @@ class GetPIDList(Variable):
 
 class Time(SSH_PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
-        self._command = user_options.pop('command', None)
-        user_options.update({'name': user_options.get('name', super().id)})
-        self._command_name = user_options.get('name')
+        SSH_PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
+        self._command = self.options.pop('command', None)
+        self.options.update({'name': self.options.get('name', super().id)})
+        self._command_name = self.options.get('name')
 
         assert self.id not in TIME_NAME_CACHE, f"Name '{self._command_name}' already exists"
         TIME_NAME_CACHE.append(self.id)
-        user_options.update({'persistent': user_options.get('persistent', 'no')})
+        self.options.update({'persistent': self.options.get('persistent', 'no')})
 
-        SSH_PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._prefix = f"{self.__class__.__name__}_item:"
 
-        self._time_cmd = user_options.get('time_cmd', DEFAULT_TIME_COMMAND)
-        self._start_in_folder = user_options.get('start_in_folder', None)
+        self._time_cmd = self.options.get('time_cmd', DEFAULT_TIME_COMMAND)
+        self._start_in_folder = self.options.get('start_in_folder', None)
         if self._start_in_folder:
             self._verify_folder_exist()
             self.options.update({'start_in_folder': self._start_in_folder})
         self._format = ','.join([f"{name}:%{item}" for name, item in CMD_TIME_FORMAT.items()])
         assert self._command, "SSHLibraryCommand not provided"
         self.options.update(**self.normalise_arguments(**self.options))
-        if user_options.get('rc', None) is not None:
-            assert user_options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
+        if self.options.get('rc', None) is not None:
+            assert self.options.get('return_rc'), "For verify RC argument 'return_rc' must be provided"
 
         if self.persistent:
             self.set_commands(FlowCommands.Command,
@@ -354,7 +353,8 @@ class Time(SSH_PlugInAPI):
                               )
 
             self.set_commands(FlowCommands.Command,
-                              SSHLibraryCommand(SSHLibrary.execute_command, f'~/time_data/{self.id}/time_read_{self.id}.sh',
+                              SSHLibraryCommand(SSHLibrary.execute_command,
+                                                f'~/time_data/{self.id}/time_read_{self.id}.sh',
                                                 sudo=self.sudo_expected,
                                                 sudo_password=self.sudo_expected,
                                                 return_stderr=True,
