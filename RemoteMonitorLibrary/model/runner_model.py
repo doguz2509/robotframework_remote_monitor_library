@@ -135,6 +135,7 @@ class plugin_runner_abstract:
         self._session_errors = []
         assert self._host_id, "Host ID cannot be empty"
         self._persistent = is_truthy(kwargs.get('persistent', 'yes'))
+        logger.info(f"Persistent mode: {'ON' if self._persistent else 'OFF'}", also_console=True)
         self._thread: Thread = None
 
     @property

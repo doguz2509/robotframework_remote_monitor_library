@@ -2,14 +2,14 @@
 Documentation    Suite description
 
 #Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
-Library  RemoteMonitorLibrary.RemoteMonitorLibrary  ${OUTPUT DIR}/logs
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary  logs  remote_monitor.log
 ...     log_to_db=yes
 ...     cumulative=yes
 
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  SSH  host=${HOST}  username=${USER}  password=${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
+Suite Setup  Create host monitor  SSH  alias=ssh_monitor  host=${HOST}  username=${USER}  password=${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
 
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 Test Setup   Start period  ${TEST_NAME}
@@ -89,11 +89,11 @@ Test Host monitor
 #    [Teardown]  terminate_all_monitors
 Generate charts
     [Tags]  ChartsOnly
-    run keyword if  '${CHART_FOR}' == '${EMPTY}'  fail  Test name not provided
+#    run keyword if  '${CHART_FOR}' == '${EMPTY}'  fail  Test name not provided
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  mlplogd  mlpdbd  mlpgwd  mlpagent  kworker  systemd  atop
-    Terminate all monitors
-    generate module statistics  ${CHART_FOR}  plugin=aTop
+#    Terminate all monitors
+    generate module statistics
 
 #Test statistic
 #    [Tags]  systrace_test

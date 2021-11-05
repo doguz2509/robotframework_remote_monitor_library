@@ -149,10 +149,15 @@ class RegistryModule(metaclass=ABCMeta):
             else:
                 logger.info(f"Plugin '{name}' paused", also_console=True)
 
-    def resume_plugins(self):
+    def resume_plugins(self, *names):
+        """
+        Resume plugin's execution
+        :param names: plugin names required to resume (Resume all if omitted)
+        """
         for name, plugin in self._active_plugins.items():
             try:
-                plugin.start()
+                if len(names) == 0 or name in names:
+                    plugin.start()
             except Exception as e:
                 logger.warn(f"Plugin '{name}' resume error: {e}")
             else:
