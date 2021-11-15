@@ -161,6 +161,8 @@ class plugin_runner_abstract:
         return _str
 
     def start(self):
+        assert not self.parameters.event.isSet(), f"Start blocked by external request"
+        self._internal_event = Event()
         self._set_worker()
         self._thread.start()
 
