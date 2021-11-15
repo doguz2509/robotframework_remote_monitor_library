@@ -181,7 +181,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             except paramiko.AuthenticationException:
                 raise
             except Exception as e:
-                logger.warn(f"Host '{self.host_alias}': Connection failed; Reason: {e}")
+                logger.error(f"Host '{self.host_alias}': Connection failed; Reason: {e}")
             else:
                 self._is_logged_in = True
                 logger.info(f"Host '{self.host_alias}': Connection established")
