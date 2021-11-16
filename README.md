@@ -1,4 +1,4 @@
-# Remote Monitor Library (Version 2.6.10)
+# Remote Monitor Library (Version 2.6.11)
 
 ## Overview
 RemoteMonitorLibrary allow collect system data of target linux host during any Robotframework 

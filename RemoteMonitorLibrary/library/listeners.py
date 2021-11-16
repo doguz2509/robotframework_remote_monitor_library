@@ -56,9 +56,9 @@ class AutoSignPeriodsListener:
         logger.info(f"Keyword '{kw}' successfully registered")
 
     def unregister(self, hook: AllowedHooks, kw):
-        assert hook in AllowedHooks.get_hooks(), f"Hook '{hook}' must be '{AllowedHooks.get_hooks()}'"
-        h = [h for h in self._hooks.get(hook, []) if f"{h}" == h]
-        assert len(h) == 0, f"Keyword '{kw}' not registered in '{hook}' scope"
+        assert hook in AllowedHooks, f"Hook '{hook}' must be '{AllowedHooks.get_hooks()}'"
+        h = [h for h in self._hooks.get(hook, []) if f"{h}" == kw]
+        assert len(h) == 1, f"Keyword '{kw}' not registered in '{hook.name}' scope"
         self._hooks.get(hook, []).remove(h[0])
         logger.info(f"Keyword '{kw}' successfully unregistered")
 
