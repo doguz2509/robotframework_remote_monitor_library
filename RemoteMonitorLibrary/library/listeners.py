@@ -16,7 +16,7 @@ class AllowedHooks(Enum):
 
     @staticmethod
     def get_hooks():
-        return ', '.join([n.name for n in AllowedHooks])
+        return [n.name for n in AllowedHooks]
 
 
 class Hook:
