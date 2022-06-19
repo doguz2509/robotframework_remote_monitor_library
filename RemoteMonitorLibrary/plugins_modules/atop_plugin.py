@@ -234,7 +234,7 @@ class aTopSystem_DataUnit(services.DataUnit):
                         else:
                             pattern.update({item[0]: re.sub(r'[\sKbpms%]+', '', item[1])})
                 else:
-                    raise TypeError(f"Unknown line type: {' '.join(line)}")
+                    raise ValueError(f"Unknown line type: {' '.join(line)}")
                 pattern.update(SUB_ID=sub_id)
                 res.append(columns_template(
                     *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
