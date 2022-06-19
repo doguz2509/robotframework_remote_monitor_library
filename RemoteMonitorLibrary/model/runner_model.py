@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from enum import Enum
@@ -15,7 +16,7 @@ from RemoteMonitorLibrary.utils import evaluate_duration
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
-class _ExecutionResult:
+class ExecutionResult:
     def __init__(self, **kwargs):
         self._return_stdout = kwargs.get('return_stdout', True)
         self._return_stderr = kwargs.get('return_stderr', False)
@@ -134,6 +135,7 @@ class plugin_runner_abstract:
         self._session_errors = []
         assert self._host_id, "Host ID cannot be empty"
         self._persistent = is_truthy(kwargs.get('persistent', 'yes'))
+        logger.info(f"Persistent mode: {'ON' if self._persistent else 'OFF'}", also_console=True)
         self._thread: Thread = None
 
     @property
@@ -144,7 +146,7 @@ class plugin_runner_abstract:
         return f"{self.id}"
 
     def __str__(self):
-        return f"{self.id}::{self.host_alias}"
+        return f"{self.name}::{self.host_alias}"
 
     @property
     def info(self):
@@ -159,10 +161,13 @@ class plugin_runner_abstract:
         return _str
 
     def start(self):
+        assert not self.parameters.event.isSet(), f"Start blocked by external request"
+        self._internal_event = Event()
         self._set_worker()
         self._thread.start()
 
     def stop(self, timeout=None):
+        assert self._thread is not None
         timeout = timeout or '20s'
         timeout = timestr_to_secs(timeout)
         self._internal_event.set()
@@ -176,14 +181,6 @@ class plugin_runner_abstract:
     @property
     def persistent(self):
         return self._persistent
-
-    @staticmethod
-    def normalise_arguments(prefix='return', func=is_truthy, **kwargs):
-        for k in kwargs.keys():
-            v = kwargs.get(k)
-            if k.startswith(prefix):
-                kwargs.update({k: func(v)})
-        return kwargs
 
     @staticmethod
     def _normalise_commands(*commands):
@@ -284,7 +281,7 @@ class plugin_runner_abstract:
     def on_connection(self):
         try:
             with self._lock:
-                self.login()
+                self.open_connection()
 
                 yield self.content_object
         except RunnerError as e:
@@ -310,7 +307,7 @@ class plugin_runner_abstract:
                     f"Host '{self}': Runtime errors occurred during tolerance period cleared")
             self._session_errors.clear()
         finally:
-            self.exit()
+            self.close_connection()
 
     @property
     def content_object(self):
@@ -319,10 +316,10 @@ class plugin_runner_abstract:
         """
         raise NotImplementedError()
 
-    def login(self):
+    def open_connection(self):
         raise NotImplementedError()
 
-    def exit(self):
+    def close_connection(self):
         raise NotImplementedError()
 
     @property
@@ -334,7 +331,7 @@ class plugin_runner_abstract:
         if self.parameters.event.isSet():
             logger.info(f"Stop requested by external source")
             return False
-        if self._internal_event.isSet():
+        if self._internal_event.is_set():
             logger.info(f"Stop requested internally")
             return False
         return True
@@ -430,11 +427,16 @@ class plugin_integration_abstract(object):
     def affiliated_charts() -> Iterable[ChartAbstract]:
         return []
 
+    @staticmethod
+    @abstractmethod
+    def affiliated_module():
+        raise NotImplemented()
+
     def upgrade_plugin(self, *args, **kwargs):
-        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+        logger.warn(f"PlugIn '{self.__class__.__name__}' doesn't have upgradable items")
 
     def downgrade_plugin(self, *args, **kwargs):
-        raise NotImplementedError(f"PlugIn '{self.__class__.__name__}' are not support upgrade/downgrade")
+        logger.warn(f"PlugIn '{self.__class__.__name__}' doesn't have downgradable items")
 
     @property
     def id(self):

@@ -1,10 +1,5 @@
-import uuid
 from abc import ABCMeta
-from contextlib import contextmanager
-from datetime import datetime, timedelta
-from enum import Enum
-from threading import Event, Thread, RLock
-from time import sleep
+from datetime import datetime
 from typing import Callable, Any
 
 import paramiko
@@ -12,13 +7,11 @@ from SSHLibrary import SSHLibrary
 from SSHLibrary.pythonclient import Shell
 from robot.utils import DotDict, is_truthy, timestr_to_secs
 
-from RemoteMonitorLibrary.utils.logger_helper import logger
-
 from RemoteMonitorLibrary.api.tools import GlobalErrors
-from RemoteMonitorLibrary.model.errors import PlugInError, EmptyCommandSet, RunnerError
-from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, _ExecutionResult, Parser, FlowCommands, \
-    Variable
-from RemoteMonitorLibrary.utils import evaluate_duration
+from RemoteMonitorLibrary.model.commandunit import CommandUnit
+from RemoteMonitorLibrary.model.errors import PlugInError
+from RemoteMonitorLibrary.model.runner_model import plugin_runner_abstract, ExecutionResult
+from RemoteMonitorLibrary.utils.logger_helper import logger
 
 
 #
@@ -71,23 +64,15 @@ def extract_method_arguments(method_name, **kwargs):
     return {name: value for name, value in kwargs.items() if name in SSHLibraryArgsMapping.get(method_name, []).keys()}
 
 
-class SSHLibraryCommand:
+class SSHLibraryCommand(CommandUnit):
     def __init__(self, method: Callable, command=None, **user_options):
-        self.variable_setter = user_options.pop('variable_setter', None)
-        if self.variable_setter:
-            assert isinstance(self.variable_setter, Variable), "Variable setter type error"
-        self.variable_getter = user_options.pop('variable_getter', None)
-        if self.variable_getter:
-            assert isinstance(self.variable_getter, Variable), "Variable getter vtype error"
-        self.parser: Parser = user_options.pop('parser', None)
+        super().__init__(user_options)
         self._sudo_expected = is_truthy(user_options.pop('sudo', False))
         self._sudo_password_expected = is_truthy(user_options.pop('sudo_password', False))
         self._start_in_folder = user_options.pop('start_in_folder', None)
         # self._alias = user_options.pop('alias', None)
         self._ssh_options = dict(_normalize_method_arguments(method.__name__, **user_options))
-        self._result_template = _ExecutionResult(**self._ssh_options)
-        if self.parser:
-            assert isinstance(self.parser, Parser), f"Parser type error [Error type: {type(self.parser).__name__}]"
+        self._result_template = ExecutionResult(**self._ssh_options)
         self._method = method
         self._command = command
 
@@ -122,10 +107,7 @@ class SSHLibraryCommand:
             logger.debug(f"Executing: {self._method.__name__}"
                          f"({', '.join([f'{k}={v}' for k, v in self._ssh_options.items()])})")
             output = self._method(ssh_client, **self._ssh_options)
-        if self.parser:
-            return self.parser(dict(self._result_template(output)))
-        if self.variable_setter:
-            self.variable_setter(output)
+        self.parse(dict(self._result_template(output)))
         return output
 
 
@@ -173,7 +155,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             return False
         return True
 
-    def login(self):
+    def open_connection(self):
         host = self.parameters.host
         port = self.parameters.port
         username = self.parameters.username
@@ -199,7 +181,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
             except paramiko.AuthenticationException:
                 raise
             except Exception as e:
-                logger.warn(f"Host '{self.host_alias}': Connection failed; Reason: {e}")
+                logger.error(f"Host '{self.host_alias}': Connection failed; Reason: {e}")
             else:
                 self._is_logged_in = True
                 logger.info(f"Host '{self.host_alias}': Connection established")
@@ -210,7 +192,7 @@ class SSHLibraryPlugInWrapper(plugin_runner_abstract, metaclass=ABCMeta):
                     raise TimeoutError(
                         f"Cannot connect to '{self.host_alias}' during {self.parameters.timeout}s")
 
-    def exit(self):
+    def close_connection(self):
         if self._is_logged_in:
             self._ssh.switch_connection(repr(self))
             self._close_ssh_library_connection_from_thread()

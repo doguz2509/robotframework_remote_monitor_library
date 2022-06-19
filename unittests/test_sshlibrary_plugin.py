@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.plugins.sshlibrary_plugin import SSHLibrary
+from RemoteMonitorLibrary.plugins_modules.sshlibrary_plugin import SSHLibrary
 
 parameters = Configuration(alias='unittest', username='vagrant', password='vagrant', host='192.168.25.46')
 

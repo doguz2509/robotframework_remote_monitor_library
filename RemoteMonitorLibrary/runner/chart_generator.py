@@ -7,9 +7,9 @@ from matplotlib import pyplot as plt
 from RemoteMonitorLibrary.model.chart_abstract import ChartAbstract
 from RemoteMonitorLibrary.utils import get_error_info
 
-
-def _get_y_limit(data):
-    return max([max(y) for y in [x[1:] for x in data]])
+#
+# def _get_y_limit(data):
+#     return max([max(y) for y in [x[1:] for x in data]])
 
 
 def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None, **marks):
@@ -26,7 +26,7 @@ def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None,
                     os.remove(file_path)
                 plt.style.use('classic')
                 df = pd.DataFrame(chart_data, columns=y, index=x)
-                y_limit = _get_y_limit(chart_data)
+                y_limit = chart.get_y_limit(chart_data)
                 df.cumsum()
                 mp = df.plot(legend=True)
                 for label in mp.axes.get_xticklabels():

@@ -2,11 +2,11 @@ import re
 from typing import Iterable
 
 from SSHLibrary import SSHLibrary as RSSHLibrary
-from RemoteMonitorLibrary.utils.logger_helper import logger
-
-from RemoteMonitorLibrary.api import model, db
+from RemoteMonitorLibrary import plugins_modules
+from RemoteMonitorLibrary.api import model, db, services
 from RemoteMonitorLibrary.api.plugins import *
 from RemoteMonitorLibrary.model.errors import RunnerError
+from RemoteMonitorLibrary.utils import logger
 
 __doc__ = """
     == SSHLibrary PlugIn ==
@@ -43,7 +43,7 @@ __doc__ = """
     """
 
 
-class sshlibrary_monitor(model.PlugInTable):
+class sshlibrary_monitor(db.PlugInTable):
     def __init__(self):
         super().__init__('sshlibrary_monitor')
         self.add_time_reference()
@@ -55,7 +55,7 @@ class sshlibrary_monitor(model.PlugInTable):
 
 class UserCommandParser(Parser):
     def __init__(self, **kwargs):
-        super().__init__(table=db.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
+        super().__init__(table=services.TableSchemaService().tables.sshlibrary_monitor, **kwargs)
         self._tolerance = self.options.get('tolerance')
         self._tolerance_counter = 0
 
@@ -94,9 +94,10 @@ class UserCommandParser(Parser):
         else:
             st = 'Pass'
             msg = 'Output:\n\t{}'.format('\n\t'.join(total_output.splitlines()))
-        output_ref = db.CacheLines().upload(msg)
-        du = model.data_factory(self.table, self.table.template(self.host_id, None, self.options.get('command'), rc, st,
-                                                                output_ref))
+        output_ref = services.CacheLines().upload(msg)
+        du = services.data_factory(self.table,
+                                   self.table.template(self.host_id, None, self.options.get('command'), rc, st,
+                                                       output_ref))
         self.data_handler(du)
 
         if st != 'Pass':
@@ -111,11 +112,6 @@ class UserCommandParser(Parser):
 
 
 class SSHLibrary(SSH_PlugInAPI):
-    def upgrade_plugin(self, *args, **kwargs):
-        pass
-
-    def downgrade_plugin(self, *args, **kwargs):
-        pass
 
     def __init__(self, parameters, data_handler, command, **user_options):
         self._command = command
@@ -141,6 +137,10 @@ class SSHLibrary(SSH_PlugInAPI):
                                             **dict(extract_method_arguments(RSSHLibrary.execute_command.__name__,
                                                                             **self.options)))
                           )
+
+    @staticmethod
+    def affiliated_module():
+        return plugins_modules.SSH
 
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:

@@ -2,7 +2,7 @@ import difflib
 from threading import Event
 from unittest import TestCase
 
-from RemoteMonitorLibrary.api.db import DataHandlerService
+from RemoteMonitorLibrary.api.services import DataHandlerService
 
 
 class TestDataHandlerService(TestCase):

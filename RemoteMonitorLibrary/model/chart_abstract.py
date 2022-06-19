@@ -62,6 +62,10 @@ class ChartAbstract(ABC):
         return [r[0] for r in data]
 
     @staticmethod
+    def get_y_limit(data):
+        return max([max(y) for y in [x[1:] for x in data]])
+
+    @staticmethod
     def x_axes(data, time_columns=0, formatter=time_string_reformat_cb(INPUT_FMT, OUTPUT_FMT)) -> Iterable[Any]:
         return [formatter(i[time_columns]) if formatter else i[time_columns] for i in data]
 
@@ -72,6 +76,8 @@ class ChartAbstract(ABC):
     def generate_chart_data(self, query_results: Iterable[Iterable], extension=None) \
             -> Iterable[Tuple[str, Iterable, Iterable, Iterable[Iterable]]]:
         title = self.title + (f'_{extension}' if extension else '')
-        return (title, self.x_axes(query_results), self.y_axes(query_results),
+        return (title,
+                self.x_axes(query_results),
+                self.y_axes(query_results),
                 self.data_area(query_results)),
 

@@ -44,9 +44,11 @@ class tsQueue(list):
 class CacheList(list):
     def __init__(self, max_size=50):
         list.__init__(self)
+        self._lock = RLock()
         self._max_size = max_size
 
     def append(self, item) -> None:
-        while len(self) >= self._max_size:
-            self.pop(0)
-        super().append(item)
+        with self._lock:
+            while len(self) >= self._max_size:
+                self.pop(0)
+            super().append(item)

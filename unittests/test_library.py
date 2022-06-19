@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from RemoteMonitorLibrary import RemoteMonitorLibrary
-from RemoteMonitorLibrary.plugins.atop_plugin import aTop
+from RemoteMonitorLibrary.plugins_modules.atop_plugin import aTop
 
 sys_trace: RemoteMonitorLibrary = None
 

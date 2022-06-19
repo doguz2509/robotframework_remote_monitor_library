@@ -1,59 +1,64 @@
-
-from collections import Callable
+from abc import ABCMeta, abstractmethod
+from sqlite3 import IntegrityError
 from threading import Event
+from typing import Callable, Dict, AnyStr, Tuple, Any
+from copy import copy
+from robot.utils import timestr_to_secs
 
-from robot.utils.connectioncache import ConnectionCache
+from RemoteMonitorLibrary.model import Configuration
+from RemoteMonitorLibrary.utils import logger
+from RemoteMonitorLibrary.utils.sql_engine import insert_sql, select_sql
+from RemoteMonitorLibrary.api import services, tools
 
-from RemoteMonitorLibrary.api import db
-from RemoteMonitorLibrary.api.tools import GlobalErrors
-from RemoteMonitorLibrary.model.configuration import Configuration
-from RemoteMonitorLibrary.utils import Singleton
-from RemoteMonitorLibrary.utils.logger_helper import logger
-from RemoteMonitorLibrary.utils.sql_engine import insert_sql
+_REGISTERED = -1
+DEFAULT_INTERVAL = 1
+
+DEFAULT_CONNECTION_INTERVAL = 60
+DEFAULT_FAULT_TOLERANCE = 10
+DEFAULT_SCHEMA: Dict[AnyStr, Tuple] = {
+        'alias': (True, None, str, str),
+        'interval': (False, DEFAULT_INTERVAL, timestr_to_secs, (int, float)),
+        'fault_tolerance': (False, DEFAULT_FAULT_TOLERANCE, int, int),
+        'event': (False, Event(), Event, Event),
+        'timeout': (True, DEFAULT_CONNECTION_INTERVAL, timestr_to_secs, (int, float)),
+        'level': (False, 'INFO', str, str)
+    }
 
 
-class HostModule:
-    def __init__(self, plugin_registry, data_handler: Callable, host, username, password,
-                 port=None, alias=None, certificate=None, timeout=None, interval=None):
-        self._configuration = Configuration(alias=alias or f"{username}@{host}:{port}",
-                                            host=host, username=username, password=password,
-                                            port=port, certificate=certificate, event=None,
-                                            timeout=timeout, interval=interval)
+def _get_register_id():
+    global _REGISTERED
+    _REGISTERED += 1
+    return _REGISTERED
+
+
+class RegistryModule(metaclass=ABCMeta):
+    def __init__(self, plugin_registry, data_handler: Callable, addon_to_schema: Dict[AnyStr, Tuple[bool, Any, Callable, Any]],
+                 alias=None, **options):
+
+        self.schema = copy(DEFAULT_SCHEMA)
+        self.schema.update(**addon_to_schema)
         self._plugin_registry = plugin_registry
         self._data_handler = data_handler
         self._active_plugins = {}
-        self._host_id = -1
-        self._errors = GlobalErrors()
 
-    @property
-    def host_id(self):
-        return self._host_id
-
-    @property
-    def config(self):
-        return self._configuration
-
-    @property
-    def alias(self):
-        return self.config.parameters.alias
+        self._host_id = _get_register_id()
+        alias = alias or f"{self.__class__.__name__.lower()}_{self.host_id:02d}"
+        self._configuration = Configuration(self.schema, alias=alias, **options)
+        self._errors = tools.GlobalErrors()
 
     def __str__(self):
-        return self.config.parameters.host
-
-    @property
-    def event(self):
-        return self.config.parameters.event
-
-    @property
-    def active_plugins(self):
-        return self._active_plugins
+        return f"{self.config.alias}"
 
     def start(self):
         self._configuration.update({'event': Event()})
-        table = db.TableSchemaService().tables.TraceHost
-        db.DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
-
-        self._host_id = db.DataHandlerService().get_last_row_id
+        table = services.TableSchemaService().tables.TraceHost
+        try:
+            services.DataHandlerService().execute(insert_sql(table.name, table.columns), *(None, self.alias))
+            self._host_id = services.DataHandlerService().get_last_row_id
+        except IntegrityError:
+            host_id = services.DataHandlerService().execute(select_sql(table.name, 'HOST_ID', HostName=self.alias))
+            assert host_id, f"Cannot occur host id for alias '{self.alias}'"
+            self._host_id = host_id[0][0]
 
     def stop(self):
         try:
@@ -71,28 +76,32 @@ class HostModule:
         else:
             logger.info(f"Session '{self.alias}' stopped")
 
+    def _prepare_config(self, **kwargs):
+        conf = self.config.clone()
+        tail = conf.update(**kwargs)
+        return conf, tail
+
     def plugin_start(self, plugin_name, *args, **options):
-        plugin_conf = self.config.clone()
-        tail = plugin_conf.update(**options)
+        plugin_conf, tail = self._prepare_config(**options)
         plugin = self._plugin_registry.get(plugin_name, None)
+        assert plugin.affiliated_module() == type(self), f"Module '{plugin_name}' not affiliated with module '{self}'"
         try:
             assert plugin, f"Plugin '{plugin_name}' not registered"
             plugin = plugin(plugin_conf.parameters, self._data_handler, host_id=self.host_id, *args, **tail)
         except Exception as e:
             raise RuntimeError("Cannot create plugin instance '{}, args={}, parameters={}, options={}'"
-                               "\nError: {}".format(
-                                    plugin_name,
-                                    ', '.join([f"{a}" for a in args]),
-                                    ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
-                                    ', '.join([f"{k}={v}" for k, v in tail.items()]),
-                                    e
-                               ))
+                               "\nError: {}".format(plugin_name,
+                                                    ', '.join([f"{a}" for a in args]),
+                                                    ', '.join([f"{k}={v}" for k, v in plugin_conf.parameters.items()]),
+                                                    ', '.join([f"{k}={v}" for k, v in tail.items()]),
+                                                    e
+                                                    ))
         else:
             plugin.start()
             logger.info(f"\nPlugin {plugin_name} Started\n{plugin.info}", also_console=True)
             self._active_plugins[plugin.id] = plugin
 
-    def get_plugin(self, plugin_name=None, **options):
+    def get_plugin(self, plugin_name, **options):
         res = []
         if plugin_name is None:
             return list(self._active_plugins.values())
@@ -140,38 +149,36 @@ class HostModule:
             else:
                 logger.info(f"Plugin '{name}' paused", also_console=True)
 
-    def resume_plugins(self):
+    def resume_plugins(self, *names):
+        """
+        Resume plugin's execution
+        :param names: plugin names required to resume (Resume all if omitted)
+        """
         for name, plugin in self._active_plugins.items():
             try:
-                plugin.start()
+                if len(names) == 0 or name in names:
+                    plugin.start()
             except Exception as e:
                 logger.warn(f"Plugin '{name}' resume error: {e}")
             else:
                 logger.info(f"Plugin '{name}' resumed", also_console=True)
 
+    @property
+    def alias(self):
+        return self.config.parameters.alias
 
-@Singleton
-class HostRegistryCache(ConnectionCache):
-    def __init__(self):
-        super().__init__('No stored connection found')
+    @property
+    def event(self):
+        return self.config.parameters.event
 
-    def clear_all(self, closer_method='stop'):
-        for conn in self._connections:
-            logger.info(f"Clear {conn}", also_console=True)
-            getattr(conn, closer_method)()
+    @property
+    def config(self):
+        return self._configuration
 
-    close_all = clear_all
+    @property
+    def active_plugins(self):
+        return self._active_plugins
 
-    def stop_current(self):
-        self.current.stop()
-
-    def clear_current(self):
-        self.stop_current()
-        module = self.current
-
-        current_index = self._connections.index(module)
-        self._connections.pop(current_index)
-        del self._aliases[module.alias]
-        last_connection = len(self._connections) - 1
-
-        self.current = self.get_connection(last_connection) if last_connection > 0 else self._no_current
+    @property
+    def host_id(self):
+        return self._host_id

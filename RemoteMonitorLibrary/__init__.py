@@ -3,7 +3,7 @@ import os
 from RemoteMonitorLibrary.library import RemoteMonitorLibrary
 from RemoteMonitorLibrary import utils
 from RemoteMonitorLibrary import api
-from RemoteMonitorLibrary import plugins
+from RemoteMonitorLibrary import plugins_modules
 from RemoteMonitorLibrary.version import VERSION
 
 __author__ = 'Dmitry Oguz'
@@ -15,7 +15,7 @@ __package_name__ = os.path.split(os.path.split(__file__)[0])[1]
 
 __all__ = [
     'api',
-    'plugins',
+    'plugins_modules',
     'RemoteMonitorLibrary',
     '__author_email__',
     '__author__',

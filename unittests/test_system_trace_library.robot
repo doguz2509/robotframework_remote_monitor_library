@@ -2,14 +2,14 @@
 Documentation    Suite description
 
 #Library  RemoteMonitorLibrary.RemoteMonitorLibrary  custom_plugins=./
-Library  RemoteMonitorLibrary.RemoteMonitorLibrary  ${OUTPUT DIR}/logs
+Library  RemoteMonitorLibrary.RemoteMonitorLibrary  logs  remote_monitor.log
 ...     log_to_db=yes
 ...     cumulative=yes
 
 Library  SSHLibrary
 Library  BuiltIn
 
-Suite Setup  Create host monitor  ${HOST}  ${USER}  ${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
+Suite Setup  Create host monitor  SSH  alias=ssh_monitor  host=${HOST}  username=${USER}  password=${PASSWORD}  certificate=${CERTIFICATE}  timeout=10s
 
 #...          AND  Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
 Test Setup   Start period  ${TEST_NAME}
@@ -54,10 +54,13 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
 #    Register KW  end_test  fatal error  StamFatal
-    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
-    add to plugin  aTop  apache  kworker=True
+#    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+#    add to plugin  aTop  apache  kworker=True
+#    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  name=demo_attack
+#    ...     rc=0  return_rc=yes
+#    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes
 #    pause monitor  Pause1
-    wait  ${DURATION}  reminder=10s
+#    wait  1m  reminder=10s
 #    resume monitor  Pause1
 #    remove from plugin  aTop  apache  kworker=True
 #    wait  ${DURATION}
@@ -72,8 +75,8 @@ Test Host monitor
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
 #    Start monitor plugin  Time  command=du -hc .  name=Du  interval=${INTERVAL}
-#    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
-#    wait  20s
+    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
+    wait  20s
 #    pause monitor  Pause_me
 #    wait  20s
 #    resume monitor  Pause_me
@@ -81,16 +84,16 @@ Test Host monitor
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
 #    generate module statistics  period=${TEST_NAME}  plugin=Time
-    generate module statistics  period=${TEST_NAME}  plugin=aTop
+    generate module statistics  period=${TEST_NAME}
 
 #    [Teardown]  terminate_all_monitors
 Generate charts
     [Tags]  ChartsOnly
-    run keyword if  '${CHART_FOR}' == '${EMPTY}'  fail  Test name not provided
+#    run keyword if  '${CHART_FOR}' == '${EMPTY}'  fail  Test name not provided
     Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
     add to plugin  aTop  mlplogd  mlpdbd  mlpgwd  mlpagent  kworker  systemd  atop
-    Terminate all monitors
-    generate module statistics  ${CHART_FOR}  plugin=aTop
+#    Terminate all monitors
+    generate module statistics
 
 #Test statistic
 #    [Tags]  systrace_test

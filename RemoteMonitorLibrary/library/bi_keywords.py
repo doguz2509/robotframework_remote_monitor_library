@@ -7,21 +7,22 @@ from robot.libraries.BuiltIn import BuiltIn, RobotNotRunningError
 
 from RemoteMonitorLibrary.utils.logger_helper import logger
 
-from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api import services
 from RemoteMonitorLibrary.library.robotframework_portal_addon import upload_file_to_portal
 
 from RemoteMonitorLibrary.runner.chart_generator import generate_charts
-from RemoteMonitorLibrary.runner.host_registry import HostModule, HostRegistryCache
+from RemoteMonitorLibrary.plugins_modules import SSH
+from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.runner.html_writer import create_html
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
 
 
 def _get_period_marks(period, module_id):
-    points = db.TableSchemaService().tables.Points
-    start = db.DataHandlerService().execute(
+    points = services.TableSchemaService().tables.Points
+    start = services.DataHandlerService().execute(
         points.queries.select_state('Start', module_id, period))
     start = None if start == [] else start[0][0]
-    end = db.DataHandlerService().execute(
+    end = services.DataHandlerService().execute(
         points.queries.select_state('End', module_id, period))
     end = datetime.now().strftime(DB_DATETIME_FORMAT) if end == [] else end[0][0]
     return dict(start_mark=start, end_mark=end)
@@ -47,13 +48,14 @@ class BIKeywords:
         return [self.generate_module_statistics.__name__]
 
     @staticmethod
-    def _create_chart_title(period, plugin, alias, **options):
-        _str = '_'.join([name for name in [period, plugin, alias] + [f"{n}-{v}" for n, v in options.items()]
-                               if name is not None])
+    def _create_chart_title(*args, **options):
+        list_ = [name for name in args if name]
+        list_.extend([f"{n}-{v}" for n, v in options.items()])
+        _str = '_'.join(list_)
         return re.sub(r'\s+|@|:', '_', _str).replace('__', '_')
 
     @keyword("Generate Module Statistics")
-    def generate_module_statistics(self, period=None, plugin=None, alias=None, **options):
+    def generate_module_statistics(self, period=None, plugin_name=None, alias=None, **options):
         """
         Generate Chart for present monitor data in visual style
 
@@ -69,27 +71,28 @@ class BIKeywords:
         if not os.path.exists(self._image_path):
             os.makedirs(self._image_path, exist_ok=True)
 
-        module: HostModule = HostRegistryCache().get_connection(alias)
-        chart_plugins = module.get_plugin(plugin, **options)
-        chart_title = self._create_chart_title(period, plugin, f"{module}", **options)
-        marks = _get_period_marks(period, module.host_id) if period else {}
+        modules = (HostRegistryCache().get_connection(alias), ) if alias else HostRegistryCache().get_all_connections()
+        for module in modules:
+            chart_plugins = module.get_plugin(plugin_name, **options)
+            chart_title = self._create_chart_title(period, plugin_name, f"{module}", **options)
+            marks = _get_period_marks(period, module.host_id) if period else {}
+            body_data = []
+            for plugin in chart_plugins:
+                for chart in plugin.affiliated_charts():
+                    try:
+                        sql_query = chart.compose_sql_query(host_name=plugin.host_alias, **marks)
+                        logger.debug(
+                            "{}{}\n{}".format(plugin.type, f'_{period}' if period is not None else '', sql_query))
+                        sql_data = services.DataHandlerService().execute(sql_query)
+                        for picture_name, file_path in generate_charts(chart, sql_data, self._image_path,
+                                                                       prefix=chart_title):
+                            relative_image_path = os.path.relpath(file_path, os.path.normpath(
+                                os.path.join(self._output_dir, self._log_path)))
+                            body_data.append((picture_name, relative_image_path))
+                            upload_file_to_portal(picture_name, file_path)
+                    except Exception as e:
+                        logger.error(f"Error: {e}")
 
-        body_data = []
-        for plugin in chart_plugins:
-            for chart in plugin.affiliated_charts():
-                try:
-                    sql_query = chart.compose_sql_query(host_name=plugin.host_alias, **marks)
-                    logger.debug("{}{}\n{}".format(plugin.type, f'_{period}' if period is not None else '', sql_query))
-                    sql_data = db.DataHandlerService().execute(sql_query)
-                    for picture_name, file_path in generate_charts(chart, sql_data, self._image_path, prefix=chart_title):
-                        relative_image_path = os.path.relpath(file_path, os.path.normpath(
-                            os.path.join(self._output_dir, self._log_path)))
-                        body_data.append((picture_name, relative_image_path))
-                        upload_file_to_portal(picture_name, file_path)
-                except Exception as e:
-                    logger.error(f"Error: {e}")
-
-        html_link_path = create_html(self._output_dir, self._log_path, chart_title, *body_data)
-        html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
-        logger.warn(html_link_text, html=True)
-        return html_link_text
+                html_link_path = create_html(self._output_dir, self._log_path, chart_title, *body_data)
+                html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
+                logger.warn(html_link_text, html=True)

@@ -1,51 +1,51 @@
 import os
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Optional
 
 from robot.api.deco import keyword
 from robot.utils import is_truthy, timestr_to_secs, secs_to_timestr
 
-from RemoteMonitorLibrary.api import db
+from RemoteMonitorLibrary.api import db, services
 from RemoteMonitorLibrary.api.tools import GlobalErrors
 from RemoteMonitorLibrary.library.listeners import *
-from RemoteMonitorLibrary.runner.host_registry import HostRegistryCache, HostModule
+from RemoteMonitorLibrary.runner import HostRegistryCache
 from RemoteMonitorLibrary.utils import get_error_info
-from RemoteMonitorLibrary.utils.logger_helper import logger
+from RemoteMonitorLibrary.utils import logger
 from RemoteMonitorLibrary.utils.sql_engine import insert_sql, update_sql, DB_DATETIME_FORMAT
 
 
 class ConnectionKeywords:
     __doc__ = """=== Connections keywords ===
     `Create host monitor`
-    
+
     `Close host monitor`
-    
+
     `Terminate all monitors`
 
     === PlugIn's keywords ===
-    
+
     `Start monitor plugin`
-    
+
     `Stop monitor plugin`
-    
+
     === Flow control ===
-    
+
     `Start period`
-    
+
     `Stop period`
-    
+
     `Wait`
-    
+
     `Set mark` - TBD
-    
+
     === Examples ===
-    
+
     | ***** Settings ***** 
     | Library           RemoteMonitorLibrary 
     | Library           BuiltIn
     | 
-    | Suite Setup       Create host monitor  ${HOST}  ${USER}  ${PASSWORD}
+    | Suite Setup    run keyword   Create host monitor  SSH  host=${HOST}  username=${USER}  password=${PASSWORD}  ...
+    | ...           AND  Create host monitor  WEB  url=${URL}  user=${USER}  password=${PASSWORD}  ...
     | Suite Teardown    terminate_all_monitors
     |
     | ***** Variables *****
@@ -56,12 +56,26 @@ class ConnectionKeywords:
     | ${PERSISTENT}     yes
     | ${DURATION}       1h
     |
+    | ${URL}            ...
+    | ${W_USER}         ...
+    | ${W_PASSWORD}     ...
+    | ${UUID}           ...
     | ***** Tests *****
     | Test Host monitor
-    |   [Tags]  monitor
+    |   [Tags]  ssh  monitor
     |   Start monitor plugin  aTop  interval=${INTERVAL}  persistent=${PERSISTENT}
     |   Start monitor plugin  Time  command=make -j 40 clean all  interval=0.5s  persistent=${PERSISTENT}
     |   ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
+    |   sleep  ${DURATION}  make something here
+    |   Stop monitor plugin  Time  name=Complilation
+    |   [Teardown]  run keywords  generate module statistics  plugin=Time  name=Compilation
+    |   ...         AND  generate module statistics  plugin=aTop
+    |
+    | Test WEB monitor
+    |   [Tags]  web  monitor
+    |   Start monitor plugin  API  interval=${INTERVAL}  persistent=${PERSISTENT}  protectorUuid=${UUID}  
+    |   ...                         protectorStatus=CONNECTED  
+    |   
     |   sleep  ${DURATION}  make something here
     |   Stop monitor plugin  Time  name=Complilation
     |   [Teardown]  run keywords  generate module statistics  plugin=Time  name=Compilation
@@ -101,7 +115,8 @@ class ConnectionKeywords:
 
     def _init(self):
         output_location = BuiltIn().get_variable_value('${OUTPUT_DIR}')
-        db.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name, self.cumulative)
+        services.DataHandlerService().init(os.path.join(output_location, self.location), self.file_name,
+                                           self.cumulative)
 
         level = BuiltIn().get_variable_value('${LOG LEVEL}')
         logger.setLevel(level)
@@ -110,9 +125,9 @@ class ConnectionKeywords:
 
         logger.set_file_handler(abs_log_file_path)
         if is_truthy(self._log_to_db):
-            db.TableSchemaService().register_table(db.tables.log())
-            logger.addHandler(db.services.SQLiteHandler())
-        db.DataHandlerService().start()
+            services.TableSchemaService().register_table(db.log())
+            logger.addHandler(services.SQLiteHandler())
+        services.DataHandlerService().start()
         logger.warn(f'<a href="{rel_log_file_path}">{self.file_name}</a>', html=True)
 
     def get_keyword_names(self):
@@ -136,32 +151,36 @@ class ConnectionKeywords:
         ]
 
     @keyword("Create host monitor")
-    def create_host_monitor(self, host, username, password, port=22, alias=None, certificate=None,
-                            timeout=None):
-        """
-        Create basic host connection module used for trace host
+    def create_host_monitor(self, module_name, alias=None, **module_options):
+        """Create basic host connection module used for trace host
         Last created connection handled as 'current'
         In case tracing required for one host only, alias can be ignored
 
-        Connection arguments:
-        - host: IP address, DNS name,
-        - username
-        - password
-        - port          : 22 if omitted
-        - certificate   : key file (.pem) Optional
-
-        Extra arguments:
+        # Arguments:
         - alias: 'username@host:port' if omitted
         - timeout       : connection & command timeout
-        - log_to_db     : logger will store logs into db (table: log; Will cause db file size size growing)
 
-        Examples:
-        |  KW                       |  Host     | Username | Password       | Port  | Alias             | Comments              |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |                   | Default port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |                   | Custom port; No alias |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   | 24    |  ${my_name}       | Custom port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  alias=${my_name} | Default port; Alias    |
-        |  Create host monitor   | 127.0.0.1 | any_user | any_password   |       |  certificate=key_file.pem | Certificate file will be assigned  |
+
+        == Supported modules ==
+        === SSH ===
+        Connection arguments:
+            - host: IP address, DNS name,
+            - username
+            - password
+            - port          : 22 if omitted
+            - certificate   : key file (.pem) Optional
+
+        === SSH Examples ===
+        |  KW                    | Module   |  Arguments             | Comments              |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password=any_password  | Default port; No alias |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  port=2243        | Custom port; No alias |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  alias=<name>     | Custom port; Alias    |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  alias=${my_name} | Default port; Alias    |
+        |  Create host monitor   | SSH  | host=127.0.0.1  username=any_user  password= any_password  certificate=key_file.pem | Certificate file will be assigned  |
+
+        === WEB Examples ===
+        |  KW                    | Module   |  Arguments             | Comments              |
+        |  Create host monitor   | WEB  | url=www.d.com  user=any_user  password=any_password  | Default port; No alias |
 
         === Auto start/stop periods ===
         By default keyword `Start period`, `Stop period` assigned for start/end test accordingly following by test name
@@ -174,29 +193,28 @@ class ConnectionKeywords:
         | end_suite
         | start_test
         | end_test
-
         """
 
-        module: Optional[HostModule] = None
-
-        if not db.DataHandlerService().is_active:
+        assert module_name in services.ModulesRegistryService().keys(), f"Module '{module_name}' not registered"
+        module_type = services.ModulesRegistryService().get(module_name)
+        if not services.DataHandlerService().is_active:
             self._init()
         try:
-            module = HostModule(db.PlugInService(), db.DataHandlerService().add_data_unit,
-                                host, username, password, port, alias, certificate, timeout)
+            module = module_type(services.PlugInService(), services.DataHandlerService().add_data_unit,
+                                 alias=alias, **module_options)
             module.start()
             logger.info(f"Connection {module.alias} ready to be monitored")
             _alias = self._modules.register(module, module.alias)
             self._start_period(alias=module.alias)
         except Exception as e:
-            BuiltIn().fatal_error(f"Cannot start module '{module}; Reason: {e}")
+            BuiltIn().fatal_error(f"Cannot start module '{module_name}; Reason: {e}")
         else:
             return module.alias
 
     @keyword("Close host monitor")
     def close_host_monitor(self, alias=None):
         """
-        Stop all plugins related to host by its alias
+        Stop all plugins_modules related to host by its alias
 
         Arguments:
         - alias: 'Current' used if omitted
@@ -207,12 +225,12 @@ class ConnectionKeywords:
     @keyword("Terminate all monitors")
     def terminate_all_monitors(self):
         """
-        Terminate all active hosts & running plugins
+        Terminate all active hosts & running plugins_modules
         """
         for module in self._modules:
             self._stop_period(module.alias)
         self._modules.close_all()
-        db.DataHandlerService().stop()
+        services.DataHandlerService().stop()
 
     @keyword("Start monitor plugin")
     def start_monitor_plugin(self, plugin_name, *args, alias=None, **options):
@@ -224,11 +242,11 @@ class ConnectionKeywords:
         - alias: host monitor alias (Default: Current if omitted)
         - options: interval=... , persistent=yes/no,
 
-        extra parameters relevant for particular plugin can be found in `BuiltIn plugins` section
+        extra parameters relevant for particular plugin can be found in `BuiltIn plugins_modules` section
 
         """
         try:
-            monitor: HostModule = self._modules.get_connection(alias)
+            monitor: services.RegistryModule = self._modules.get_connection(alias)
             monitor.plugin_start(plugin_name, *args, **options)
         except Exception as e:
             f, li = get_error_info()
@@ -243,7 +261,7 @@ class ConnectionKeywords:
     @keyword("Pause monitor")
     def pause_monitor(self, reason, alias=None):
         """
-        Pause monitor's plugins (Actual for host reboot or network restart tests)
+        Pause monitor's plugins_modules (Actual for host reboot or network restart tests)
 
         Arguments:
         - reason: Pause reason text
@@ -262,7 +280,7 @@ class ConnectionKeywords:
         - reason: Pause reason text
         - alias: Desired monitor alias (Default: current)
         """
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         monitor.resume_plugins()
         self._stop_period(reason, alias)
 
@@ -271,7 +289,7 @@ class ConnectionKeywords:
         """
         Add to Plugin - allow runtime modify (adding) plugin configuration
 
-        Particular PlugIn's options see in `BuiltIn plugins`
+        Particular PlugIn's options see in `BuiltIn plugins_modules`
 
         Arguments:
         - plugin_name:
@@ -280,7 +298,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -291,7 +309,7 @@ class ConnectionKeywords:
         """
         Remove from Plugin - allow runtime modify (reducing) plugin configuration
 
-        Particular PlugIn's options see in `BuiltIn plugins`
+        Particular PlugIn's options see in `BuiltIn plugins_modules`
 
          Arguments:
         - plugin_name:
@@ -300,7 +318,7 @@ class ConnectionKeywords:
         - kwargs: Plugin related named arguments
         """
         alias = kwargs.pop('alias', None)
-        monitor: HostModule = self._modules.get_connection(alias)
+        monitor: services.RegistryModule = self._modules.get_connection(alias)
         plugins = monitor.get_plugin(plugin_name)
         assert len(plugins) > 0, f"Plugin '{plugin_name}{f' ({alias})' if alias else ''}' not started"
         for plugin in plugins:
@@ -312,18 +330,18 @@ class ConnectionKeywords:
         Start period keyword
 
         Arguments:
-        - period_name: Name of period to be stopped
+        - period_name: Name of period to be started
         - alias: Connection alias
         """
         self._start_period(period_name, alias)
 
     def _start_period(self, period_name=None, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
-        db.DataHandlerService().execute(insert_sql(table.name, table.columns),
-                                        module.host_id, period_name or module.alias,
-                                        datetime.now().strftime(DB_DATETIME_FORMAT),
-                                        None)
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
+        services.DataHandlerService().execute(insert_sql(table.name, table.columns),
+                                              module.host_id, period_name or module.alias,
+                                              datetime.now().strftime(DB_DATETIME_FORMAT),
+                                              None)
 
     @keyword("Stop period")
     def stop_period(self, period_name=None, alias=None):
@@ -337,12 +355,12 @@ class ConnectionKeywords:
         self._stop_period(period_name, alias)
 
     def _stop_period(self, period_name=None, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
         point_name = rf"{period_name or module.alias}"
-        db.DataHandlerService().execute(update_sql(table.name, 'End',
-                                                   HOST_REF=module.host_id, PointName=point_name),
-                                        datetime.now().strftime(DB_DATETIME_FORMAT))
+        services.DataHandlerService().execute(update_sql(table.name, 'End',
+                                                         HOST_REF=module.host_id, PointName=point_name),
+                                              datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Wait")
     def wait(self, timeout, reason=None, reminder='1h'):
@@ -372,11 +390,11 @@ class ConnectionKeywords:
 
     @keyword("Set mark")
     def set_mark(self, mark_name, alias=None):
-        module: HostModule = self._modules.get_connection(alias)
-        table = db.TableSchemaService().tables.Points
-        db.DataHandlerService().execute(update_sql(table.name, 'Mark',
-                                                   HOST_REF=module.host_id, PointName=mark_name),
-                                        datetime.now().strftime(DB_DATETIME_FORMAT))
+        module: services.RegistryModule = self._modules.get_connection(alias)
+        table = services.TableSchemaService().tables.Points
+        services.DataHandlerService().execute(update_sql(table.name, 'Mark',
+                                                         HOST_REF=module.host_id, PointName=mark_name),
+                                              datetime.now().strftime(DB_DATETIME_FORMAT))
 
     @keyword("Get Current RML Errors")
     def get_current_errors(self):
@@ -403,4 +421,3 @@ class ConnectionKeywords:
         - kw_name: Keyword name
         """
         self.ROBOT_LIBRARY_LISTENER.unregister(hook, kw_name)
-
