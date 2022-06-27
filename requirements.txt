@@ -1,6 +1,7 @@
 robotframework
 robotframework-sshlibrary
 robotbackgroundlogger~=1.2
-matplotlib~=3.4.0
-pandas~=1.2.3
-PyYAML~=5.4.1
+matplotlib
+pandas
+PyYAML
+schedule

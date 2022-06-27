@@ -25,12 +25,10 @@ from RemoteMonitorLibrary.utils import logger
 
 from .ssh_module import SSHModule as SSH
 
-
 from RemoteMonitorLibrary.model.errors import RunnerError
 
 from RemoteMonitorLibrary.utils import get_error_info
 from RemoteMonitorLibrary.utils.sql_engine import DB_DATETIME_FORMAT
-
 
 __doc__ = """
 == Time plugin overview ==
@@ -65,7 +63,6 @@ __doc__ = """
     | <command> start_in_folder=<folder> return_stdout=yes sudo=yes |  cd <folder> ;sudo /usr/bin/time -f "..." command |
 
 """
-
 
 DEFAULT_TIME_COMMAND = r'/usr/bin/time'
 
@@ -153,8 +150,13 @@ class TimeChart(ChartAbstract):
         FROM {table_name} n
         JOIN TraceHost h ON n.HOST_REF = h.HOST_ID
         JOIN TimeLine t ON n.TL_REF = t.TL_ID
-        WHERE h.HostName = '{{host_name}}'""".format(select=', '.join([f"n.{c} as {c}" for c in self.sections]),
-                                                     table_name=self._table.name)
+        WHERE  h.HostName = '{{host_name}}' """.format(
+            select=', '.join([f"n.{c} as {c}" for c in self.sections]),
+            table_name=self._table.name)
+
+    def compose_sql_query(self, host_name, **kwargs) -> str:
+        sql_ = super().compose_sql_query(host_name=host_name, **kwargs)
+        return f"{sql_} AND n.Command = '{kwargs.get('command')}'"
 
     def y_axes(self, data: [Iterable[Iterable]]) -> Iterable[Any]:
         return [s.replace(self.title, '') for s in self.sections]
@@ -172,7 +174,10 @@ class TimeChart(ChartAbstract):
             data_series[row[-1]].append(row[:-1])
         result = []
         for cmd, row in data_series.items():
-            result.append(super().generate_chart_data(row, cmd)[0])
+            sub_chart = list(super().generate_chart_data(row, cmd))
+            sub_chart = list(sub_chart[0])
+            sub_chart[0] = sub_chart[0].split('_', 1)[0]
+            result.append(sub_chart)
         return result
 
 
@@ -269,8 +274,8 @@ class Time(SSH_PlugInAPI):
     def __init__(self, parameters, data_handler, *args, **user_options):
         SSH_PlugInAPI.__init__(self, parameters, data_handler, *args, **user_options)
         self._command = self.options.pop('command', None)
-        self.options.update({'name': self.options.get('name', super().id)})
-        self._command_name = self.options.get('name')
+        self._command_name = self.options.get('name', self.name)
+        self.options.update({'name': self._command_name})
 
         assert self.id not in TIME_NAME_CACHE, f"Name '{self._command_name}' already exists"
         TIME_NAME_CACHE.append(self.id)
@@ -367,6 +372,10 @@ class Time(SSH_PlugInAPI):
                                                                         table=self.affiliated_tables()[0],
                                                                         data_handler=self.data_handler,
                                                                         Command=self.name)))
+
+    @property
+    def kwargs_info(self) -> dict:
+        return dict(command=self._command)
 
     @property
     def id(self):

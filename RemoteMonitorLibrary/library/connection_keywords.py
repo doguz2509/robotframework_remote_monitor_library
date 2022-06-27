@@ -251,6 +251,8 @@ class ConnectionKeywords:
         except Exception as e:
             f, li = get_error_info()
             raise BuiltIn().fatal_error(f"{e}; File: {f}:{li}")
+        else:
+            logger.info(f"PlugIn '{monitor}' created")
 
     @keyword("Stop monitor plugin")
     def stop_monitor_plugin(self, plugin_name, alias=None, **options):

@@ -54,8 +54,9 @@ Test Host monitor
     [Tags]  monitor
 #    [Setup]  Prepare bm
 #    Register KW  end_test  fatal error  StamFatal
-#    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
+    Start monitor plugin  aTop  interval=${INTERVAL}  sudo=yes
 #    add to plugin  aTop  apache  kworker=True
+    add to plugin  aTop  mlplogd  mlpdbd  mlpgwd  mlpagent  mlppkgmgr  mlptrust=True  kworker=True
 #    start monitor plugin  SSHLibrary  echo ""|/opt/morphisec/demo/mlp_attack_demo  name=demo_attack
 #    ...     rc=0  return_rc=yes
 #    ...     interval=${INTERVAL}  persistent=${PERSISTENT}  return_stderr=yes
@@ -75,16 +76,22 @@ Test Host monitor
 #    Start monitor plugin  Time  command=make -j 40 clean all  interval=5s  return_stdout=yes
 #    ...                         name=Compilation  start_in_folder=~/bm_noise/linux-5.11.10
 #    Start monitor plugin  Time  command=du -hc .  name=Du  interval=${INTERVAL}
-    Start monitor plugin  Time  command=ls -l  name=Ls  interval=${INTERVAL}
-    wait  20s
+    Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.html
+    ...  name=WPNoise_html  interval=${INTERVAL}
+    Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.php
+    ...  name=WPNoise_PHP  interval=${INTERVAL}
+   Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.png
+    ...  name=WPNoise_png  interval=${INTERVAL}
+
 #    pause monitor  Pause_me
 #    wait  20s
 #    resume monitor  Pause_me
-#    wait  ${DURATION}
+    wait  ${DURATION}  reminder=5s
 #    Stop monitor plugin  Time  name=Complilation  timeout=5m
 #    stop monitor plugin  atop
 #    generate module statistics  period=${TEST_NAME}  plugin=Time
     generate module statistics  period=${TEST_NAME}
+#    name=Time_WPNoise_html
 
 #    [Teardown]  terminate_all_monitors
 Generate charts

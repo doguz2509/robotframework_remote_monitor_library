@@ -234,7 +234,7 @@ class aTopSystem_DataUnit(services.DataUnit):
                         else:
                             pattern.update({item[0]: re.sub(r'[\sKbpms%]+', '', item[1])})
                 else:
-                    raise TypeError(f"Unknown line type: {' '.join(line)}")
+                    raise ValueError(f"Unknown line type: {' '.join(line)}")
                 pattern.update(SUB_ID=sub_id)
                 res.append(columns_template(
                     *[*defaults, type_, json.dumps(row_mapping(*pattern.keys()), indent=True), *pattern.values()]))
@@ -443,7 +443,7 @@ class aTop(plugins.SSH_PlugInAPI):
             self.set_commands(plugins.FlowCommands.Command,
                               plugins.SSHLibraryCommand(
                                   SSHLibrary.execute_command,
-                                  f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
+                                  f"atop -a -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                                   sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
                                   parser=aTopParser(self.id,
                                                     host_id=self.host_id,
