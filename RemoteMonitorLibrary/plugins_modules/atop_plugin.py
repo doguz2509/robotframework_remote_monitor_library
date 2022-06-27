@@ -443,7 +443,7 @@ class aTop(plugins.SSH_PlugInAPI):
             self.set_commands(plugins.FlowCommands.Command,
                               plugins.SSHLibraryCommand(
                                   SSHLibrary.execute_command,
-                                  f"atop -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
+                                  f"atop -a -r {self.folder}/{self.file} -b `date +{self.OS_DATE_FORMAT[self.os_name]}`",
                                   sudo=True, sudo_password=True, return_rc=True, return_stderr=True,
                                   parser=aTopParser(self.id,
                                                     host_id=self.host_id,

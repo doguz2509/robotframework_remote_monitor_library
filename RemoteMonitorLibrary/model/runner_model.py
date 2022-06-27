@@ -6,6 +6,8 @@ from threading import RLock, Thread, Event
 from time import sleep
 from typing import Iterable, Callable, Mapping, AnyStr, Any
 
+import schedule
+
 from robot.utils import is_truthy, timestr_to_secs
 
 from RemoteMonitorLibrary.api.tools import GlobalErrors
@@ -419,6 +421,10 @@ class plugin_runner_abstract:
 
 
 class plugin_integration_abstract(object):
+    @property
+    def kwargs_info(self) -> dict:
+        return dict()
+
     @staticmethod
     def affiliated_tables() -> Iterable[model.Table]:
         return []

@@ -1,5 +1,6 @@
 import os
 import re
+from copy import deepcopy
 from datetime import datetime
 
 from robot.api.deco import keyword
@@ -74,11 +75,19 @@ class BIKeywords:
         modules = (HostRegistryCache().get_connection(alias), ) if alias else HostRegistryCache().get_all_connections()
         for module in modules:
             chart_plugins = module.get_plugin(plugin_name, **options)
-            chart_title = self._create_chart_title(period, plugin_name, f"{module}", **options)
-            marks = _get_period_marks(period, module.host_id) if period else {}
+
             body_data = []
             for plugin in chart_plugins:
+                body_section = []
                 for chart in plugin.affiliated_charts():
+                    chart_title = plugin.name
+                    # if 'name' not in options.keys():
+                    #     chart_title = self._create_chart_title(period, plugin_name, f"{module}", **options)
+                    # else:
+                    #     chart_title = options.get('name')
+                    marks = _get_period_marks(period, module.host_id) if period else {}
+                    marks.update(**plugin.kwargs_info)
+
                     try:
                         sql_query = chart.compose_sql_query(host_name=plugin.host_alias, **marks)
                         logger.debug(
@@ -88,11 +97,14 @@ class BIKeywords:
                                                                        prefix=chart_title):
                             relative_image_path = os.path.relpath(file_path, os.path.normpath(
                                 os.path.join(self._output_dir, self._log_path)))
-                            body_data.append((picture_name, relative_image_path))
-                            upload_file_to_portal(picture_name, file_path)
                     except Exception as e:
                         logger.error(f"Error: {e}")
+                    else:
+                        body_section.append((picture_name, relative_image_path))
+                        upload_file_to_portal(picture_name, file_path)
+                body_data.append((chart_title, body_section))
 
-                html_link_path = create_html(self._output_dir, self._log_path, chart_title, *body_data)
-                html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
-                logger.warn(html_link_text, html=True)
+            html_link_path = create_html(self._output_dir, self._log_path, chart_title, body_data)
+            html_link_text = f"Chart for <a href=\"{html_link_path}\">'{chart_title}'</a>"
+            logger.warn(html_link_text, html=True)
+            return html_link_text

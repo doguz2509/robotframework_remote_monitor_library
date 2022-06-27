@@ -15,12 +15,11 @@ from RemoteMonitorLibrary.utils import get_error_info
 def generate_charts(chart: ChartAbstract, sql_data, abs_image_path, prefix=None, **marks):
     try:
         errors = []
-        title = ''
         for data in chart.generate_chart_data(sql_data):
             try:
                 title, x, y, chart_data = data
-                file_name = chart.file_name.format(name=title.lower())
-                file_name = f"{prefix}_{file_name}" if prefix else file_name
+                file_name = f"{title}_{prefix}" if prefix else title
+                file_name = chart.file_name.format(name=file_name.lower())
                 file_path = os.path.join(abs_image_path, re.sub(r'\s+|@|:', '_', file_name))
                 if os.path.exists(file_path):
                     os.remove(file_path)
