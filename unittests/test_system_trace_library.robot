@@ -80,7 +80,7 @@ Test Host monitor
     ...  name=WPNoise_html  interval=${INTERVAL}
     Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.php
     ...  name=WPNoise_PHP  interval=${INTERVAL}
-   Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.png
+    Start monitor plugin  Time  command=ab -l -r -c 20 -n 5000 -q http://127.0.0.1/var/www/html/test.png
     ...  name=WPNoise_png  interval=${INTERVAL}
 
 #    pause monitor  Pause_me

@@ -467,7 +467,7 @@ class aTop(plugins.SSH_PlugInAPI):
         return self._os_name
 
     def _get_os_name(self, ssh_client: SSHLibrary):
-        out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID_LIKE='|awk -F'=' '{print$2}'",
+        out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID.*='|awk -F'=' '{print$2}'|tail -1",
                                                   return_rc=True, return_stderr=True)
         assert rc == 0, "Cannot occur OS name"
         out = out.replace(r'"', '')

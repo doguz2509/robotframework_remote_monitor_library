@@ -75,7 +75,7 @@ class BIKeywords:
         modules = (HostRegistryCache().get_connection(alias), ) if alias else HostRegistryCache().get_all_connections()
         for module in modules:
             chart_plugins = module.get_plugin(plugin_name, **options)
-
+            chart_title = None
             body_data = []
             for plugin in chart_plugins:
                 body_section = []
@@ -97,11 +97,12 @@ class BIKeywords:
                                                                        prefix=chart_title):
                             relative_image_path = os.path.relpath(file_path, os.path.normpath(
                                 os.path.join(self._output_dir, self._log_path)))
+                            body_section.append((picture_name, relative_image_path))
+                            upload_file_to_portal(picture_name, file_path)
                     except Exception as e:
                         logger.error(f"Error: {e}")
-                    else:
-                        body_section.append((picture_name, relative_image_path))
-                        upload_file_to_portal(picture_name, file_path)
+                if chart_title is None:
+                    continue
                 body_data.append((chart_title, body_section))
 
             html_link_path = create_html(self._output_dir, self._log_path, chart_title, body_data)
