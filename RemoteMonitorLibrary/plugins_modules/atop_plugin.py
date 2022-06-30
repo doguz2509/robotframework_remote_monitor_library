@@ -416,7 +416,7 @@ class aTop(plugins.SSH_PlugInAPI):
             self.file = 'atop.dat'
             self.folder = '~/atop_temp'
             self._time_delta = None
-            self._os_name = None
+            self._os_name = user_options.get('os_name', None)
             with self.on_connection() as ssh:
                 self._os_name = self._get_os_name(ssh)
 
@@ -467,6 +467,8 @@ class aTop(plugins.SSH_PlugInAPI):
         return self._os_name
 
     def _get_os_name(self, ssh_client: SSHLibrary):
+        if self.os_name is not None:
+            return self.os_name
         out, err, rc = ssh_client.execute_command("cat /etc/os-release|grep -E '^ID.*='|awk -F'=' '{print$2}'|tail -1",
                                                   return_rc=True, return_stderr=True)
         assert rc == 0, "Cannot occur OS name"
