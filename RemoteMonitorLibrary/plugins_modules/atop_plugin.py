@@ -339,6 +339,8 @@ def process_data_unit_factory(os_family):
         return aTopProcesses_Debian_DataUnit
     elif os_family == 'fedora':
         return aTopProcesses_Fedora_DataUnit
+    elif os_family in ('suse', 'sles'):
+        return aTopProcesses_Fedora_DataUnit
     raise NotImplementedError(f"OS '{os_family}' not supported")
 
 
