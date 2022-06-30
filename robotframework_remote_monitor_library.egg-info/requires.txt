@@ -1,0 +1,7 @@
+robotframework
+robotframework-sshlibrary
+robotbackgroundlogger~=1.2
+matplotlib
+pandas
+PyYAML
+schedule

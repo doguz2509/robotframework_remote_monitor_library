@@ -406,7 +406,9 @@ class aTopParser(plugins.Parser):
 class aTop(plugins.SSH_PlugInAPI):
     OS_DATE_FORMAT = {
         'debian': '%H:%M',
-        'fedora': '%Y%m%d%H%M'
+        'fedora': '%Y%m%d%H%M',
+        'sles': '%Y%m%d%H%M',
+        'suse': '%Y%m%d%H%M',
     }
 
     def __init__(self, parameters, data_handler, *monitor_processes, **user_options):

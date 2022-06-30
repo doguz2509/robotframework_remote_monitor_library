@@ -1,0 +1,9 @@
+
+---
+RP_UUI: <user token>
+RP_ENDPOINT: http://<your portal URI>:8080
+RP_LAUNCH: <Lunch name>
+RP_PROJECT: <Portal project name in lower case>
+ENV: TIRAMISU
+PLATFORM: CUSTOM_REMOTE_CHROME
+x_api_version: 1.4.0
