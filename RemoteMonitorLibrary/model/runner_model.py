@@ -131,7 +131,7 @@ class plugin_runner_abstract:
         self._lock = RLock()
         self._is_logged_in = False
         self.parameters = parameters
-        self._interval = self.parameters.interval
+        self._interval = timestr_to_secs(self.parameters.interval)
         self._internal_event = Event()
         self._fault_tolerance = self.parameters.fault_tolerance
         self._session_errors = []
@@ -366,10 +366,10 @@ class plugin_runner_abstract:
                     try:
                         start_ts = datetime.now()
                         _timedelta = timedelta(seconds=self.parameters.interval) \
-                            if self.parameters.interval is not None else timedelta(seconds=0)
+                            if self.interval is not None else timedelta(seconds=0)
                         next_ts = start_ts + _timedelta
                         self._run_command(context, self.flow_type.Command)
-                        if self.parameters.interval is not None:
+                        if self.interval is not None:
                             evaluate_duration(start_ts, next_ts, self.host_alias)
                         while datetime.now() < next_ts:
                             if not self.is_continue_expected:
@@ -404,11 +404,11 @@ class plugin_runner_abstract:
             with self.on_connection() as ssh:
                 # try:
                 start_ts = datetime.now()
-                _timedelta = timedelta(seconds=self.parameters.interval) \
-                    if self.parameters.interval is not None else timedelta(seconds=0)
+                _timedelta = timedelta(seconds=self.interval) \
+                    if self.interval is not None else timedelta(seconds=0)
                 next_ts = start_ts + _timedelta
                 self._run_command(ssh, self.flow_type.Command)
-                if self.parameters.interval is not None:
+                if self.interval is not None:
                     evaluate_duration(start_ts, next_ts, self.host_alias)
             while datetime.now() < next_ts:
                 if not self.is_continue_expected:

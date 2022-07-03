@@ -1,4 +1,4 @@
-from typing import Dict, AnyStr, Tuple, Any, Callable
+from typing import Dict, AnyStr, Tuple
 
 from robot.utils import DotDict
 

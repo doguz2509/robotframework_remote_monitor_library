@@ -307,7 +307,7 @@ class Time(SSH_PlugInAPI):
                 time_command=self._time_cmd,
                 format=self._format,
                 command=self._command,
-                interval=int(self.parameters.interval),
+                interval=self.interval,
                 output='/dev/null',
                 title=self.id,
                 # FIXME: ReturnStdout disabled due to performance issues; Pending fix in next releases

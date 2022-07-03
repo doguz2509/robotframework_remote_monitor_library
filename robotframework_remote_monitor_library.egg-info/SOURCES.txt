@@ -33,7 +33,9 @@ RemoteMonitorLibrary/runner/chart_generator.py
 RemoteMonitorLibrary/runner/html_writer.py
 RemoteMonitorLibrary/runner/ssh_runner.py
 RemoteMonitorLibrary/utils/__init__.py
+RemoteMonitorLibrary/utils/asinc_scheduler.py
 RemoteMonitorLibrary/utils/collections.py
+RemoteMonitorLibrary/utils/cron_scheduler.py
 RemoteMonitorLibrary/utils/load_modules.py
 RemoteMonitorLibrary/utils/logger_extension.py
 RemoteMonitorLibrary/utils/logger_helper.py
